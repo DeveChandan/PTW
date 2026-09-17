@@ -83,7 +83,7 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
           Coming Soon
         </h2>
         <p className="text-sm text-gray-600 max-w-lg mb-8 leading-relaxed font-sans">
-          The <strong className="text-gray-900 font-semibold">{module.title}</strong> module is currently being integrated with SAP S/4HANA OData V4 services on Client <code className="bg-gray-100 text-[#006398] px-1.5 py-0.5 rounded font-mono font-bold">110</code>.
+          The <strong className="text-gray-900 font-semibold">{module.title}</strong> module is currently being integrated with SAP S/4HANA OData V4 services on Client <code className="bg-gray-100 text-[#006398] px-1.5 py-0.5 rounded font-mono font-bold">200</code>.
         </p>
 
         {/* User Context & Telemetry Grid */}
@@ -117,7 +117,7 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
               SAP Gateway
             </span>
             <span className="block text-xs font-mono font-bold text-gray-900">
-              Client 110
+              Client 200
             </span>
             <span className="block text-[10px] text-gray-500">
               OData V4 (A2X)
@@ -158,7 +158,7 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
               (e.target as HTMLImageElement).src = './assets/GFL-Logo.webp';
             }}
           />
-          <span>Gujarat Fluorochemicals Limited • NetWeaver BSP Client 110</span>
+          <span>Gujarat Fluorochemicals Limited • NetWeaver BSP Client 200</span>
         </div>
       </div>
     </div>

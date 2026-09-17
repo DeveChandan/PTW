@@ -6,7 +6,7 @@ export const SapLoginPage: React.FC = () => {
 
   const [userId, setUserId] = useState<string>('VERTIF-V');
   const [password, setPassword] = useState<string>('');
-  const [client, setClient] = useState<string>('110');
+  const [client, setClient] = useState<string>('200');
   const [language, setLanguage] = useState<string>('EN');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,7 +47,7 @@ export const SapLoginPage: React.FC = () => {
         <div className="flex items-center gap-3 text-xs font-mono text-gray-500">
           <span className="hidden sm:inline">Target: <strong className="text-gray-800">vhgfldevci.sap.gfl.co.in:44300</strong></span>
           <span className="bg-blue-50 text-[#006398] border border-blue-200 px-2.5 py-0.5 rounded font-bold font-mono">
-            Client: 110
+            Client: 200
           </span>
         </div>
       </header>
@@ -76,7 +76,7 @@ export const SapLoginPage: React.FC = () => {
               </div>
             </div>
             <span className="text-[10px] font-mono font-bold bg-blue-50 text-[#006398] border border-blue-200 px-2 py-0.5 rounded">
-              Client 110
+              Client 200
             </span>
           </div>
 
@@ -191,7 +191,7 @@ export const SapLoginPage: React.FC = () => {
       {/* Corporate Compact Footer */}
       <footer className="h-9 bg-white border-t border-gray-200 px-6 flex items-center justify-between text-[11px] text-gray-500 font-mono shrink-0">
         <span>SAP NetWeaver / S/4HANA • Gujarat Fluorochemicals Limited (GFL)</span>
-        <span>Client: 110 • OData V4</span>
+        <span>Client: 200 • OData V4</span>
       </footer>
     </div>
   );

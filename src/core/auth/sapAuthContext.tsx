@@ -177,7 +177,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setError(null);
 
     const targetId = credentials.userId.trim().toUpperCase();
-    const client = credentials.client || '110';
+    const client = credentials.client || '200';
     const lang = credentials.language || 'EN';
 
     if (!targetId) {
@@ -190,7 +190,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Set basic auth credentials if password provided
       odataClient.setCredentials(targetId, credentials.password);
 
-      // Query live userinfo from SAP OData V4 Service with sap-client=110
+      // Query live userinfo from SAP OData V4 Service with sap-client=200
       const endpoint = `userinfo?$filter=UserId eq '${encodeURIComponent(targetId)}'&sap-client=${client}`;
       let liveSuccess = false;
       let records: SapUserInfoRecord[] = [];

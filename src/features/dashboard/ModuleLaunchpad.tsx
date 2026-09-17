@@ -93,7 +93,7 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
                 PTW Module Command Center
               </h1>
               <span className="text-[11px] font-mono font-bold bg-blue-50 text-[#006398] border border-blue-200 px-2.5 py-0.5 rounded-full">
-                Client 110
+                Client 200
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-1 font-sans">
@@ -259,7 +259,7 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
       {/* Footer Info Strip */}
       <div className="border-t border-gray-200 pt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 font-mono gap-2">
         <span>Gujarat Fluorochemicals Limited • NetWeaver BSP OData V4</span>
-        <span>SAP Client: 110 • Plant: 1000</span>
+        <span>SAP Client: 200 • Plant: 1000</span>
       </div>
     </div>
   );

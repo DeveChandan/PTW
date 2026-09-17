@@ -3,7 +3,7 @@ import { ODataErrorResponse } from '../types/odata.types';
 
 // Read configuration from environment or fallback
 const ODATA_BASE_URL = import.meta.env.VITE_ODATA_BASE_URL || '/sap/opu/odata4/sap/zptw_mamagement_srv/srvd_a2x/sap/zptw_services/0001/';
-const SAP_CLIENT = import.meta.env.VITE_SAP_CLIENT || '110';
+const SAP_CLIENT = import.meta.env.VITE_SAP_CLIENT || '200';
 
 class SapODataClient {
   private instance: AxiosInstance;
