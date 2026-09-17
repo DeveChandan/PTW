@@ -19,8 +19,15 @@ export const SapLoginPage: React.FC = () => {
       {/* Top Corporate Brand Bar */}
       <header className="h-14 bg-white border-b border-gray-200 px-6 flex items-center justify-between shadow-sm shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-[#006398] flex items-center justify-center text-white font-bold shadow-sm">
-            <span className="material-symbols-outlined text-[20px]">shield</span>
+          <div className="flex items-center">
+            <img
+              src="https://gfl.co.in/assets/images/New_GFL-Logo29.webp"
+              alt="Gujarat Fluorochemicals Limited"
+              className="h-8 w-auto object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = './assets/GFL-Logo.webp';
+              }}
+            />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
@@ -48,18 +55,29 @@ export const SapLoginPage: React.FC = () => {
       {/* Main Centered Login Card Container (No Overflow) */}
       <main className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
         <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-xl p-6 sm:p-8">
-          <div className="flex items-center gap-2.5 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-[#006398]">
-              <span className="material-symbols-outlined text-[20px]">lock</span>
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="https://gfl.co.in/assets/images/New_GFL-Logo29.webp"
+                alt="GFL"
+                className="h-9 w-auto object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = './assets/GFL-Logo.webp';
+                }}
+              />
+              <div className="h-6 w-px bg-gray-200"></div>
+              <div>
+                <h1 className="font-display font-bold text-base text-gray-900 leading-tight">
+                  SAP NetWeaver Logon
+                </h1>
+                <p className="text-[10px] text-gray-500">
+                  Permit To Work (PTW) Access
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-display font-bold text-lg text-gray-900 leading-tight">
-                SAP NetWeaver Logon
-              </h1>
-              <p className="text-[11px] text-gray-500">
-                Authenticate with your SAP User ID & credentials
-              </p>
-            </div>
+            <span className="text-[10px] font-mono font-bold bg-blue-50 text-[#006398] border border-blue-200 px-2 py-0.5 rounded">
+              Client 110
+            </span>
           </div>
 
           {/* Role Authorization Error Banner */}

@@ -160,6 +160,10 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activeModule, setActiveModule] = useState<ModuleId>('permit-create');
 
   const computeUnlockedModules = (roles: string[]): ModuleId[] => {
+    // If role includes Z_MOBILE_PI_SHEET (test bypass role) or ZPTW_ADMIN, unlock ALL 8 modules!
+    if (roles.includes('Z_MOBILE_PI_SHEET') || roles.includes('ZPTW_ADMIN')) {
+      return MODULE_REGISTRY.map((m) => m.id);
+    }
     return MODULE_REGISTRY.filter((mod) =>
       mod.requiredRoles.some((reqRole) => roles.includes(reqRole))
     ).map((m) => m.id);
@@ -271,6 +275,31 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return true;
       }
 
+      // Local / Offline fallback for test bypass role Z_MOBILE_PI_SHEET
+      if (targetId === 'Z_MOBILE_PI_SHEET' || targetId.includes('PI_SHEET')) {
+        const roles = ['Z_MOBILE_PI_SHEET'];
+        const unlocked = computeUnlockedModules(roles);
+        const loggedInUser: SapUser = {
+          id: targetId,
+          firstName: 'Mobile',
+          lastName: 'PI Sheet',
+          fullName: 'Test PI Sheet User',
+          email: `${targetId.toLowerCase()}@gfl.co.in`,
+          roles,
+          plant: '1000',
+          client,
+          language: lang,
+          isFlpShell: false,
+          unlockedModules: unlocked
+        };
+
+        setUser(loggedInUser);
+        setIsAuthenticated(true);
+        setActiveModule(unlocked[0]);
+        setLoading(false);
+        return true;
+      }
+
       // Any other user not found or without role
       setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
       setIsAuthenticated(false);
@@ -297,7 +326,11 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const hasRole = (role: string): boolean => {
     if (!user) return false;
-    return user.roles.includes(role) || user.roles.includes('ZPTW_ADMIN');
+    return (
+      user.roles.includes(role) ||
+      user.roles.includes('ZPTW_ADMIN') ||
+      user.roles.includes('Z_MOBILE_PI_SHEET')
+    );
   };
 
   const isModuleUnlocked = (moduleId: ModuleId): boolean => {

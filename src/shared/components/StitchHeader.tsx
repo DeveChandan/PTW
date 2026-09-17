@@ -9,18 +9,27 @@ export const StitchHeader: React.FC = () => {
       <div className="h-16 w-full px-4 lg:px-6 flex items-center justify-between gap-4">
         {/* Brand & Facility Info */}
         <div className="flex items-center gap-3 min-w-max">
-          <div className="w-9 h-9 rounded bg-[#006398] flex items-center justify-center shadow-sm">
-            <span className="material-symbols-outlined text-white text-[22px] font-bold">shield</span>
+          <div className="flex items-center pr-1">
+            <img
+              src="https://gfl.co.in/assets/images/New_GFL-Logo29.webp"
+              alt="Gujarat Fluorochemicals Limited"
+              className="h-9 w-auto object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = './assets/GFL-Logo.webp';
+              }}
+            />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="font-display font-bold text-base text-[#0b1c30] tracking-tight uppercase">ChemSafe OS</span>
+              <span className="font-display font-bold text-base text-[#0b1c30] tracking-tight uppercase">
+                GFL ChemSafe OS
+              </span>
               <span className="text-[10px] bg-blue-50 text-[#006398] font-mono font-semibold px-2 py-0.5 rounded border border-blue-200">
-                PTW v4.2 • OData V4
+                PTW • OData V4
               </span>
             </div>
             <span className="font-mono text-[10px] text-gray-500 tracking-wider uppercase">
-              SAP NetWeaver BSP / S/4HANA
+              Permit To Work Enterprise System
             </span>
           </div>
 
