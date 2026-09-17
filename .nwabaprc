@@ -1,0 +1,12 @@
+{
+  "base": "dist",
+  "conn_usertransport": true,
+  "conn_server": "https://s4dev.yourcompany.corp:44300",
+  "conn_client": "100",
+  "conn_user": "SAP_DEV_USER",
+  "conn_password": "PASSWORD_OR_USE_ENV_VARIABLE",
+  "abap_package": "$TMP",
+  "abap_bsp": "ZPTW_APP",
+  "abap_bsp_text": "Permit To Work (PTW) React Application",
+  "abap_transport": "DEVK900001"
+}
