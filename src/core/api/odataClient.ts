@@ -25,6 +25,8 @@ class SapODataClient {
     this.setupInterceptors();
   }
 
+  private onSessionExpiredHandler?: () => void;
+
   /**
    * Set basic auth credentials for SAP Gateway
    */
@@ -34,6 +36,33 @@ class SapODataClient {
       this.instance.defaults.headers.common['Authorization'] = `Basic ${encoded}`;
     } else {
       delete this.instance.defaults.headers.common['Authorization'];
+    }
+  }
+
+  /**
+   * Clears stored credentials and cached CSRF tokens on SAP logoff
+   */
+  public clearCredentials(): void {
+    delete this.instance.defaults.headers.common['Authorization'];
+    this.csrfToken = null;
+    this.isFetchingToken = null;
+  }
+
+  /**
+   * Register a listener for 401 Unauthorized responses to trigger session expiration
+   */
+  public onSessionExpired(handler: () => void): void {
+    this.onSessionExpiredHandler = handler;
+  }
+
+  /**
+   * Trigger SAP ICF session logoff if reachable
+   */
+  public async triggerIcfLogoff(): Promise<void> {
+    try {
+      await axios.get('/sap/public/bc/icf/logoff', { withCredentials: true, timeout: 3000 });
+    } catch {
+      // Ignored in offline / proxy dev environments
     }
   }
 
@@ -68,6 +97,12 @@ class SapODataClient {
       },
       async (error) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+        // Handle SAP 401 Unauthorized (Session timed out or invalidated)
+        if (error.response?.status === 401 && this.onSessionExpiredHandler) {
+          console.warn('[SapODataClient] Received 401 Unauthorized from SAP Gateway. Triggering session expiry.');
+          this.onSessionExpiredHandler();
+        }
 
         // Handle expired CSRF token (SAP returns 403 with x-csrf-token: Required)
         const isCsrfRequired = error.response?.status === 403 && 

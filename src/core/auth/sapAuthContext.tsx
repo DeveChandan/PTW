@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import odataClient from '../api/odataClient';
 
 export interface SapUserInfoRecord {
@@ -114,12 +114,26 @@ export interface LoginCredentials {
   password?: string;
   client?: string;
   language?: string;
+  rememberUser?: boolean;
 }
+
+export interface StoredUserSession {
+  user: SapUser;
+  timestamp: number;
+  client: string;
+  language: string;
+  authHeader?: string;
+}
+
+export const SESSION_STORAGE_KEY = 'gfl_ptw_user_session_v1';
+export const REMEMBERED_USER_KEY = 'gfl_ptw_remembered_userid';
+export const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes Fiori idle timeout
 
 interface SapAuthContextType {
   user: SapUser | null;
   isAuthenticated: boolean;
   loading: boolean;
+  isSessionRestoring: boolean;
   error: string | null;
   activeModule: ModuleId;
   setActiveModule: (mod: ModuleId) => void;
@@ -130,6 +144,7 @@ interface SapAuthContextType {
   logout: () => void;
   switchUser: (userId: string) => Promise<void>;
   refreshUser: () => Promise<void>;
+  getRememberedUserId: () => string;
 }
 
 const SapAuthContext = createContext<SapAuthContextType | undefined>(undefined);
@@ -155,6 +170,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [user, setUser] = useState<SapUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isSessionRestoring, setIsSessionRestoring] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<ModuleId>('permit-create');
 
@@ -166,6 +182,179 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return MODULE_REGISTRY.filter((mod) =>
       mod.requiredRoles.some((reqRole) => roles.includes(reqRole))
     ).map((m) => m.id);
+  };
+
+  /**
+   * Helper to persist active session to sessionStorage (Fiori reload persistence)
+   */
+  const persistSession = (
+    loggedInUser: SapUser,
+    client: string,
+    lang: string,
+    credentials?: LoginCredentials
+  ) => {
+    try {
+      const sessionData: StoredUserSession = {
+        user: loggedInUser,
+        timestamp: Date.now(),
+        client,
+        language: lang,
+        authHeader: credentials?.password
+          ? btoa(`${credentials.userId.trim().toUpperCase()}:${credentials.password}`)
+          : undefined
+      };
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+
+      if (credentials?.rememberUser) {
+        localStorage.setItem(REMEMBERED_USER_KEY, loggedInUser.id);
+      } else if (credentials?.rememberUser === false) {
+        localStorage.removeItem(REMEMBERED_USER_KEY);
+      }
+    } catch (e) {
+      console.warn('[SapAuth] Could not persist session to sessionStorage:', e);
+    }
+  };
+
+  /**
+   * 1. Lifecycle Hook: Auto-restore session from sessionStorage on app mount / page reload (F5)
+   * or detect SAP Fiori Launchpad container user.
+   */
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        // Priority A: If hosted inside SAP Fiori Launchpad (FLP Container Shell)
+        const flpContainerUser = window.sap?.ushell?.Container?.getUser?.();
+        if (flpContainerUser) {
+          const flpUserId = flpContainerUser.getId();
+          if (flpUserId) {
+            console.info(`[SapAuth] Detected SAP Fiori Launchpad session for user: ${flpUserId}`);
+            await login({ userId: flpUserId, client: '200' });
+            setIsSessionRestoring(false);
+            return;
+          }
+        }
+
+        // Priority B: Check sessionStorage for persisted session
+        const rawSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
+        if (rawSession) {
+          const parsedSession: StoredUserSession = JSON.parse(rawSession);
+          const now = Date.now();
+          const isIdleExpired = now - parsedSession.timestamp > SESSION_IDLE_TIMEOUT_MS;
+
+          if (!isIdleExpired && parsedSession.user) {
+            setUser(parsedSession.user);
+            setIsAuthenticated(true);
+            if (parsedSession.user.unlockedModules?.length > 0) {
+              setActiveModule(parsedSession.user.unlockedModules[0]);
+            }
+
+            if (parsedSession.authHeader) {
+              try {
+                const decoded = atob(parsedSession.authHeader);
+                const [storedUser, storedPass] = decoded.split(':');
+                odataClient.setCredentials(storedUser, storedPass);
+              } catch {
+                // Ignore decoding error
+              }
+            }
+
+            parsedSession.timestamp = Date.now();
+            sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsedSession));
+            console.info(`[SapAuth] Restored active session for SAP User: ${parsedSession.user.id}`);
+          } else if (isIdleExpired) {
+            sessionStorage.removeItem(SESSION_STORAGE_KEY);
+            setError('Your SAP session has timed out due to inactivity. Please log on again.');
+          }
+        }
+      } catch (err) {
+        console.warn('[SapAuth] Session restoration error:', err);
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      } finally {
+        setIsSessionRestoring(false);
+      }
+    };
+
+    restoreSession();
+  }, []);
+
+  /**
+   * 2. Inactivity Tracking & Session Heartbeat (Standard Fiori Inactivity Window)
+   */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let lastInteraction = Date.now();
+    const updateSessionActivity = () => {
+      const now = Date.now();
+      if (now - lastInteraction > 30000) {
+        lastInteraction = now;
+        try {
+          const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+          if (raw) {
+            const parsed: StoredUserSession = JSON.parse(raw);
+            parsed.timestamp = now;
+            sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsed));
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    const handleUserAction = () => updateSessionActivity();
+
+    window.addEventListener('mousedown', handleUserAction, { passive: true });
+    window.addEventListener('keydown', handleUserAction, { passive: true });
+    window.addEventListener('touchstart', handleUserAction, { passive: true });
+
+    const timeoutChecker = setInterval(() => {
+      try {
+        const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+        if (raw) {
+          const parsed: StoredUserSession = JSON.parse(raw);
+          if (Date.now() - parsed.timestamp > SESSION_IDLE_TIMEOUT_MS) {
+            logout();
+            setError('Your SAP session has timed out due to inactivity.');
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }, 60000);
+
+    return () => {
+      window.removeEventListener('mousedown', handleUserAction);
+      window.removeEventListener('keydown', handleUserAction);
+      window.removeEventListener('touchstart', handleUserAction);
+      clearInterval(timeoutChecker);
+    };
+  }, [isAuthenticated]);
+
+  /**
+   * 3. Intercept 401 Unauthorized from SAP Gateway to expire session
+   */
+  useEffect(() => {
+    odataClient.onSessionExpired(() => {
+      try {
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+      setUser(null);
+      setIsAuthenticated(false);
+      setError('Your SAP session was terminated by the server. Please log on again.');
+    });
+  }, []);
+
+  /**
+   * Retrieve remembered SAP User ID from localStorage
+   */
+  const getRememberedUserId = (): string => {
+    try {
+      return localStorage.getItem(REMEMBERED_USER_KEY) || '';
+    } catch {
+      return '';
+    }
   };
 
   /**
@@ -246,6 +435,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsAuthenticated(true);
         setActiveModule(unlocked[0]);
         setLoading(false);
+        persistSession(loggedInUser, client, lang, credentials);
         return true;
       }
 
@@ -271,6 +461,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsAuthenticated(true);
         setActiveModule(unlocked[0]);
         setLoading(false);
+        persistSession(loggedInUser, client, lang, credentials);
         return true;
       }
 
@@ -296,6 +487,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsAuthenticated(true);
         setActiveModule(unlocked[0]);
         setLoading(false);
+        persistSession(loggedInUser, client, lang, credentials);
         return true;
       }
 
@@ -314,7 +506,18 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  /**
+   * Complete SAP Logoff: clears session storage, revokes basic auth headers,
+   * invokes SAP ICF logoff endpoint, and resets state.
+   */
   const logout = () => {
+    try {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      odataClient.clearCredentials();
+      odataClient.triggerIcfLogoff();
+    } catch (e) {
+      console.warn('[SapAuth] Error during logout:', e);
+    }
     setUser(null);
     setIsAuthenticated(false);
   };
@@ -347,6 +550,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         user,
         isAuthenticated,
         loading,
+        isSessionRestoring,
         error,
         activeModule,
         setActiveModule,
@@ -358,7 +562,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         switchUser,
         refreshUser: async () => {
           await login({ userId: user?.id || 'VERTIF-V' });
-        }
+        },
+        getRememberedUserId
       }}
     >
       {children}

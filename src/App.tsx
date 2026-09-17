@@ -6,10 +6,24 @@ import { ModuleLaunchpad } from './features/dashboard/ModuleLaunchpad';
 import { ComingSoonModule } from './shared/components/ComingSoonModule';
 
 export const App: React.FC = () => {
-  const { isAuthenticated, isModuleUnlocked, user, loading } = useSapAuth();
+  const { isAuthenticated, isModuleUnlocked, user, loading, isSessionRestoring } = useSapAuth();
   const [selectedModule, setSelectedModule] = useState<ModuleId | null>(null);
 
-  // 1. If not authenticated, display SAP NetWeaver Login Page
+  // 0. Session Restoration Screen (Prevents login flicker on browser reload)
+  if (isSessionRestoring) {
+    return (
+      <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-[#f8f9ff] select-none">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-9 h-9 border-3 border-[#006398] border-t-transparent rounded-full animate-spin"></div>
+          <span className="font-mono text-xs text-slate-500 font-semibold tracking-wider uppercase">
+            Restoring SAP User Session...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // 1. If not authenticated, display Modern Login Page
   if (!isAuthenticated) {
     return <SapLoginPage />;
   }
