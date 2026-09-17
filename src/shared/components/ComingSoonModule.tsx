@@ -119,9 +119,7 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
             <span className="block text-xs font-mono font-bold text-gray-900">
               Client 200
             </span>
-            <span className="block text-[10px] text-gray-500">
-              OData V4 (A2X)
-            </span>
+          
           </div>
         </div>
 
@@ -158,7 +156,7 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
               (e.target as HTMLImageElement).src = './assets/GFL-Logo.webp';
             }}
           />
-          <span>Gujarat Fluorochemicals Limited • NetWeaver BSP Client 200</span>
+          <span>Gujarat Fluorochemicals Limited </span>
         </div>
       </div>
     </div>

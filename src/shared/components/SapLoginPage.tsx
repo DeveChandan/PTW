@@ -35,7 +35,7 @@ export const SapLoginPage: React.FC = () => {
                 GFL ChemSafe OS
               </span>
               <span className="text-[10px] bg-blue-50 text-[#006398] font-mono font-semibold px-2 py-0.5 rounded border border-blue-200">
-                SAP NetWeaver • OData V4
+                SAP System
               </span>
             </div>
             <span className="font-mono text-[9px] text-gray-500 tracking-wider uppercase">
@@ -191,7 +191,7 @@ export const SapLoginPage: React.FC = () => {
       {/* Corporate Compact Footer */}
       <footer className="h-9 bg-white border-t border-gray-200 px-6 flex items-center justify-between text-[11px] text-gray-500 font-mono shrink-0">
         <span>SAP NetWeaver / S/4HANA • Gujarat Fluorochemicals Limited (GFL)</span>
-        <span>Client: 200 • OData V4</span>
+        <span>Client: 200 </span>
       </footer>
     </div>
   );

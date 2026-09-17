@@ -114,7 +114,6 @@ export interface LoginCredentials {
   password?: string;
   client?: string;
   language?: string;
-  mockRoles?: string[];
 }
 
 interface SapAuthContextType {
@@ -129,7 +128,7 @@ interface SapAuthContextType {
   isModuleUnlocked: (moduleId: ModuleId) => boolean;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => void;
-  switchUser: (userId: string, customRoles?: string[]) => Promise<void>;
+  switchUser: (userId: string) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
