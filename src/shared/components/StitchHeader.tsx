@@ -1,7 +1,12 @@
 import React from 'react';
 import { useSapAuth } from '../../core/auth/sapAuthContext';
 
-export const StitchHeader: React.FC = () => {
+interface StitchHeaderProps {
+  onGoHome?: () => void;
+  isHome?: boolean;
+}
+
+export const StitchHeader: React.FC<StitchHeaderProps> = ({ onGoHome, isHome = true }) => {
   const { user, loading, logout } = useSapAuth();
 
   return (
@@ -9,7 +14,11 @@ export const StitchHeader: React.FC = () => {
       <div className="h-16 w-full px-4 lg:px-6 flex items-center justify-between gap-4">
         {/* Brand & Facility Info */}
         <div className="flex items-center gap-3 min-w-max">
-          <div className="flex items-center pr-1">
+          <div
+            onClick={onGoHome}
+            className="flex items-center pr-1 cursor-pointer hover:opacity-90 transition-opacity"
+            title="Return to Launchpad"
+          >
             <img
               src="https://gfl.co.in/assets/images/New_GFL-Logo29.webp"
               alt="Gujarat Fluorochemicals Limited"
@@ -19,7 +28,11 @@ export const StitchHeader: React.FC = () => {
               }}
             />
           </div>
-          <div className="flex flex-col">
+          <div
+            onClick={onGoHome}
+            className="flex flex-col cursor-pointer"
+            title="Return to Launchpad"
+          >
             <div className="flex items-center gap-2">
               <span className="font-display font-bold text-base text-[#0b1c30] tracking-tight uppercase">
                 GFL ChemSafe OS
@@ -32,6 +45,16 @@ export const StitchHeader: React.FC = () => {
               Permit To Work Enterprise System
             </span>
           </div>
+
+          {!isHome && onGoHome && (
+            <button
+              onClick={onGoHome}
+              className="ml-2 flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#006398] border border-blue-200 rounded-lg text-xs font-mono font-semibold transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">grid_view</span>
+              <span>All Modules</span>
+            </button>
+          )}
 
           <div className="h-6 w-px bg-gray-200 mx-2 hidden lg:block"></div>
 

@@ -4,11 +4,33 @@ import { ModuleDefinition, SapUser } from '../../core/auth/sapAuthContext';
 interface ComingSoonModuleProps {
   module: ModuleDefinition;
   user: SapUser | null;
+  onBack?: () => void;
 }
 
-export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user }) => {
+export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user, onBack }) => {
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in duration-300">
+    <div className="max-w-4xl mx-auto py-6 px-4 animate-in fade-in duration-300">
+      {/* Top Navigation Breadcrumb & Back Button */}
+      {onBack && (
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 hover:border-[#006398] text-gray-700 hover:text-[#006398] rounded-xl text-xs font-mono font-semibold transition-all shadow-sm group"
+          >
+            <span className="material-symbols-outlined text-[18px] group-hover:-translate-x-1 transition-transform">
+              arrow_back
+            </span>
+            <span>Back to All Modules (Launchpad)</span>
+          </button>
+
+          <div className="flex items-center gap-1.5 text-xs font-mono text-gray-400">
+            <span>Command Center</span>
+            <span>&gt;</span>
+            <span className="text-gray-900 font-bold">{module.title}</span>
+          </div>
+        </div>
+      )}
+
       {/* Module Title & Role Verification Banner */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
