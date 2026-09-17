@@ -1,18 +1,9 @@
 import React from 'react';
-import { useSapAuth } from './core/auth/sapAuthContext';
+import { useSapAuth, MODULE_REGISTRY } from './core/auth/sapAuthContext';
 import { SapLoginPage } from './shared/components/SapLoginPage';
 import { StitchHeader } from './shared/components/StitchHeader';
 import { StitchSidebar } from './shared/components/StitchSidebar';
-
-// 8 Dedicated Enterprise PTW Modules
-import { IssuePtwStudio } from './features/permits/IssuePtwStudio';
-import { PermitDetailsModule } from './features/permits/PermitDetailsModule';
-import { ApprovalsStudio } from './features/approvals/ApprovalsStudio';
-import { PermitIssuerModule } from './features/workflow/PermitIssuerModule';
-import { PermitHolderModule } from './features/workflow/PermitHolderModule';
-import { GasTesterModule } from './features/safety/GasTesterModule';
-import { LotoVault } from './features/dashboard/LotoVault';
-import { AdminModule } from './features/admin/AdminModule';
+import { ComingSoonModule } from './shared/components/ComingSoonModule';
 
 export const App: React.FC = () => {
   const { isAuthenticated, activeModule, isModuleUnlocked, user, loading } = useSapAuth();
@@ -21,6 +12,8 @@ export const App: React.FC = () => {
   if (!isAuthenticated) {
     return <SapLoginPage />;
   }
+
+  const activeModuleDef = MODULE_REGISTRY.find((m) => m.id === activeModule) || MODULE_REGISTRY[0];
 
   // 2. Authenticated Application Shell
   return (
@@ -55,26 +48,18 @@ export const App: React.FC = () => {
                 . This module requires higher operational privileges.
               </p>
               <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-center gap-2 text-xs text-gray-500">
-                Click the profile badge in the top-right header to switch roles or log out.
+                Log off and sign in with an authorized SAP user role.
               </div>
             </div>
           ) : (
-            /* Active Unlocked Module Screen */
-            <>
-              {activeModule === 'permit-create' && <IssuePtwStudio />}
-              {activeModule === 'permit-details' && <PermitDetailsModule />}
-              {activeModule === 'permit-approver' && <ApprovalsStudio />}
-              {activeModule === 'permit-issuer' && <PermitIssuerModule />}
-              {activeModule === 'permit-holder' && <PermitHolderModule />}
-              {activeModule === 'gas-tester' && <GasTesterModule />}
-              {activeModule === 'isolation' && <LotoVault />}
-              {activeModule === 'admin' && <AdminModule />}
-            </>
+            /* Active Unlocked Module: Displays clean Coming Soon screen without mock data */
+            <ComingSoonModule module={activeModuleDef} user={user} />
           )}
         </main>
       </div>
     </div>
   );
 };
+
 
 export default App;

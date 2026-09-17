@@ -123,7 +123,7 @@ export const StitchSidebar: React.FC = () => {
           </div>
           <div className="border-t border-gray-200 pt-1.5 mt-1 flex justify-between text-[10px] text-gray-500 font-mono">
             <span>SAP User: {user?.id}</span>
-            <span>Client: 100</span>
+            <span>Client: 110</span>
           </div>
         </div>
       </div>

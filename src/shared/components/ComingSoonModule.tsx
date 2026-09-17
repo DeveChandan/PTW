@@ -1,0 +1,136 @@
+import React from 'react';
+import { ModuleDefinition, SapUser } from '../../core/auth/sapAuthContext';
+
+interface ComingSoonModuleProps {
+  module: ModuleDefinition;
+  user: SapUser | null;
+}
+
+export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user }) => {
+  return (
+    <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in duration-300">
+      {/* Module Title & Role Verification Banner */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#006398] shadow-sm shrink-0">
+            <span className="material-symbols-outlined text-[32px]">{module.icon}</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="font-display font-bold text-2xl text-gray-900 tracking-tight">
+                {module.title}
+              </h1>
+              <span className="text-xs font-mono font-bold bg-blue-50 text-[#006398] border border-blue-200 px-2 py-0.5 rounded-full">
+                {module.badge}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 font-sans">
+              {module.subtitle}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:items-end font-mono text-xs">
+          <span className="text-gray-500 text-[11px]">SAP Authorization:</span>
+          <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg mt-0.5 flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse"></span>
+            AUTHORIZED FOR {user?.id || 'SAP USER'}
+          </span>
+        </div>
+      </div>
+
+      {/* Primary Coming Soon Showcase Card */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-10 shadow-lg text-center flex flex-col items-center">
+        {/* Animated Badge Icon */}
+        <div className="relative mb-6">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-50 to-indigo-50 border border-blue-200 flex items-center justify-center text-[#006398] shadow-inner">
+            <span className="material-symbols-outlined text-[42px] animate-bounce">
+              construction
+            </span>
+          </div>
+          <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white rounded-full p-1 shadow">
+            <span className="material-symbols-outlined text-[14px] block">schedule</span>
+          </div>
+        </div>
+
+        {/* Coming Soon Title */}
+        <span className="text-[11px] font-mono uppercase tracking-widest text-[#006398] bg-blue-50 border border-blue-200 px-3 py-1 rounded-full font-bold mb-3">
+          Under Active Development • Phase 2
+        </span>
+        <h2 className="font-display font-bold text-3xl text-gray-900 mb-3 tracking-tight">
+          Coming Soon
+        </h2>
+        <p className="text-sm text-gray-600 max-w-lg mb-8 leading-relaxed font-sans">
+          The <strong className="text-gray-900 font-semibold">{module.title}</strong> module is currently being integrated with SAP S/4HANA OData V4 services on Client <code className="bg-gray-100 text-[#006398] px-1.5 py-0.5 rounded font-mono font-bold">110</code>.
+        </p>
+
+        {/* User Context & Telemetry Grid */}
+        <div className="w-full max-w-xl grid grid-cols-1 sm:grid-cols-3 gap-3 text-left mb-8">
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5">
+            <span className="block text-[10px] font-mono uppercase text-gray-400 font-bold mb-1">
+              Active User
+            </span>
+            <span className="block text-xs font-mono font-bold text-gray-900 truncate">
+              {user?.id}
+            </span>
+            <span className="block text-[10px] text-gray-500 truncate">
+              {user?.fullName}
+            </span>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5">
+            <span className="block text-[10px] font-mono uppercase text-gray-400 font-bold mb-1">
+              Assigned Role
+            </span>
+            <span className="block text-xs font-mono font-bold text-[#006398] truncate">
+              {user?.roles.join(', ')}
+            </span>
+            <span className="block text-[10px] text-emerald-600 font-bold">
+              ✓ Role Match Verified
+            </span>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5">
+            <span className="block text-[10px] font-mono uppercase text-gray-400 font-bold mb-1">
+              SAP Gateway
+            </span>
+            <span className="block text-xs font-mono font-bold text-gray-900">
+              Client 110
+            </span>
+            <span className="block text-[10px] text-gray-500">
+              OData V4 (A2X)
+            </span>
+          </div>
+        </div>
+
+        {/* Technical Roadmap Cards */}
+        <div className="w-full max-w-xl bg-blue-50/50 border border-blue-100 rounded-xl p-4 text-left mb-6">
+          <div className="flex items-center gap-2 mb-2 text-[#006398]">
+            <span className="material-symbols-outlined text-[18px]">verified</span>
+            <span className="text-xs font-mono font-bold uppercase tracking-wider">
+              Integration Scope for this Module
+            </span>
+          </div>
+          <ul className="text-xs text-gray-600 space-y-1.5 font-sans">
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#006398]"></span>
+              Live entity sets connected to SAP Gateway service <code className="font-mono text-[11px] text-gray-800">zptw_services/0001</code>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#006398]"></span>
+              CSRF token handshake with ETag concurrency control
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#006398]"></span>
+              Standardized Google Stitch Light UI form controls & table views
+            </li>
+          </ul>
+        </div>
+
+        <div className="text-xs text-gray-400 font-mono">
+          PTW Enterprise System • Gujarat Fluorochemicals Limited • NetWeaver BSP
+        </div>
+      </div>
+    </div>
+  );
+};

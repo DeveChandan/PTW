@@ -173,20 +173,65 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setError(null);
 
     const targetId = credentials.userId.trim().toUpperCase();
-    const client = credentials.client || '100';
+    const client = credentials.client || '110';
     const lang = credentials.language || 'EN';
 
+    if (!targetId) {
+      setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
+      setLoading(false);
+      return false;
+    }
+
     try {
-      // 1. If explicit mockRoles passed (e.g. from preset buttons)
-      if (credentials.mockRoles && credentials.mockRoles.length > 0) {
-        const unlocked = computeUnlockedModules(credentials.mockRoles);
+      // Set basic auth credentials if password provided
+      odataClient.setCredentials(targetId, credentials.password);
+
+      // Query live userinfo from SAP OData V4 Service with sap-client=110
+      const endpoint = `userinfo?$filter=UserId eq '${encodeURIComponent(targetId)}'&sap-client=${client}`;
+      let liveSuccess = false;
+      let records: SapUserInfoRecord[] = [];
+
+      try {
+        const response = await odataClient.get<{ value: SapUserInfoRecord[] }>(endpoint);
+        if (response.data && Array.isArray(response.data.value)) {
+          records = response.data.value;
+          liveSuccess = true;
+        }
+      } catch (liveErr) {
+        console.warn('[SapAuth] Live OData call returned error or offline:', liveErr);
+      }
+
+      // If live call returned data
+      if (liveSuccess) {
+        if (records.length === 0) {
+          // User not found in SAP
+          setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
+          setIsAuthenticated(false);
+          setUser(null);
+          setLoading(false);
+          return false;
+        }
+
+        const roles = Array.from(new Set(records.map((r) => r.Role).filter(Boolean)));
+        const unlocked = computeUnlockedModules(roles);
+
+        if (unlocked.length === 0) {
+          // User exists but has no valid PTW roles
+          setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
+          setIsAuthenticated(false);
+          setUser(null);
+          setLoading(false);
+          return false;
+        }
+
+        const firstRecord = records[0];
         const loggedInUser: SapUser = {
-          id: targetId,
-          firstName: '1',
-          lastName: targetId,
-          fullName: `1 ${targetId}`,
-          email: `${targetId.toLowerCase()}@gfl.co.in`,
-          roles: credentials.mockRoles,
+          id: firstRecord.UserId,
+          firstName: firstRecord.FirstName || '1',
+          lastName: firstRecord.LastName || firstRecord.UserId,
+          fullName: `${firstRecord.FirstName || '1'} ${firstRecord.LastName || firstRecord.UserId}`.trim(),
+          email: firstRecord.Email || `${targetId.toLowerCase()}@gfl.co.in`,
+          roles,
           plant: '1000',
           client,
           language: lang,
@@ -196,87 +241,46 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setUser(loggedInUser);
         setIsAuthenticated(true);
-        if (unlocked.length > 0) {
-          setActiveModule(unlocked[0]);
-        }
+        setActiveModule(unlocked[0]);
         setLoading(false);
         return true;
       }
 
-      // 2. Fetch live userinfo from SAP OData V4 Service
-      try {
-        const endpoint = `userinfo?$filter=UserId eq '${encodeURIComponent(targetId)}'`;
-        const response = await odataClient.get<{ value: SapUserInfoRecord[] }>(endpoint);
+      // Local / Offline fallback ONLY for verified SAP test user VERTIF-V
+      if (targetId === 'VERTIF-V') {
+        const roles = ['ZPTW_REQUESTER'];
+        const unlocked = computeUnlockedModules(roles);
+        const loggedInUser: SapUser = {
+          id: 'VERTIF-V',
+          firstName: '1',
+          lastName: 'VERTIF-V',
+          fullName: '1 VERTIF-V',
+          email: 'testuser2@gfl.co.in',
+          roles,
+          plant: '1000',
+          client,
+          language: lang,
+          isFlpShell: false,
+          unlockedModules: unlocked
+        };
 
-        if (response.data && response.data.value && response.data.value.length > 0) {
-          const records = response.data.value;
-          const firstRecord = records[0];
-
-          const roles = Array.from(new Set(records.map((r) => r.Role).filter(Boolean)));
-          const activeRoles = roles.length > 0 ? roles : ['ZPTW_REQUESTER'];
-          const unlocked = computeUnlockedModules(activeRoles);
-
-          const loggedInUser: SapUser = {
-            id: firstRecord.UserId,
-            firstName: firstRecord.FirstName || '1',
-            lastName: firstRecord.LastName || firstRecord.UserId,
-            fullName: `${firstRecord.FirstName || '1'} ${firstRecord.LastName || firstRecord.UserId}`.trim(),
-            email: firstRecord.Email || `${targetId.toLowerCase()}@gfl.co.in`,
-            roles: activeRoles,
-            plant: '1000',
-            client,
-            language: lang,
-            isFlpShell: false,
-            unlockedModules: unlocked
-          };
-
-          setUser(loggedInUser);
-          setIsAuthenticated(true);
-          if (unlocked.length > 0) {
-            setActiveModule(unlocked[0]);
-          }
-          setLoading(false);
-          return true;
-        }
-      } catch (liveErr: any) {
-        console.warn('[SapAuth] Live OData call returned error or offline. Using configured role definition for:', targetId);
+        setUser(loggedInUser);
+        setIsAuthenticated(true);
+        setActiveModule(unlocked[0]);
+        setLoading(false);
+        return true;
       }
 
-      // 3. Fallback matching default roles for common SAP test users
-      let fallbackRoles: string[] = ['ZPTW_REQUESTER'];
-      if (targetId === 'VERTIF-V') fallbackRoles = ['ZPTW_REQUESTER'];
-      else if (targetId.includes('APPROV')) fallbackRoles = ['ZPTW_APPROVER'];
-      else if (targetId.includes('ISSUE')) fallbackRoles = ['ZPTW_ISSUER'];
-      else if (targetId.includes('HOLD')) fallbackRoles = ['ZPTW_HOLDER'];
-      else if (targetId.includes('GAS')) fallbackRoles = ['ZPTW_GAS_TESTER'];
-      else if (targetId.includes('ISOLAT')) fallbackRoles = ['ZPTW_ISOLATOR'];
-      else if (targetId.includes('ADMIN')) fallbackRoles = ['ZPTW_ADMIN'];
-      else fallbackRoles = ['ZPTW_REQUESTER', 'ZPTW_APPROVER'];
-
-      const fallbackUnlocked = computeUnlockedModules(fallbackRoles);
-      const fallbackUser: SapUser = {
-        id: targetId,
-        firstName: '1',
-        lastName: targetId,
-        fullName: `1 ${targetId}`,
-        email: `${targetId.toLowerCase()}@gfl.co.in`,
-        roles: fallbackRoles,
-        plant: '1000',
-        client,
-        language: lang,
-        isFlpShell: false,
-        unlockedModules: fallbackUnlocked
-      };
-
-      setUser(fallbackUser);
-      setIsAuthenticated(true);
-      if (fallbackUnlocked.length > 0) {
-        setActiveModule(fallbackUnlocked[0]);
-      }
+      // Any other user not found or without role
+      setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
+      setIsAuthenticated(false);
+      setUser(null);
       setLoading(false);
-      return true;
+      return false;
     } catch (err: any) {
-      setError(err.message || 'Login failed. Verify SAP credentials and Gateway URL.');
+      setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
+      setIsAuthenticated(false);
+      setUser(null);
       setLoading(false);
       return false;
     }
@@ -287,8 +291,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsAuthenticated(false);
   };
 
-  const switchUser = async (targetUserId: string, customRoles?: string[]) => {
-    await login({ userId: targetUserId, mockRoles: customRoles });
+  const switchUser = async (targetUserId: string) => {
+    await login({ userId: targetUserId });
   };
 
   const hasRole = (role: string): boolean => {

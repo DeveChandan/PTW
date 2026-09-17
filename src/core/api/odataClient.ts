@@ -3,7 +3,7 @@ import { ODataErrorResponse } from '../types/odata.types';
 
 // Read configuration from environment or fallback
 const ODATA_BASE_URL = import.meta.env.VITE_ODATA_BASE_URL || '/sap/opu/odata4/sap/zptw_mamagement_srv/srvd_a2x/sap/zptw_services/0001/';
-const SAP_CLIENT = import.meta.env.VITE_SAP_CLIENT || '100';
+const SAP_CLIENT = import.meta.env.VITE_SAP_CLIENT || '110';
 
 class SapODataClient {
   private instance: AxiosInstance;
@@ -23,6 +23,18 @@ class SapODataClient {
     });
 
     this.setupInterceptors();
+  }
+
+  /**
+   * Set basic auth credentials for SAP Gateway
+   */
+  public setCredentials(username?: string, password?: string): void {
+    if (username && password) {
+      const encoded = btoa(`${username}:${password}`);
+      this.instance.defaults.headers.common['Authorization'] = `Basic ${encoded}`;
+    } else {
+      delete this.instance.defaults.headers.common['Authorization'];
+    }
   }
 
   private setupInterceptors(): void {
