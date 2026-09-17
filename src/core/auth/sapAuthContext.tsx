@@ -115,6 +115,7 @@ export interface LoginCredentials {
   client?: string;
   language?: string;
   rememberUser?: boolean;
+  mockRoles?: string[];
 }
 
 export interface StoredUserSession {
@@ -375,6 +376,32 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      // 0. Instant Test Role Quick Switch (if mockRoles provided)
+      if (credentials.mockRoles && credentials.mockRoles.length > 0) {
+        const roles = credentials.mockRoles;
+        const unlocked = computeUnlockedModules(roles);
+        const loggedInUser: SapUser = {
+          id: targetId,
+          firstName: targetId === 'Z_MOBILE_PI_SHEET' ? 'Mobile' : targetId,
+          lastName: targetId === 'Z_MOBILE_PI_SHEET' ? 'PI Sheet' : roles[0],
+          fullName: targetId === 'Z_MOBILE_PI_SHEET' ? 'Test PI Sheet User (All Modules)' : `${targetId} (${roles[0]})`,
+          email: `${targetId.toLowerCase()}@gfl.co.in`,
+          roles,
+          plant: '1000',
+          client,
+          language: lang,
+          isFlpShell: false,
+          unlockedModules: unlocked
+        };
+
+        setUser(loggedInUser);
+        setIsAuthenticated(true);
+        setActiveModule(unlocked[0]);
+        setLoading(false);
+        persistSession(loggedInUser, client, lang, credentials);
+        return true;
+      }
+
       // Set basic auth credentials if password provided
       odataClient.setCredentials(targetId, credentials.password);
 
