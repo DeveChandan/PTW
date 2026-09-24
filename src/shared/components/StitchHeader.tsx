@@ -79,13 +79,13 @@ export const StitchHeader: React.FC<StitchHeaderProps> = ({ onGoHome, isHome = t
         {/* Center Section: Plant Facility Context & Real-Time Safety Status */}
         <div className="hidden md:flex items-center gap-3">
           {/* Plant Facility Selector */}
-          <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 px-3.5 py-1.5 rounded-full transition-all text-xs text-slate-700 font-sans shadow-sm cursor-pointer">
+          {/* <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 px-3.5 py-1.5 rounded-full transition-all text-xs text-slate-700 font-sans shadow-sm cursor-pointer">
             <span className="material-symbols-outlined text-[#006398] text-[18px]">factory</span>
-            <span className="font-medium truncate max-w-[260px]">
+            {/* <span className="font-medium truncate max-w-[260px]">
               Plant 1000 • Dahej Chemical Complex
-            </span>
+            </span> }
             <span className="material-symbols-outlined text-slate-400 text-[16px]">expand_more</span>
-          </div>
+          </div> */}
 
           {/* Safety Status Pill */}
           <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 px-3 py-1 rounded-full text-xs font-sans text-emerald-800 shadow-sm">

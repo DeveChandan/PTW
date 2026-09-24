@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useSapAuth } from '../../core/auth/sapAuthContext';
+import { 
+  ShieldCheck, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  ArrowRight, 
+  Server, 
+  Globe, 
+  AlertTriangle, 
+  CheckCircle2, 
+  PhoneCall, 
+  UserCheck 
+} from 'lucide-react';
 
 export const SapLoginPage: React.FC = () => {
   const { login, loading, error, getRememberedUserId } = useSapAuth();
 
   const [userId, setUserId] = useState<string>('');
-  const [password, setPassword] = useState<string>('••••••••');
+  const [password, setPassword] = useState<string>('');
   const [client, setClient] = useState<string>('200');
   const [language, setLanguage] = useState<string>('EN');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -16,198 +29,213 @@ export const SapLoginPage: React.FC = () => {
     const remembered = getRememberedUserId();
     if (remembered) {
       setUserId(remembered);
-    } else {
-      setUserId('VERTIF-V');
     }
   }, [getRememberedUserId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login({ userId, password, client, language, rememberUser });
+    await login({
+      userId,
+      password,
+      client,
+      language,
+      rememberUser,
+    });
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#f4f6fb] flex flex-col justify-between overflow-x-hidden select-none relative font-sans">
-      {/* Subtle modern ambient background glow */}
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_20%,rgba(0,99,152,0.06)_0%,transparent_50%),radial-gradient(circle_at_80%_80%,rgba(11,28,48,0.05)_0%,transparent_50%)]"></div>
+    <div className="min-h-screen w-screen bg-[#f8f9ff] text-[#0b1c30] flex flex-col justify-between font-sans select-none relative overflow-x-hidden">
+      {/* Subtle modern background grid */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-40"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(148, 163, 184, 0.15) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(148, 163, 184, 0.15) 1px, transparent 1px)
+          `,
+          backgroundSize: '32px 32px'
+        }}
+      />
 
-      {/* Top Corporate Brand Header Bar */}
-      <header className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-6 sm:px-8 flex items-center justify-between shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] z-10 shrink-0">
-        <div className="flex items-center gap-3.5">
+      {/* Top Clean Corporate Header */}
+      <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 sm:px-8 flex items-center justify-between shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] z-20 shrink-0">
+        <div className="flex items-center gap-3">
           <img
             src="https://gfl.co.in/assets/images/New_GFL-Logo29.webp"
             alt="Gujarat Fluorochemicals Limited"
-            className="h-9 w-auto object-contain"
+            className="h-8 w-auto object-contain"
             onError={(e) => {
               (e.target as HTMLImageElement).src = './assets/GFL-Logo.webp';
             }}
           />
-          <div className="h-6 w-px bg-slate-200"></div>
+          <div className="h-6 w-px bg-slate-200 mx-0.5"></div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <span className="font-display font-bold text-sm text-slate-900 tracking-tight">
-                GFL ChemSafe OS
+                GFL ChemSafe
               </span>
-              <span className="text-[10px] font-mono font-bold bg-[#006398]/10 text-[#006398] px-2 py-0.5 rounded-full border border-[#006398]/20">
-                PTW Suite
-              </span>
+              {/* <span className="text-[10px] font-mono font-bold bg-[#006398]/10 text-[#006398] px-2 py-0.5 rounded-full border border-[#006398]/20">
+                DAHEJ COMPLEX
+              </span> */}
             </div>
-            <span className="text-[11px] text-slate-500 font-medium">
-              Permit To Work (PTW) Enterprise System
+            <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+              Gujarat Fluorochemicals Limited • Operations Console
             </span>
           </div>
         </div>
 
+        {/* Header Right Badges */}
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1 rounded-full text-xs font-mono text-slate-600">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Gateway Online</span>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-semibold text-slate-700">SAP Gateway Online</span>
           </div>
-          <span className="bg-sky-50 text-[#006398] border border-sky-200 px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-sm">
-            Client: 200
+          <span className="bg-sky-50 text-[#006398] border border-sky-200 px-2.5 py-1 rounded-lg text-xs font-mono font-bold">
+            Client: {client}
           </span>
         </div>
       </header>
 
-      {/* Main Centered Login Card with Prominent GFL Brand Logo */}
+      {/* Main Centered Minimalist Login Workspace */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 z-10 my-4">
-        <div className="w-full max-w-md bg-white/95 backdrop-blur-2xl rounded-3xl border border-slate-200/90 shadow-[0_20px_60px_-15px_rgba(15,23,42,0.08)] p-7 sm:p-9 relative overflow-hidden transition-all">
-          {/* Subtle Top Accent Gradient Line */}
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#006398] via-sky-500 to-[#006398]"></div>
-
-          {/* Prominent GFL Corporate Brand Card Header */}
-          <div className="mb-6 text-center flex flex-col items-center">
-            {/* Prominent GFL Logo Container */}
-            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl shadow-sm mb-3.5 flex items-center justify-center">
+        <div className="w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-[0_12px_36px_-10px_rgba(15,23,42,0.08)] overflow-hidden transition-all">
+          
+          {/* Card Header with GFL Logo */}
+          <div className="px-6 sm:px-8 pt-7 pb-6 text-center border-b border-slate-100">
+            <div className="inline-flex p-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl mb-3 shadow-sm items-center justify-center">
               <img
                 src="https://gfl.co.in/assets/images/New_GFL-Logo29.webp"
-                alt="Gujarat Fluorochemicals Limited"
-                className="h-12 w-auto object-contain"
+                alt="GFL Logo"
+                className="h-9 w-auto object-contain"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = './assets/GFL-Logo.webp';
                 }}
               />
             </div>
             <h1 className="font-display font-bold text-xl text-slate-900 tracking-tight">
-              Gujarat Fluorochemicals Limited
+              Permit To Work Portal
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="font-display font-semibold text-xs text-[#006398]">
-                ChemSafe PTW Suite
-              </span>
-              <span className="text-[10px] font-mono font-bold bg-sky-50 text-[#006398] border border-sky-200 px-2 py-0.2 rounded-full">
-                Client 200
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Enter your SAP credentials to access authorized operational workspaces
+            <p className="text-xs text-slate-500 mt-1">
+              Sign in with your corporate SAP credentials
             </p>
           </div>
 
-          {/* Error Alert Banner: YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP */}
+          {/* Error Alert Banner */}
           {error && (
-            <div className="mb-5 p-3.5 bg-red-50/90 border border-red-200 text-red-900 rounded-2xl flex items-start gap-3 shadow-sm animate-in fade-in duration-200">
-              <span className="material-symbols-outlined text-red-600 text-[20px] shrink-0 mt-0.5">
-                gpp_bad
-              </span>
+            <div className="mx-6 sm:mx-8 mt-5 p-3 bg-red-50 border border-red-200 text-red-900 rounded-xl flex items-start gap-2.5 shadow-sm animate-in fade-in duration-150">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               <div className="flex flex-col text-left">
                 <span className="text-xs font-mono font-bold tracking-tight text-red-700 uppercase leading-snug">
                   {error}
                 </span>
                 <span className="text-[11px] text-red-600/80 mt-0.5">
-                  Verify your SAP role assignment with Plant Safety or Admin.
+                  Verify assigned SAP roles with Plant Safety or EHS Administrator.
                 </span>
               </div>
             </div>
           )}
 
-          {/* Clean Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 text-left">
+          {/* Clean Authentication Form */}
+          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-4 text-left">
             {/* SAP User ID Field */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5 tracking-wide">
-                SAP User ID
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 tracking-wide">
+                  SAP User ID / Staff Badge ID <span className="text-red-500">*</span>
+                </label>
+                <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-600 font-medium">
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>SSO Ready</span>
+                </span>
+              </div>
               <div className="relative">
-                <span className="absolute left-3.5 top-2.5 material-symbols-outlined text-slate-400 text-[19px]">
-                  person
+                <span className="absolute left-3.5 top-2.5 text-slate-400">
+                  <ShieldCheck className="w-4 h-4" />
                 </span>
                 <input
                   type="text"
                   value={userId}
                   onChange={(e) => setUserId(e.target.value.toUpperCase())}
-                  placeholder="e.g. VERTIF-V or Z_MOBILE_PI_SHEET"
-                  className="w-full bg-slate-50/80 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm font-mono font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006398]/15 focus:border-[#006398] focus:bg-white transition-all shadow-sm"
+                  placeholder="Enter SAP User ID (e.g. VERTIF-V)"
+                  className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm font-mono font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006398]/15 focus:border-[#006398] focus:bg-white transition-all"
                   required
                 />
               </div>
             </div>
 
-            {/* Password Field with Show/Hide Toggle */}
+            {/* Password Field with Peek Toggle */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5 tracking-wide">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 tracking-wide">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  SAP S/4HANA PIN
+                </span>
+              </div>
               <div className="relative">
-                <span className="absolute left-3.5 top-2.5 material-symbols-outlined text-slate-400 text-[19px]">
-                  key
+                <span className="absolute left-3.5 top-2.5 text-slate-400">
+                  <Lock className="w-4 h-4" />
                 </span>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter SAP password"
-                  className="w-full bg-slate-50/80 border border-slate-200 rounded-xl pl-10 pr-11 py-2.5 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006398]/15 focus:border-[#006398] focus:bg-white transition-all shadow-sm"
+                  placeholder="Enter secure password"
+                  className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-10 pr-11 py-2.5 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006398]/15 focus:border-[#006398] focus:bg-white transition-all"
+                  required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors p-0.5 rounded"
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none p-0.5 rounded transition-colors"
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <span className="material-symbols-outlined text-[19px]">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Client & Language Row */}
+            {/* Client & Language Side-by-Side Selectors */}
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  SAP Client
+                <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                  <Server className="w-3 h-3 text-slate-400" />
+                  <span>SAP Client</span>
                 </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-[11px] font-mono text-slate-400 font-bold">
-                    #
-                  </span>
-                  <input
-                    type="text"
-                    value={client}
-                    onChange={(e) => setClient(e.target.value)}
-                    className="w-full bg-slate-50/80 border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-[#006398] focus:bg-white transition-all shadow-sm"
-                  />
-                </div>
+                <select
+                  value={client}
+                  onChange={(e) => setClient(e.target.value)}
+                  className="w-full bg-slate-50/70 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-[#006398] focus:bg-white transition-all"
+                >
+                  <option value="200">Client 200</option>
+                  <option value="210">Client 210</option>
+                  <option value="100">Client 100</option>
+                </select>
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Language
+                <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                  <Globe className="w-3 h-3 text-slate-400" />
+                  <span>Language</span>
                 </label>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-2 text-xs font-sans font-medium text-slate-900 focus:outline-none focus:border-[#006398] focus:bg-white transition-all shadow-sm"
+                  className="w-full bg-slate-50/70 border border-slate-200 rounded-xl px-3 py-2 text-xs font-sans font-medium text-slate-900 focus:outline-none focus:border-[#006398] focus:bg-white transition-all"
                 >
                   <option value="EN">EN (English)</option>
+                  <option value="GU">GU (ગુજરાતી)</option>
+                  <option value="HI">HI (हिन्दी)</option>
                   <option value="DE">DE (German)</option>
-                  <option value="GU">GU (Gujarati)</option>
-                  <option value="HI">HI (Hindi)</option>
                 </select>
               </div>
             </div>
 
-            {/* Remember Me Checkbox (Session Persistence) */}
+            {/* Remember Me & Security Tag */}
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
@@ -217,53 +245,65 @@ export const SapLoginPage: React.FC = () => {
                   className="w-4 h-4 rounded border-slate-300 text-[#006398] focus:ring-[#006398]/20 transition-all cursor-pointer"
                 />
                 <span className="text-xs text-slate-600 font-medium">
-                  Remember User ID on this device
+                  Remember User ID
                 </span>
               </label>
+              <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                <span>FIPS 140-3 TLS 1.3</span>
+              </span>
             </div>
 
-            {/* Modern Primary Sign In Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-2 py-3 bg-gradient-to-r from-[#006398] to-[#005080] hover:from-[#005585] hover:to-[#004068] text-white font-display font-bold text-xs uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Verifying SAP Roles via OData V4...</span>
-                </>
-              ) : (
-                <>
-                  <span>Sign In & Verify Roles</span>
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                </>
-              )}
-            </button>
+            {/* Primary Sign-In Action Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-[#006398] hover:bg-[#004f7a] text-white font-display font-semibold text-sm rounded-xl shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Verifying SAP Credentials...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In to PTW Portal</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
           </form>
 
-          {/* Telemetry Footnote */}
-          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-            <span className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-[13px] text-slate-400">verified_user</span>
-              <span>OData V4 Session</span>
+          {/* Discreet Help Strip */}
+          <div className="px-6 sm:px-8 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <PhoneCall className="w-3 h-3 text-[#006398]" />
+              <span>EHS Hotline: <strong className="text-slate-700 font-mono">Ext. 4499</strong></span>
             </span>
-            <span>Client: {client}</span>
+            <span className="font-mono text-[10px] text-slate-400">
+              OData V4 • S/4HANA
+            </span>
           </div>
         </div>
       </main>
 
-      {/* Corporate Modern Footer */}
-      <footer className="h-10 bg-white/80 backdrop-blur-sm border-t border-slate-200/80 px-6 sm:px-8 flex items-center justify-between text-xs text-slate-500 font-sans shrink-0 z-10">
-        <div className="flex items-center gap-1.5 font-mono text-[11px]">
-          <span className="material-symbols-outlined text-[14px] text-emerald-600">lock</span>
-          <span>SAP NetWeaver / S/4HANA • Client: 200 • OData V4</span>
+      {/* Corporate Minimalist Footer */}
+      <footer className="h-11 bg-white/90 backdrop-blur-sm border-t border-slate-200/80 px-4 sm:px-8 flex items-center justify-between text-xs text-slate-500 shrink-0 z-20">
+        <div className="text-[11px] font-medium text-slate-500">
+          © Gujarat Fluorochemicals Limited (GFL) 
         </div>
-        <div className="text-[11px] text-slate-500 font-medium">
-          © Gujarat Fluorochemicals Limited (GFL)
+        <div className="text-[10px] font-mono text-slate-400 hidden sm:flex items-center gap-2">
+          <span>OSHA 1910.119 PSM</span>
+          <span>•</span>
+          <span>ISO 45001:2018 EHS</span>
         </div>
       </footer>
     </div>
   );
 };
+
+export default SapLoginPage;
+
 

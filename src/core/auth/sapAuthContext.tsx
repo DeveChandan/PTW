@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import odataClient from '../api/odataClient';
+import { odataClient, authApi } from '../api';
 
 export interface SapUserInfoRecord {
   UserId: string;
@@ -405,17 +405,13 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Set basic auth credentials if password provided
       odataClient.setCredentials(targetId, credentials.password);
 
-      // Query live userinfo from SAP OData V4 Service with sap-client=200
-      const endpoint = `userinfo?$filter=UserId eq '${encodeURIComponent(targetId)}'&sap-client=${client}`;
+      // Query live userinfo from modular SAP OData V4 authApi
       let liveSuccess = false;
       let records: SapUserInfoRecord[] = [];
 
       try {
-        const response = await odataClient.get<{ value: SapUserInfoRecord[] }>(endpoint);
-        if (response.data && Array.isArray(response.data.value)) {
-          records = response.data.value;
-          liveSuccess = true;
-        }
+        records = await authApi.fetchUserInfo(targetId, client);
+        liveSuccess = true;
       } catch (liveErr) {
         console.warn('[SapAuth] Live OData call returned error or offline:', liveErr);
       }
@@ -540,8 +536,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const logout = () => {
     try {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      odataClient.clearCredentials();
-      odataClient.triggerIcfLogoff();
+      authApi.clearSession();
+      authApi.triggerIcfLogoff();
     } catch (e) {
       console.warn('[SapAuth] Error during logout:', e);
     }

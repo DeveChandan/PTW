@@ -4,6 +4,7 @@ import { SapLoginPage } from './shared/components/SapLoginPage';
 import { StitchHeader } from './shared/components/StitchHeader';
 import { ModuleLaunchpad } from './features/dashboard/ModuleLaunchpad';
 import { ComingSoonModule } from './shared/components/ComingSoonModule';
+import { PermitCreateModule } from './features/permits/PermitCreateModule';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isModuleUnlocked, user, loading, isSessionRestoring } = useSapAuth();
@@ -78,8 +79,13 @@ export const App: React.FC = () => {
               </button>
             </div>
           </div>
+        ) : selectedModule === 'permit-create' ? (
+          <PermitCreateModule
+            user={user}
+            onBack={() => setSelectedModule(null)}
+          />
         ) : (
-          /* Active Unlocked Module Workspace */
+          /* Active Unlocked Module Workspace Fallback */
           activeModuleDef && (
             <ComingSoonModule
               module={activeModuleDef}
