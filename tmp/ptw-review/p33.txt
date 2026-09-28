@@ -1,0 +1,79 @@
+33 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 33 of 79 
+• The type & nature of work changes. 
+• The process conditions change (e.g., unexpected release of gas from a nearby tank) 
+• An emergency in the area. 
+• Weather conditions change. 
+ 
+8. ROLES & RESPONSIBILITIES: 
+ 
+Table 1: Summary of appropriate people to fill each role 
+ Can Be a 
+contractor 
+Issue Permits to 
+others 
+Self-
+Permit? 
+Appoint Permit 
+Issuers 
+Stop Work on 
+site if necessary 
+Audit 
+System 
+Unit Head No No No Yes Yes Yes 
+Permit Approver No No No Yes Yes Yes 
+Permit Issuer No Yes No No Yes No 
+Permit Acceptor No No No No Yes No 
+Permit Holder Yes No No No Yes No 
+Area Operator Yes No No No Yes No 
+ 
+Table 2: Roles and responsibilities in PTW 
+Sr 
+No. 
+Name / Designation PTW System 
+Manager 
+Permit 
+Approver 
+Permit 
+Issuer 
+Permit 
+Acceptor 
+Permit 
+Holder 
+Area 
+Operator 
+1 Unit Head/Dy Unit Head Yes Yes     
+2 Plant Manager (HOD 
+Operations)/Functional Head 
+ Yes     
+3 Maintenance Manager (HOD)  Yes Yes    
+4 Head, Project Yes Yes     
+5 Project Managers  Yes     
+6 Construction 
+Manager/Engineer 
+  Yes    
+7 Shift In-Charge  Yes Yes    
+8 Shift Engineer 
+(Operation/Maintenance) 
+   Yes Yes Yes 
+9 Shift Operator      Yes 
+10 Maintenance Supervisor    Yes Yes  
+11 Plant Technician    Yes Yes  
+12 Maintenance Contractor    Yes* Yes  
+* In Project Areas/Activities only 
+ 
+Set out below are the principal roles and associated responsibilities required in operating a 
+Permit to Work system. 
+

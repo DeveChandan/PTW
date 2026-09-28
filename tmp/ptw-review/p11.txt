@@ -1,0 +1,51 @@
+11 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 11 of 79 
+Gas Test - For Hot Work: 
+A signed statement on PTW by an authorized Gas Tester experienced in gas monitoring, that a gas 
+test has been taken for the presence of flammable vapors/toxic gases within a specified location and 
+that the concentration shows a nil LEL response. 
+Gas Test for Confined Space:  
+A signed statement by an Authorized Gas Tester for/toxic gases, flammable gases and oxygen tests 
+have been taken within the confined space to be entered. Prior to entering a confined space (without 
+the assistance of long line breathing apparatus) the toxic gas vapors shall show nil,  LEL - below 5%  
+and oxygen concentration shall be between 19.5 and 23.5 % by volume. The frequency of testing shall 
+be specified and the certificate re-signed after each test. 
+Hazard: -  
+The potential a substance, activity, event, process or energy source has, to impair the health or well-
+being of a person or the environment. 
+Risk: -  
+The probability that a hazard may fulfill its potential. 
+Lower Explosive Limit (LEL):-  
+The concentration of flammable gas, vapor or mist in air below which an explosive gas atmosphere 
+will not be formed. 
+1. PURPOSE: 
+The purpose of this procedure is to provide clarity and helps in  
+• Aligning the requirement for PTW process with Corporate Standard and other Statutory Requirement.  
+• To provide a guideline for completing permit to work (PTW) perfectly. 
+• To provide guideline for uniform understanding about PTW & its compliance. 
+2. SCOPE: 
+This Procedure is applicable to all non-routine jobs that are carried out in the premises of M/s Gujarat 
+Fluorochemicals Limited at Dahej site. 
+3. PROCEDURE: 
+3.1 Preparation of Permit Matrix and training records: 
+Every Plant HOD has to prepare the Permit Matrix and keep training records (both Format in annexure) 
+of all eligible Permit Issuers, Acceptors, Approvers, Gas Testers. Eligibility criteria for all these functions 
+is elaborated in respective sections. Keep it readily available (preferably displayed in the control 
+room/field room).  
+3.2 Identification of jobs which require PTW 
+Every Plant has to prepare a list of all routine and non-routine activities. Clearly specify which activity 
+require a permit and which do not. Ensure that the activities list is available in the control room in 
+both soft or hard copy formats. (Activity list to be prepare as per format given in annexure- Routine 
+

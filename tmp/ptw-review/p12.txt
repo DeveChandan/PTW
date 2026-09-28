@@ -1,0 +1,50 @@
+12 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 12 of 79 
+and non-routine activities) Jobs, routinely carried out following an approved SOP , do not require the 
+permit and non-routine jobs required the permit. 
+ 
+Note:  
+Generally, routine jobs do not require permit, however, few high-risk potential jobs (like tanker loading 
+/unloading require a PTW. Respective HOD has to identify such jobs which require a permit. 
+ 
+3.3 Listing out the Specific PPEs Requirement.  
+List PPE Required for handling the chemicals used in the plant. Ensure that the necessary PPE is 
+readily available whenever needed. 
+Every Plant has to prepare a list of specific PPEs required for their plant based on the activities 
+carried out and chemicals being handled.  
+3.4 Job planning and Identification of Jobs to be carried out 
+A job planning meeting is to be carried out every day evening in every plant. Operations and 
+maintenance team has to decide the jobs for the next day, jointly. Few of the criterion for the job 
+selection, for the next day, could be urgency of the job- impact on the safety, availability of 
+manpower, spares etc. 
+ 
+Note: Emergency Jobs can be started without Permit and can be regularized after emergency handling. 
+(Emergency e.g Chlorine leakage, Fire, chemical leakage etc....)  
+ 
+3.5 Preparation of JSA  
+Team of permit issuer, acceptor & Contractor Supervisor jointly visit the job site and prepare the 
+JSA (Format No HSE/SAF/F/05). Permit Issuer & Acceptor to write the JSA. 
+• Sequence of basic job steps - list-down the activities/sub-activities. 
+• Potential Hazard - Identify potential hazards associated with all listed activities. 
+• Risk - Identity the risk associated with all the activities. 
+• Safeguard/Control - Suggest the control measure to mitigate/Control potential hazards. 
+• Assign responsibility for each suggested control measure.  
+• The JSA team should sign the document upon completion. 
+        Note:  
+1. Refer JSA site procedure & CORPORATE HEALTH & SAFETY STANDARD - GFL/COR/EHSS 
+2002.00-2. 
+2. Hazard identified in JSA and suggested control measures should align with the PTW 
+section E. 
+

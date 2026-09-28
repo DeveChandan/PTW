@@ -1,0 +1,47 @@
+44 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 44 of 79 
+           An exception to this requirement would be some cases of minor work when locked off 
+valve would suffice, providing the isolation is proved to be effective by opening drains on 
+the equipment and proving those drains to be clear. 
+        This exception is not made in the interests of expediency, but recognizes that swinging 
+spades or making disconnection can be equally, or more hazardous, than some examples 
+of minor work. 
+5. Work should not be attempted on any equipment where the possibility exists of hot 
+material escaping, e.g., temperature exceeds its flash point, boiling point or auto-ignition 
+temperature. The material should be allowed to cool before draining  and extra care  
+exercised when checking isolation integrity. 
+6. Particular care is required in  achieving and proving isolation when equipment operates 
+under a vacuum. 
+        Wherever practicable, a formal maintenance preparatio n procedure should be written 
+for any equipment  where hazards  such as hot  material or vacuum  operation are 
+encountered. 
+7. Where driven machinery is to be worked on, the prime mover should be positively 
+isolated and any switch gear locked off as per the Lock, Tag and Try Procedure. 
+8. Appropriate protective equipment must be specified. 
+9. The area around any work site  must be appropriately identified  and barricaded, if 
+necessary, to prevent other personnel in or passing through the area from being exposed 
+to hazards. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+

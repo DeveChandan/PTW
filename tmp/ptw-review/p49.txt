@@ -1,0 +1,61 @@
+49 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 49 of 79 
+manhole/opening as a standby, equipped with communication 
+tools like a walkie-talkie for proper communication? 
+19 
+Both the standby person and the person entering the CSE 
+should be well-trained and possess sufficient knowledge about 
+the process hazards and risks associated with that CSE 
+  
+20 Is a rescuer team member available during the CSE? Name: 
+_____________________________________   
+21 Is the rescuer team member trained in rescue operations?   
+22 
+If the work continues for an extended period, does the person 
+take a 15–20-minute rest intermittently. Is a gas test conducted 
+after each rest and before re-entering the CSE & Recorded? 
+  
+23 
+Facilities Available at the location for Confined Space Entry 
+Work: Multi-gas detectors with sensors for Oxygen, LEL, CO 
+(carbon monoxide), H2S (hydrogen sulfide), and portable Cl2 
+meters. 
+1. Online airline respirators located in different location of 
+the plant. 
+2. SCBA sets provided in the plant control room and at key 
+locations. 
+3. Trained first-aiders. 
+  
+ 
+Authorization  Issuer Accepter Area Operator 
+Name    
+Signature    
+Date & Time    
+Note: (1) PTW-CSE to be done by issuer and accepter jointly, if required include other cross functional 
+members.                     
+           (2) Area Operator is responsible for all the control measures and the effective implementation by 
+signing this “PTW-CSE”  before start of the activity.     
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+

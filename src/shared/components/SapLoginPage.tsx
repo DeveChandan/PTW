@@ -17,8 +17,8 @@ import {
 export const SapLoginPage: React.FC = () => {
   const { login, loading, error, getRememberedUserId } = useSapAuth();
 
-  const [userId, setUserId] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [userId, setUserId] = useState<string>('VERTIF-V');
+  const [password, setPassword] = useState<string>('Vertif@2027@2027');
   const [client, setClient] = useState<string>('200');
   const [language, setLanguage] = useState<string>('EN');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -159,7 +159,7 @@ export const SapLoginPage: React.FC = () => {
                   type="text"
                   value={userId}
                   onChange={(e) => setUserId(e.target.value.toUpperCase())}
-                  placeholder="Enter SAP User ID (e.g. VERTIF-V)"
+                  placeholder="Enter your SAP user ID"
                   className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm font-mono font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006398]/15 focus:border-[#006398] focus:bg-white transition-all"
                   required
                 />

@@ -1,0 +1,12 @@
+Microsoft.Container.DataSpaces
+EncryptedPackage*
+DRMEncryptedDataSpace
+DRMEncryptedTransform
+DRMEncryptedDataSpace
+DRMEncryptedTransform
+EncryptedPackage
+SummaryInformation
+DocumentSummaryInformation
+{C73DFACD-061F-43B0-8B64-0C620D2A8B50}>
+Microsoft.Metadata.DRMTransform
+https://gflteams.sharepoint.com/sites/GFL_TITAN/Pages/Document.aspx?WebAppId=232SHDFGHJF22B2526DFG&undefined=undefined

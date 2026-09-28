@@ -1,0 +1,52 @@
+40 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 40 of 79 
+12 ANNEXURES: 
+ List of Annexures as below 
+ 
+     SAFETY PRECAUTIONS AND REQUIREMENTS FOR HOT WORK 
+The following safety precautions and requirements, though not necessarily exhaustive, shall be 
+observed before and during the hot work: 
+1. The equipment to be worked on shall be positively isolated, both mechanically and 
+electrically. Mechanical isolation shall be achieved either by disconnection, or by 
+blanking following the isolation procedure. 
+2. Blanking is not required for stand-alone utilities supply piping. Utilities supply in this 
+instance are: process water, potable water, LP/HP De-mineralized water, soft water, 
+direct/indirect sea-water, ID cooling water, chilled water, fire water, LP/HP nitrogen, 
+steam, plant air, process air, instrument air and steam condensate. 
+3. Prior to commencement of hot work on the utilities supply line mentioned above, it is of 
+utmost important that the line to be worked on is verified to be cleared and 
+depressurized. This verification can be done by: a) opening a bleed valve (drain valve); b) 
+first break; or c) by doing a cold-cut. The drain valve should be left locked in open 
+position throughout the duration of the hot work to prevent pressure build-up. 
+4. The equipment shall be freed of liquid and gas by depressurizing, draining, venting, 
+purging and flushing. 
+5. In lined vessels or equipment containing pockets, recesses, double bulkheads, etc. 
+precautions shall be taken to ensure that no material is trapped behind the lining. This 
+may require cold drilling and steaming through behind the lining followed by gas testing. 
+Where it is not possible to achieve gas free in the equipment or there is a doubt that all 
+potentially hazardous materials have been removed, the space shall be inserted with 
+nitrogen or water filled during hot work. 
+6. Any combustible material, including paper cartons, oily rugs and grass, located nearby 
+shall be removed. Oil spills or deposits around the work site shall be cleaned up. Where 
+it is not practical to remove combustible materials they shall be suitably covered or 
+wetted with water. 
+7. Drain covers and surface manhole covers within 15 m from the work site shall be 
+properly sealed throughout the work period to prevent emission of flammable vapors. 
+8. If flammable liquid is present in any open drain or ditch which runs within 15m of the 
+work site, it shall be dammed at locations not less than 15m from the work site and 
+pumped out 
+9. Any potential source of flammable gas or vapor emission, such as sampling point, vent or 
+drain situated within 15m of the work site shall be rendered safe by sealing. If there is a 
+

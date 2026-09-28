@@ -9,7 +9,8 @@ export type PermitTypeCode =
   | 'COLD'  // Cold Work (Maintenance, Painting)
   | 'CONF'  // Confined Space Entry
   | 'ELEC'  // High Voltage / Electrical Isolation
-  | 'HGHT'; // Work at Height (> 2 meters)
+  | 'HGHT' // Work at Height (at and above 1.8 m, per site conditions)
+  | 'EXCV' | 'LINE' | 'RIGG' | 'RAD' | 'HYPN' | 'OTHER';
 
 export type PermitStatusCode = 
   | 'CRTD'  // Created / Draft
@@ -57,6 +58,9 @@ export interface PermitInfoRecord {
   Aufnr: string; // Order Number, MaxLength 12
   Qmnum: string; // Notification Number, MaxLength 12
   Auart: string; // Order/Doc Type (PM01, etc.), MaxLength 4
+  Qmart?: string; // Notification type, MaxLength 2
+  Qmtxt?: string; // Notification short text, MaxLength 40
+  Qmdat?: string | null; // Notification date, Edm.Date
 
   PersonResp: string; // Maintenance Person Responsible, MaxLength 12
   PlannerGroup: string; // Maintenance Planner Group, MaxLength 3

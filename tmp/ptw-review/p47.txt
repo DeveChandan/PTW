@@ -1,0 +1,64 @@
+47 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 47 of 79 
+ 
+Authorization  Issuer Accepter Area Operator 
+Name    
+Signature    
+Date & Time     
+Note: (1) PTW-WAH to be done by issuer and accepter jointly, if required include other cross functional 
+members.   
+           (2) Area Operator is responsible for all the control measures and the effective implementation by 
+signing this  “PTW-WAH” before start of the activity. 
+Checklist for Confined space Entry Compliance 
+ 
+PTW: CONFINED SPACE ENTRY COMPLIANCE   
+Doc. No.   : HSE/SAF/F/07 
+Issue 
+Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  Job 
+Description :  Date & Time :  
+SR. 
+No. CHECKPOINTS (Ref: CES Std GFL/COR/EHSS/2055.00) STATUS  
+(Yes / No / NA) REMARKS 
+01 
+PROCEDURE FOR Working in CSE: 
+Is the electrical isolation of rotating equipment done by 
+removing the fuse, locking it, and tagging it? 
+  
+02 Are all connected pipelines, including those with CSE positively 
+isolated?    
+03 
+Are the ends of the detached lines fitted with blinds? The blinds 
+should be indicated in the drawings/register should be 
+maintained. 
+  
+04 Are isolation tags available on the valves to prevent accidental 
+operation?   
+14 Is a suitable platform with a toe guard, handrail, and mid -rail 
+provided?   
+15 Has the scaffold been inspected and certified by an authorized 
+engineer before being put into use?   
+16 Is provision made to arrange a duck ladder or crawling board 
+for working on fragile roofs or asbestos?   
+17 
+Has the scissor lift / man lifter used for work at height been 
+inspected and certified by a competent person (CES person) 
+before use?  
+  
+18 Are there any high -tension cables, honeybee combs, or other 
+hazards directly above the work being performed at height?   
+
+

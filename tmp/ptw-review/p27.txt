@@ -1,0 +1,51 @@
+27 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 27 of 79 
+Refer to the GFL “Electrical Safety Management” Standard for details of mandatory 
+Requirements. 
+4.5. LINE BREAKING: 
+Line breaking refers to the controlled opening of piping, ductwork, or 
+containment systems that hold hazardous materials. This activity is considered 
+high-risk due to the potential release of chemicals, gases, or steam, which can 
+pose serious hazards to personnel and the environment. 
+This procedure applies to lines containing high pressure, high vacuum, 
+corrosive, flammable, toxic, or hazardous fluids. Water supply, Process water, 
+steam below 3 Kg/cm² and airline systems are excluded from line-breaking 
+permits. 
+First breaking/opening of the line must be done in presence of filed 
+operator/process engineer.  
+Examples of Line Breaking Activities 
+• Removing bolts( even single bolt) from flanges 
+• Opening valves to release material 
+• Removing valve bonnets and check valves 
+• Turning spectacle plates (blanks/blinds) 
+• Disconnecting tubing or hoses 
+• Penetrating a line by mechanical means 
+• Opening inspection ports or sight glasses 
+• Replacing gland packing on valves 
+• Making the first cut on isolated pipelines 
+Approver I & Approver II requirements: 
+• PTW line breaking activities involving the following hazardous materials (but not limited 
+to) require approval I & Approval II signature on PTW. 
+1. Sulfuric Acid 
+2. Chlorine 
+3. Methanol 
+4. Natural Gas 
+5. Caustic Soda 
+6. Hydrochloric Acid 
+7. Anhydrous Hydrofluoric Acid 
+8. Diethyl Ether (DHF) 
+9. Chloroform 
+10. Chlorodifluoromethane (R-22) 
+

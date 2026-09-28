@@ -1,0 +1,58 @@
+52 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 52 of 79 
+Checklist for Line Break-Job Planning Sheet 
+ 
+ 
+PTW: Line Break-Job Planning Sheet   
+Doc. No.   : HSE/SAF/F/26 
+Issue 
+Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  
+Job Description :  
+Date & Time :  
+Job Planning sheet to be filled by shift in Charge before taking up of Line- break activity 
+Identification of Hazards and Clearing method 
+Hazards (Toxic/ 
+flammable/ 
+reactive/corrosive/high 
+pressure / high temp 
+etc.) 
+Clearing Method 
+(Draining / flushing / 
+purging / venting etc.) 
+Special precaution to be 
+taken while clearing 
+PPE to be used (Also 
+mention activities in 
+bracket, during which it 
+is not required) 
+    
+Duties of Standby Person: 
+Contingency Plan / Instructions in case of single isolation device is used: 
+ 
+Authorization  Shift In-Charge Plant HOD 
+Name   
+Signature   
+Date & Time   
+Note: (1) The P&ID / sketch of the system is attached showing points of isolation/blinding, proposed 
+points for clearing and points of lockout. 
+(2) The above plan and information are discussed with all persons involved in the job. 
+ 
+ 
+ 
+ 
+
+

@@ -1,0 +1,52 @@
+26 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 26 of 79 
+•  Testing of energized electrical circuits with approved test equipment when it can only be 
+done without 
+interrupting the circuit. 
+• Replacing electrical fittings (lamps etc.) when circuits are energized. 
+• Disconnecting motors without switching off motor starter. 
+• Fuse pulling and installing on energized circuits rated 415 volts and above (using 
+approved tools) 
+• Working on energized "draw out" type circuit breakers on 415 volts or higher.  
+• Installing and removal of insulating barrier when energized circuits are nearby and beyond 
+the distances prescribed for Electrical Proximity Work.  
+• Installation of safety grounds when energized circuits are nearby and beyond the distances 
+prescribed for Electrical Proximity Work.  
+• Work on high energy "battery system" of greater than 100 Vdc.  
+• All non-routine activities like Preventive Maintenance on electrical equipment. 
+ 
+The following are examples of Electrical Work on energized equipment performed by GFL 
+personnel that may not require a work permit.  
+However, similar work performed by contractors require a work permit  
+• Changing out fluorescent lamp and bulbs with lighting fixture de-energized.  
+• Racking out / Rack -in motor starter and circuit breaker following other approved work 
+procedures.  
+• Polarity testing of power point in non-hazardous areas.  
+• Working on electrical equipment where the maximum operating voltage is 50 Va c-gnd. or 
+100 Vdc.  
+• Testing of energized circuits with approved test equipment when it can only be done 
+without interrupting the circuit in non-hazardous areas. 
+• Racking out breakers for maintenance work on non -electrical portion of equipment less 
+than 415 Vac 
+• Troubleshooting of energized control circuits / relays by keeping power circuit de -
+energized in Electrical district ownership areas using approved test equipment and 
+applying proper PPE.  
+• Troubleshooting energized control circuit in MCC/Electrical pane l Room using approved 
+test equipment, applying proper PPE and applying a work plan. 
+• Measurement of Current in LT feeders using calibrated measuring instruments by using 
+defined PPEs as per approved procedures. 
+• Daily Temperature monitoring of LT critical panels using calibrated measuring instruments 
+by wearing defined PPEs as per approved procedures. 
+

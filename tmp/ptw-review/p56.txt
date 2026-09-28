@@ -1,0 +1,58 @@
+56 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 56 of 79 
+         Grounding Electrical Equipment/Welding machine Compliance checklist          Protecting the surrounding area from sparks/fire                                                                                                                                               
+         Rigging Plan                                 Road Closure Required                                           Hot Work Procedure Compliance     
+         Crane/ Farana Certified             Ladder (Type: ____________)                               Drain/Sewer Cover                   Area Barricading                                                                              
+         Height Work Compliance                                                                                               LOTO Compliance  
+         Fire Blanket Booth              Fire Fighting Team Required                                          Lifting Tool/ Sling/ Hook Checked 
+         Confined Space Entry Procedure Compliance                                                            Pre JSA Completed              Rescue Plan 
+         Electrical Tool Checklist No.  ___________________________________           Cylinder Checklist No.  ____________ 
+         Scaffolding clearance By:  ____________ (Sign: ____________)           Atmosphere tested for oxygen, flammable and  toxic gases 
+         Excavation clearance By: Fire: ____________ Electrical: __________ Instrument: __________ IT: ________ Utility: ________     
+         Stand-by Person required/ Fire watch: (Name:  ____________                             Isolation of Other Energy Source 
+         Others (Please specify):  ____________ 
+Section G: PPE and Fire Protection 
+        Fire Extinguishers (Type:  _________  No. ________)          Fire water available/Hose ready          Fire blanket           Face Shield                     
+        Safety Shoes                PVC Gloves                  Cotton Gloves           Gum Boot                Cartridge Gas Mask                    Eye Protection 
+        SCBA                              Dust mask                    Chemical Gloves           Ear Plugs             Ear Muffs                                     Protective suit 
+        Safety Glasses              Splash Goggles            Rubber Gloves             Distress Alarm systems          LEL Meter              Leather Gloves 
+         Turtle Suit for Hydro Jetting                            Others ___________________ 
+Section H: Isolation:                Electrical Energy                                                                                           Other Energy Sources 
+I certify that the machine / equipment is isolated from source of 
+electrical energy by Switching off / fuse removal / LOTO  
+Name________________             Signature____________             
+Date _____/______/_______  At __________ Hrs        
+I certify that the machine / equipment is isolated from other 
+source of energy 
+Name________________             Signature____________             
+Date _____/______/_______  At __________ Hrs        
+Section I: Section I: Gas Test (for Hot Work and Confined Space Entry) 
+TWO-HOURLY GAS TEST, IF REQUIRED, SHALL BE CARRIED OUT BY THE APPROVED GAS TESTER AND RESULTS RECORDED ON REVERSE OF THIS FORM. 
+ATTACH A LIST OF ALL ENTRANTS INTO THE CONFINED SPACE. 
+Permit Valid From ________ Hrs  To _______Hrs       Date ______________  Unless extended as below 
+Permit Extended on Date ________Till ______Hrs              Name _________________        Signature ________________ 
+Section J: Permit Issuer - I certify that all the hazards/risks have 
+been identified/assessed and controlled adequately (refer to JSA 
+No. -- )  
+Name______________  Date ____________  At ______ Hrs   
+Signature___________ 
+Section K: Permit Acceptor - I have read the precautions and 
+safety measures mentioned herein and I agree to abide by the 
+same. The safeguards have been implemented. Tool box talk 
+given to persons working/impacted (refer the list of work 
+executors).  
+Name______________  Date _________  At _______ Hrs   
+Signature___________ 
+

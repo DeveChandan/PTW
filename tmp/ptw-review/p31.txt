@@ -1,0 +1,47 @@
+31 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 31 of 79 
+• X-Ray & Gamma Ray: Ir-192, Co-60 
+• Number of Sources: _____________Radiation Activity (Intensity):__________ Specify 
+intensity in kV/Ci.  
+              Measurement and Control of Radiation Exposure: 
+1. Collimator 
+2. Radiation survey meter 
+3. Film badge 
+4. Concrete wall barrier 
+5. Pocket dosimeter 
+6. Alarm/Lamp 
+Specify Barricade Off Distance: ____________ 
+4.8 RIGGING JOBS: 
+• Pre-Job Meeting:  Conduct a meeting with all personnel involved in the rigging job to 
+discuss the plan, potential hazards, and emergency procedures 
+• Equipment Inspection: Inspect all rigging equipment, including cranes, slings, and hooks, 
+to ensure they are in good working condition and meet safety standards 
+• Execution of Work: Perform the rigging job as per the approved plan, ensuring all safety 
+measures are followed. Continuous monitoring is essential to address any issues that arise 
+• Post-Job Review: After completing the job, conduct a review to identify any incidents or 
+near-misses and document lessons learned for future reference. 
+• Rigging Plan must be approved as per checklist HSE/SAF/F/27  
+•  i) For load ≤15 MT rigging plan should be approval by Mainte nance Engineer, 
+Maintenance Manager and Maintenance HOD. 
+• ii) For load > 15 MT rigging plan should be approval by Maintenance Engineer, 
+Maintenance Manager, Maintenance HOD, and CES / Project head. 
+• iii) For load > 30 MT rigging plan should be approval by Ma intenance Engineer, 
+Maintenance Manager, Maintenance HOD, CES / Project head and Engineering Head. 
+ 
+4.9 HYDRAULIC AND PNEUMATIC SYSTEM WORK:  
+• Any machine & equipment where hydraulic energy like hydraulic jaw, hydraulic doors, 
+chambers, cutters, hammers, pusher and lifting hydraulic tools where pneumatic energy 
+is stored & used for operating, functioning of the machine. 
+

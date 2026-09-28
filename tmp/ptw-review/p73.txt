@@ -1,0 +1,53 @@
+73 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 73 of 79 
+14. Frequently asked Question and Answer: -  
+1. What is the primary purpose of the Permit to Work (PTW) system? 
+a) To ensure work is completed quickly 
+b) To align with corporate standards and statutory requirements 
+c) To reduce paperwork 
+d) To increase production efficiency 
+2. Who is responsible for writing the permit and JSA in their safety district? 
+a) Permit Acceptor + Permit Issuer 
+b) Permit Holder+ Unit Head 
+c) Permit Issuer+ Approver 
+d) Unit Head + Approver 
+3. What must be confirmed by the Permit Issuer before authorizing work to proceed? 
+a) Availability of tools 
+b) Correct identification of hazards and adequacy of controls 
+c) Number of workers 
+d) Duration of the work 
+4. Which document must be prepared by the team before completing the PTW? 
+a) Safety Data Sheet (SDS) 
+b) Job Safety Analysis (JSA) 
+c) Risk rating 
+d) Standard Operating Procedure (SOP) 
+5. What is the validity period for a Cold Work Permit? 
+a) 24 hours 
+b) 7 days 
+c) 8 hours or shift end, whichever is earlier 
+d) 1 month 
+6. What must be done if the work conditions change during the course of an activity under permit? 
+a) Continue working as planned 
+b) Refer back to the Permit Issuer 
+c) Inform the Unit Head 
+d) Stop work immediately 
+7. What is required for any maintenance, installation, and repair work on electrical equipment? 
+a) Hot Work Permit 
+b) Cold Work Permit 
+c) Electrical Work Permit 
+d) Confined Space Entry Permit 
+8. Who is responsible for carrying out gas tests before and during jobs? 
+a) Permit Holder 
+

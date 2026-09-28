@@ -1,0 +1,54 @@
+25 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 25 of 79 
+• Fire team member has to visit the site and discuss a rescue plan with plant team, 
+considering different scenarios. 
+• Document the rescue plan. 
+• Fire team has to keep his team informed and prepare the rescue equipment ready 
+(rescue plan is to be made, keeping the equipment available in the rescue tender in 
+mind). 
+NOTE: Rescue team and Rescue Tender has to mobilized in case of actual requirement 
+ 
+Refer to the GFL “Confined Space Entry” Standard for details of mandatory requirements and 
+safeguards of working safely in a confined space. 
+4.4 ELECTRIC WORK:  
+4.4.1 Electrical Work permit requirement. 
+This electrical work Permit is required to be taken for any maintenance, installation & repair 
+related work to be carried out on electrical equipment and power operated equipment in the 
+electrical safety district/sub district/panel room at GFL, Dahej Site. 
+• Electrical work Permit is taken by all persons working on live or electrical equipment at the 
+following locations inside the GFL Dahej Complex: 
+• Electrical Switch gears, Electrical switch yards, Electrical substation. 
+• Cable cellars, cable racks & cable trenches inside Substation or switchyard area. 
+• Transformers and Circuit breakers, UPS System, Battery /Battery charger systems inside 
+Substation or switchyard area. 
+• Motors/ Motor Terminal Boxes, Power operated equipment inside Substation or 
+switchyard area. 
+• Actuators of motorized valves, Junction Boxes, MCC Panels , Control Stations, HVAC 
+systems, Cathodic protection systems, Electrical Heat Tracing, Electrical Earthing inside 
+Substation or switchyard area. 
+ 
+4.4.2 Work permit requirement for Electrical activities. 
+ 
+    The following examples are considered Electrical Work that required permit (for the 
+purpose of this Standard):  
+• The task of adding a de -energized insulated jumper to an energized terminal (120VAC or 
+less) while wearing proper PPE.  
+• Similar task of removing an insulated jumpers from an energized terminal (120VAC or less), 
+if the removed jumper is de-energized as it is unplugged.  
+• Use of approved fuse pullers and test equipment such as voltmeters, clip-on ammeters, hot 
+sticks, and non-contacting voltage sensing devices for higher voltages will be considered as 
+Hazardous work. 
+• Normal operation of electrical welding machines.  
+

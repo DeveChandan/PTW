@@ -1,0 +1,50 @@
+28 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 28 of 79 
+11. Tetrafluoroethylene (TFE) 
+12. Ammonia 
+13. Nitric Acid 
+14. Methyl Chloride 
+15. Methylene Dichloride (MDC) 
+16. Carbon Tetrachloride (CTC) 
+17. Florine gas 
+For all other line breaking activities, only approver 1 signature is required and PTW will 
+be issue as per below Table. The permit issuer to decide the job execution team. 
+           Ownership of line passing through multiple district: 
+Condition Line Layout Description Line Owner 
+1 Single supplier to single receiver. Supplier Plant/Utility plant 
+2 Single supplier to multiple receivers. Supplier plant/Utility plant 
+3 Multiple suppliers to single receiver.  Receiver/Utility plant 
+Note: In reference of above additional approval sign must be taken from district owner.  
+ Responsibilities of Line Owner 
+➢ Lockout or Isolation: Ensure isolation from supplier and receiver sides, tagging 
+and locking. 
+➢ Hazard Identification: Assess toxicity, flammability, pressure, temperature, and 
+secondary energy sources. 
+➢ Draining and Decontamination: Drain low points, vent high points, flush and 
+purge lines. 
+➢ Tagging and Isolation: Tag valves and blinds; keep valves open to avoid trapping 
+material. 
+➢ Permit Coordination: Issue permit from safety district owner. 
+➢ Job Turnover: Review job scope before and after work. 
+ 
+System Preparation (Clearing & Verification) 
+• Drain low points and vent high points 
+• Flush or purge lines until hazards are reduced 
+• Verify cleanliness and absence of trapped pressure 
+• Stop work if hazards persist 
+Job Planning Details 
+• Hazard list and isolation points 
+• Flushing and clearing steps 
+

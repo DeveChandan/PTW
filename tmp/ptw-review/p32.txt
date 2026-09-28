@@ -1,0 +1,52 @@
+32 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 32 of 79 
+• Many hydraulic & pneumatic operated equipment working require a full hazard analysis 
+during maintenance & repair as store hydraulic/pneumatic en ergy of the equipment 
+having high potential hazard for accident if release suddenly, so release the hydraulic 
+pressure or pneumatic pressure of related in an operating system prior to removing or 
+adjusting components.  
+• The hot fluid in the system is under extreme pressure. If a worker is exposed to hydraulic 
+fluid while removing or adjusting components, he or she may sustain burns, bruises, 
+cuts, abrasions, or injection of fluid into the skin.  
+• Do not rely solely on the hydraulic lift if you must work on hydraulic components with 
+the system raised. Set the working unit on blocks as a precautionary measure. 
+  
+5. ROAD CLOSER: 
+• The Respective plant HOD has to plan the road closure and inform to the HSEF, 
+Security, SSM and Logistics teams via email at least 24 hours in advance. 
+• The Respective plant HOD & engineer Incharge decide on the road/street to be 
+blocked and alternate route to be use.   
+• The Respective plant HOD has to marked (Road Blocked & alternate route) on the 
+plant layout and share to the HSEF, Security, SSM and Logistics teams via email at 
+least 24 hours in advance. 
+• The Respective plant HOD must obtain road block approval via email from the HSEF 
+and Security teams for the period between 09:00 AM and 05:30 PM. For the period 
+between 05:30 PM and 09:00 AM, approval must be obtained from the Deputy Unit 
+Head or Unit Head. 
+• The Security and Logistics teams have to manage traffic and transportation 
+according to the road block and alternate route decided. 
+• SSM must mention the road closure in the daily report for management's 
+information every day until the road is clear. 
+ 
+6. FOR FIRE WATER NETWORK ISOLATION 
+ Approval from the HSE department is required, with the knowledge of the Unit Head and 
+Deputy Unit Head. 
+7. Changes in Conditions & Emergency Action: 
+ 
+• In the event of any of the following circumstances occurring during the course of an 
+activity under permit, the Permit Holder must refer back to the Permit Issuer (through 
+Permit Acceptor) on the appropriate course of action: 
+• The specified equipment or tools to be used not being available. 
+

@@ -1,0 +1,53 @@
+41 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 41 of 79 
+potential release of flammable gas or vapor in the vicinity of hot work, it may be 
+necessary to monitor the atmosphere using continuous gas monitors which will alarm on 
+detection. 
+10. The equipment on which hot work is to be carried out must be certified as being gas free 
+by the authorized gas tester. The equipment cannot be certified as gas free until all 
+sludge, grease, scale, deposits, etc. have been removed, as subsequent work could 
+disturb or heat the remaining materials and give rise to a hazardous condition. 
+11. Gas free condition must also be maintained within 15m from the work site throughout 
+the hot work period. 
+12. If the hot work could result in the projection of material, the work site must be 
+adequately contained. In the case of welding, cutting or grinding, where molten metal 
+and sparks are produced, the work site must be adequately surrounded by fire resistant 
+or flame retarding tarpaulin to contain such sources of ignition. Particular attention must 
+be paid to elevated hot work where sparks and molten metal can fall and cause injury to 
+passers-by or ignition to potential sources of flammable or combustible materials 
+underneath. The immediate area around and underneath the hot work site must be 
+properly barricaded or roped off with warning signs. Proper ventilation shall be used to 
+ensure the hot work workers do not inhale the welding fumes. 
+13. All hot work sites must be equipped with sufficient portable firefighting appliances such 
+as fire extinguishers of the appropriate type, fire hose lines charged with water from the 
+nearby fire hydrants. The end sections of the 2½" hose line shall be 1½" hose connected 
+to the gated "Y" piece with stream/fog shut-off nozzles for easy maneuverability. 
+14. The vicinity of the hot work area where there is a potential of sparks or molten metals 
+falling off the ground shall be wetted with water where practicable. 
+15. The Performing and Approving Authorities must monitor the progress of hot work on a 
+regular basis to ensure the work group abides by the permit conditions and 
+requirements. In the case where hot work, especially heavy hot work, is carried out 
+reasonably close to an operating plant of 'live' system containing hazardous materials, a 
+'fire watch/standby person' from the Performing Authority must be stationed at the 
+work site to closely monitor and supervise the work where practicable. 
+16. The sitting of mobile equipment such as welding sets and generators must be outside 
+the classified hazardous area and away from the pipe-bridge carrying flammable 
+materials. 
+17. All electrical appliances, connectors and power sockets or extension cords to be used in 
+the classified hazardous areas must be of industrial and flame-proof type. 
+18. Cigarette or tobacco smoking including the use of lighters or matches at the hot work 
+site is STRICTLY PROHIBITED even if the work site is covered with a hot work permit. 
+ 
+

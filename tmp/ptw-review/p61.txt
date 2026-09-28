@@ -1,0 +1,45 @@
+61 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 61 of 79 
+                                                                  PTW format for Electrical Wok  
+Annexure 
+(Permit Format & Safety Precautions) 
+   PERMIT VALIDITY: The validity of permit must be extended if work is allowed to be continued after it has expired. 
+Section A: TYPE OF PERMIT - ELECTRICAL 
+Section B: Job Details                                                                       Work Permit No: 
+Plant:   ____________       Area/Location: ________________    SAP Notification: ______________ 
+Job Description:  ______________________________________________________________ 
+ Equipment Name/ tag No: __________________ Job Execution Agency: ____________________    
+Executing Department: ______________   Number of Persons at Work:  __________________ 
+Section C: Nature of Work 
+`       Work at Height                   Work near Live supply          Hacksaw cutting         Testing / Inspection  
+       Painting / letter writing           Soldering          Grinding / Drilling           Welding          Cable jointing                 
+   Work on Energized System        Work on De-energized system         Cable laying         Control Wiring                       
+Work on LT Feeder         WORK ON HT Feeder           Motor Repair Work           Other________ 
+Section D: Tools and Equipment To Be Used 
+       Welding Machine          Man Lift                Busbar Bending Tools        Blower            IR tester 
+       Crane/ Farana/HEMM                Lifting Tools & tackles                Scaffold             Ladders  
+         Grinding/Drilling Set               Hydraulic Tools         Mechanical Hand Tools           Electrical Insulated 
+Tools                Others ________ 
+Section E: Hazard/Risk Considerations 
+         Fire / Flash         Fall from Height        Electrical Shock           Hot Surface                Stored Energy 
+       Crush/Cut Injury        Noise Exposure        Dust Exposure       Arc flash                     Slip/Trip                                                     
+          Strike by           Awkward Position               Static Charge                      Others _______________ 
+Section F: Job/Equipment Preparation 
+         Isolation / Switched OFF                Approach Boundary Marked                                                                                    
+         Absence of Voltage checked & terminals Discharged          Escape route clear                                                                                                           
+         Power / Control Fuse removed                                        Power Cable Disconnected 
+         Rigging Plan                                                                         Adequate Ventilation provided 
+         Certified Ladder (Sr. No: _________)                              Area Barricaded / Caution Board  
+

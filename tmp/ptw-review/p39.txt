@@ -1,0 +1,68 @@
+39 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 39 of 79 
+10. REFERENC: 
+1. Standard for Permit to work                          GFL/COR/EHSS 2002.00 Rev 01 
+2. Job Safety Analysis (JSA)                                 GFL/COR/EHSS 2004.00 Rev 01 
+3. Work Permit format                                        Doc. No. HSE/SAF/02, 01/07/2021, (Rev.08)  
+4. Safety District Demarcation Layout              GFL-PP-DWG-SD-04-15-D0127 Rev. 02.08.2024 
+5. Standard Confine Space                                 GFL/COR/EHSS 2005.00 
+6. Standard Work at height and scaffolding   GFL/COR/EHSS 2001.00 
+7. Standard Hot Work                                         GFL/COR/EHSS 2011.00 
+8. SOP of Line breaking                                       GFL/COR/EHSS 3004.00 
+9. SOP of Rigging operation / crane safety      SAF/P/26     Rev. 00 
+10. Standard Excavation work                             GFL/COR/EHSS 2007.00 
+11. SOP of Chemical Handling                              SAF/P/29     Rev. 01 
+12. Electrical Safety Standard                              GFL/COR/EHSS 2003.00 
+13. LOTO safety standard                                     GFL/COR/EHSS 2008.00 
+14. Indian Standards                                         IS 17893: 2023 JUN- BUREAU OF INDIAN STANDARDS                                              
+11 REVISION HISTORY: 
+Rev. No Effective Date Details of Changes Reasons for Changes 
+0 01-11-2023 Procure updated as per 
+PTW standard First Issue 
+New Standard 
+GFL/COR/EHSS/2002.00 
+1 31.12.2024 Procure updated as per 
+PTW standard with detail 
+Procedure written in detail 
+2 01.02.2025 Procure updated as per 
+PTW standard and Site 
+detail 
+Procedure update with clause 
+and sub clauses  
+3 01.04.2026 1) Gas testing frequency 
+change from 4 Hrs to 2 
+Hrs. 
+2) Minor changes done in 
+Entry into a Confined 
+Space, Electrical activities 
+and Line Breaking 
+3) Electrical standard 
+PTW included 
+4) 2 no’s of format 
+1) New Corporate safety 
+Standard electrical, Confined 
+space & line breaking 
+procedure updated.  
+2) Permit to Work corporate 
+Safety revision Rev 01.  
+3) Corporate Electrical 
+standard 
+4)  Training records & Confined 
+space entrance records added 
+ 
+ 
+ 
+ 
+

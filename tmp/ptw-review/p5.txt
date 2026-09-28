@@ -1,0 +1,44 @@
+5 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 5 of 79 
+DEFINITIONS 
+These definitions are provided to describe the intend for this procedure. Meaning /definitions of these 
+terms might be different for other purposes. 
+GFL Complex: 
+Means all the operating areas of various Plants and units of Fillings, Power, Utilities, Loading and 
+unloading areas, Off-site pipelines, pipe racks and crossings, corridor, tank farms and other associated 
+service areas and buildings such as Laboratory, Administrative Building, Stores etc. at Dahej. 
+Safety District: 
+It is predefined demarked and approved area. This has been approved by the unit head as per 
+document number GFL-PP-DWG-SD-04-15-D0127.  
+In the some of the safety districts small area/equipment are being operated/maintain by other HOD. In 
+this case the particular area will be under ownership of the operating HOD of the equipment. 
+Routine activities:  
+The Activities which are regular operations and are controlled through established procedures do not 
+require permit. These activities should to be well defined by each department with proper SOP / SMP/ 
+checklist (Document number must in IMS document). 
+Non-functional Area: 
+Means Engineering Stores, canteen building, HR Building, Material gate, OHC, security gate, weight 
+bridge station, Offices, GFRC and laboratories. 
+Non-Routine non-functional activities: 
+The activities other than routine which may or may not have well established procedures. e.g.  Change 
+management (MOC). 
+Permit/PTW/Permit-to-Work: 
+Means a written certificate in prescribed format allowing certain work to be carried out in a fixed place 
+and during a given period of time, or a certificate allowing entrance and stay in certain facilities. 
+Cold work: 
+All jobs that do not fall under purview of a hot work permit require a cold work permit. 
+ 
+ 
+

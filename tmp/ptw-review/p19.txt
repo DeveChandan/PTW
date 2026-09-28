@@ -1,0 +1,48 @@
+19 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 19 of 79 
+• On Sunday, only essential job will be done with prior permission. Issuing and 
+approval authorities will be as per safety districts. 
+3.9.2 Specific Locations and Responsibility: 
+For hot work activity at contractor’s shed near CPP- South, CaCl2- East, central work shop: 
+3.9.2.1 Permit issuer: Mechanical Engineer from Central Engineering. 
+3.9.2.2 Permit Approver: HOD of Central Engineering. 
+3.9.2.3  Permit Receiver: Contractor Supervisor/other Mechanical Engineer. (Note: He/ She 
+must not be issuer)  
+3.10 PTW rule for operating equipment in other area. 
+At Dahej site, there are some Safety Districts in which a part of the area is being operated /used 
+by other departments/district owners. In such cases, following clarification is to be used. 
+3.10.1 Issue of Permit to be done by user. 
+3.10.2 Maintenance and preventive maintenance to be done by user maintenance team.  
+For Example: -1) PFA MMT location in PTFE: Issuer PFA team & Receiver PFA Maintenance 
+team.  
+1) TFE 1 Electrical Transformer: Issuer Electrical Engineer & receiver Maintenance electrical 
+team. 
+2) AHU location in PTPTFE plant: Issuer Utility Engineer & Maintenance Utility Mechanical 
+Team. 
+ 
+Note: All such permit must be counter sign by safety district owner/area issuer.  
+ 
+3.11 Road Closer & PTW: The Respective plant HOD has to take approval for road closer and alternate 
+route from HSEF, Security, and Logistics teams via email at least 24 hours in advance. 
+ 
+3.12   Permit-To-Work in Electrical Substation/ Electric Sub -district/Electrical Transformer, Panels 
+room. 
+• PTW is issue by department electrical engineer & accepted by the electrical engineer (executor). 
+• PTW is to be counter signed by process shift engineer of respective Safety District /affecting the 
+plant. 
+Note:  1) Electrical department has to prepare permit matrix as per format given in annexure.  
+  2) For further clarification, please refer Electrical Safety Standard and Site Procedure. 
+ 
+

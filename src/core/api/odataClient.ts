@@ -39,6 +39,13 @@ class SapODataClient {
     }
   }
 
+  public setClient(client: string): void {
+    if (!/^\d{3}$/.test(client)) throw new Error('SAP client must contain three digits.');
+    this.instance.defaults.headers.common['sap-client'] = client;
+    this.instance.defaults.params = { 'sap-client': client };
+    this.csrfToken = null;
+  }
+
   /**
    * Clears stored credentials and cached CSRF tokens on SAP logoff
    */
@@ -79,6 +86,8 @@ class SapODataClient {
           }
           if (this.csrfToken) {
             config.headers.set('X-CSRF-Token', this.csrfToken);
+          } else {
+            throw Object.assign(new Error('SAP did not return a CSRF token. Sign in again before saving.'), { beforeSend: true });
           }
         }
         return config;
@@ -89,6 +98,10 @@ class SapODataClient {
     // Response Interceptor: Capture token and handle 403 CSRF expiration
     this.instance.interceptors.response.use(
       (response: AxiosResponse) => {
+        if (response.headers['sap-authenticated'] === 'pending' || String(response.headers['content-type'] || '').includes('text/html')) {
+          this.onSessionExpiredHandler?.();
+          throw Object.assign(new Error('SAP requires sign-in. Please log on again.'), { response });
+        }
         const token = response.headers['x-csrf-token'];
         if (token && token.toLowerCase() !== 'required') {
           this.csrfToken = token;
@@ -108,7 +121,7 @@ class SapODataClient {
         const isCsrfRequired = error.response?.status === 403 && 
           error.response?.headers?.['x-csrf-token']?.toLowerCase() === 'required';
 
-        if (isCsrfRequired && !originalRequest._retry) {
+        if (isCsrfRequired && originalRequest && !originalRequest._retry && originalRequest.headers?.get('X-CSRF-Token') !== 'Fetch') {
           originalRequest._retry = true;
           this.csrfToken = null; // Invalidate cached token
           const freshToken = await this.fetchCsrfToken();
@@ -152,7 +165,7 @@ class SapODataClient {
           this.csrfToken = token;
           return token;
         } catch {
-          console.warn('[SapODataClient] Could not fetch CSRF token (running offline/mock mode?)');
+          console.warn('[SapODataClient] SAP CSRF token request failed.');
           return null;
         }
       } finally {
@@ -174,11 +187,11 @@ class SapODataClient {
 
       if (details && details.length > 0) {
         const detailMessages = details.map(d => d.message).join(' | ');
-        return new Error(`SAP Error: ${message || ''} (${detailMessages})`);
+        return Object.assign(error, { message: `SAP Error: ${message || ''} (${detailMessages})` });
       }
 
       if (message) {
-        return new Error(`SAP Error: ${message}`);
+        return Object.assign(error, { message: `SAP Error: ${message}` });
       }
     }
     return error;

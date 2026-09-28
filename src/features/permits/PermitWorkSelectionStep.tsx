@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ORDER_TYPES, WORK_CATEGORIES, WorkCategory, WorkReference, WorkSelection, WorkSource,
-  permitWorkLookupApi, referenceId, validateWorkSearch,
+  WORK_CATEGORIES, WorkCategory, WorkReference, WorkSelection, WorkSource,
+  availableSources, availableOrderTypes, permitWorkLookupApi, referenceId, referenceKey, validateWorkSearch,
 } from '../../core/api/modules/permitWorkLookup.api';
 
 const SOURCES: { id: WorkSource; title: string; share: string; description: string; icon: string }[] = [
-  { id: 'notification', title: 'Notification', share: '85%', description: 'M2 notification · QMART · linked PM02 order', icon: 'notification_important' },
+  { id: 'notification', title: 'Notification', share: '85%', description: 'M2 · Corrective notifications', icon: 'notification_important' },
   { id: 'order', title: 'Maintenance order', share: '13%', description: 'PM01 / PM03 / PM05 / PM06 / PM07 / PM08', icon: 'build' },
-  { id: 'shutdown', title: 'Shutdown', share: '2%', description: 'Planned shutdown work and turnaround activities', icon: 'event_busy' },
+  { id: 'shutdown', title: 'Shutdown', share: '2%', description: 'PM03 · Shutdown maintenance orders', icon: 'event_busy' },
 ];
 
 interface Props {
@@ -52,7 +52,7 @@ export const PermitWorkSelectionStep: React.FC<Props> = ({ selection, client, on
     event.preventDefault();
     invalidate();
     if (!category || !source) { setError('Choose a work category and a reference source.'); return; }
-    const criteria = { source, fromDate, toDate, orderType };
+    const criteria = { category, source, fromDate, toDate, orderType };
     const validation = validateWorkSearch(criteria);
     if (validation) { setError(validation); return; }
     const controller = new AbortController();
@@ -82,24 +82,31 @@ export const PermitWorkSelectionStep: React.FC<Props> = ({ selection, client, on
         <legend className="mb-2 text-sm font-semibold text-slate-700">Work category *</legend>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
           {WORK_CATEGORIES.map(item => (
-            <label key={item} className={`cursor-pointer rounded-xl border p-3 text-sm ${category === item ? 'border-[#006398] bg-sky-50 text-[#006398]' : 'border-slate-200'}`}>
+            <label key={item} className={`rounded-xl border p-3 text-sm ${item === 'Predictive' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${category === item ? 'border-[#006398] bg-sky-50 text-[#006398]' : 'border-slate-200'}`}>
               <input type="radio" name="work-category" value={item} checked={category === item}
-                onChange={() => { invalidate(); setCategory(item); }} className="mr-2 accent-[#006398]" />{item}
+                disabled={item === 'Predictive'} aria-describedby={item === 'Predictive' ? 'predictive-help' : undefined}
+                onChange={() => {
+                  invalidate(); setCategory(item); setOrderType('');
+                  const sources = availableSources(item);
+                  setSource(sources.length === 1 ? sources[0] : null);
+                }} className="mr-2 accent-[#006398]" />{item}
             </label>
           ))}
         </div>
       </fieldset>
+      <p id="predictive-help" className="text-xs text-slate-500">Predictive is unavailable because the current SAP service has no Predictive mapping.</p>
       <fieldset disabled={!category} className={!category ? 'opacity-50' : ''}>
         <legend className="mb-2 text-sm font-semibold text-slate-700">Reference source *</legend>
         <div className="grid gap-3 md:grid-cols-3">
           {SOURCES.map(item => (
-            <label key={item.id} className={`cursor-pointer rounded-xl border p-4 ${source === item.id ? 'border-[#006398] bg-sky-50 ring-1 ring-[#006398]' : 'border-slate-200'}`}>
+            <label key={item.id} className={`rounded-xl border p-4 ${!category || !availableSources(category).includes(item.id) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${source === item.id ? 'border-[#006398] bg-sky-50 ring-1 ring-[#006398]' : 'border-slate-200'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="material-symbols-outlined text-[#006398]" aria-hidden="true">{item.icon}</span>
                 <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{item.share} of work</span>
               </div>
               <div className="mt-3 font-semibold text-slate-900">
                 <input type="radio" name="work-source" value={item.id} checked={source === item.id}
+                  disabled={!category || !availableSources(category).includes(item.id)}
                   onChange={() => { invalidate(); setSource(item.id); setOrderType(''); }} className="mr-2 accent-[#006398]" />{item.title}
               </div>
               <p className="mt-2 text-xs leading-relaxed text-slate-500">{item.description}</p>
@@ -120,8 +127,8 @@ export const PermitWorkSelectionStep: React.FC<Props> = ({ selection, client, on
             </label>
             {source === 'order' && <label className="text-sm font-medium text-slate-700">Order type (AUART)
               <select value={orderType} onChange={event => { invalidate(); setOrderType(event.target.value); }} className={controlClass}>
-                <option value="">All listed order types</option>
-                {ORDER_TYPES.map(type => <option key={type}>{type}</option>)}
+                <option value="">All matching order types</option>
+                {availableOrderTypes(category).map(type => <option key={type}>{type}</option>)}
               </select>
             </label>}
             <button type="submit" disabled={loading} className="rounded-lg bg-[#006398] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
@@ -137,12 +144,13 @@ export const PermitWorkSelectionStep: React.FC<Props> = ({ selection, client, on
         {rows.length > 0 && source && (
           <fieldset className="space-y-2">
             <legend className="mb-2 text-sm font-semibold text-slate-700">Select a work reference ({rows.length})</legend>
-            {rows.map((row, index) => (
-              <label key={`${referenceId(source, row)}-${index}`} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${chosen === row ? 'border-[#006398] bg-sky-50' : 'border-slate-200'}`}>
+            {rows.map(row => (
+              <label key={referenceKey(row)} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 ${chosen === row ? 'border-[#006398] bg-sky-50' : 'border-slate-200'}`}>
                 <input type="radio" name="work-reference" checked={chosen === row} onChange={() => { setChosen(row); onInvalidate(); }} className="mt-1 accent-[#006398]" />
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-900">{referenceId(source, row)} · {row.JobDesc || row.Description || 'Work reference'}</span>
-                  <span className="mt-1 block text-xs text-slate-500">Plant: {row.Werks || '—'} · Equipment: {row.Equnr || '—'} · Area: {row.AreaLoc || '—'}</span>
+                  <span className="block text-sm font-semibold text-slate-900">{referenceId(source, row)} · {row.JobDescription || 'Work reference'}</span>
+                  <span className="mt-1 block text-xs text-slate-500">{row.ReferenceSource} · {row.OrderNotifType} · {row.WorkCategory} · {row.WorkDate || 'No work date'}</span>
+                  <span className="mt-1 block text-xs text-slate-500">Plant: {row.Plant || '—'} · Equipment: {row.EquipmentTag || '—'} · Location: {row.FunctionalLocation || '—'}</span>
                 </span>
               </label>
             ))}

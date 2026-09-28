@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { SapUser } from '../../core/auth/sapAuthContext';
 import {
   PermitDeepInsertPayload,
@@ -7,320 +7,104 @@ import {
   PPERecord,
   SafetyRecord,
   HazardControlRecord,
-  GasTestRecord,
   IsolationRecord
 } from '../../core/types/ptw.types';
 import {
-  permitCreateApi,
-  getSampleDeepInsertPayload
+  permitCreateApi, PermitCreateUnconfirmedError
 } from '../../core/api/modules/permitCreate.api';
 
+import { preparePermitCreate } from '../../core/api/modules/permitCreate.validation';
+import { SiteProcedureStep, ProcedureGuidance } from './SiteProcedureStep';
+import { emptySitePlan, PERMIT_CATEGORIES, sitePlanRows } from '../../core/ptw/siteProcedure';
 import { PermitWorkSelectionStep } from './PermitWorkSelectionStep';
-import { WorkSelection, referenceId } from '../../core/api/modules/permitWorkLookup.api';
+import { WorkSelection, referenceId, toPermitReferenceFields } from '../../core/api/modules/permitWorkLookup.api';
 
 interface PermitCreateModuleProps {
   user: SapUser | null;
   onBack?: () => void;
 }
 
-type TabKey = 'work' | 'general' | 'workers' | 'ppe' | 'hazards' | 'gas-isolation' | 'payload';
+type TabKey = 'work' | 'general' | 'procedure' | 'workers' | 'ppe' | 'hazards' | 'gas-isolation' | 'payload';
 
 export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, onBack }) => {
-  // 1. Initial State loaded with default dummy permit setup
+  // A new request starts without asserted work, crew or safety evidence.
   const [activeTab, setActiveTab] = useState<TabKey>('work');
   const [workSelection, setWorkSelection] = useState<WorkSelection | null>(null);
 
   // Permit Header Fields
-  const [permitNo, setPermitNo] = useState<string>('0000101');
-  const [permitType, setPermitType] = useState<string>('HOT');
-  const [formRev, setFormRev] = useState<string>('1');
+  const permitNo = ''; // Assigned by SAP on creation.
+  const submissionLock = useRef(false);
+  const previousWorkKey = useRef('');
+  const [permitType, setPermitType] = useState<string>('');
+  const [sitePlan, setSitePlan] = useState(emptySitePlan);
 
   // SAP PM Order Linkage
-  const [aufnr, setAufnr] = useState<string>('400100001');
-  const [qmnum, setQmnum] = useState<string>('100100000001');
-  const [auart, setAuart] = useState<string>('PM01');
-  const [personResp, setPersonResp] = useState<string>(user?.id || 'ARYA5677');
-  const [plannerGroup, setPlannerGroup] = useState<string>('001');
-  const [pmBasicStartD, setPmBasicStartD] = useState<string>('2026-09-21');
-  const [pmBasicFinishD, setPmBasicFinishD] = useState<string>('2026-09-22');
-  const [pmFinalDueD, setPmFinalDueD] = useState<string>('2026-09-22');
-  const [revision, setRevision] = useState<string>('REV101');
-  const [priority, setPriority] = useState<string>('01');
-  const [assembly, setAssembly] = useState<string>('PUMP-101');
+  const [aufnr, setAufnr] = useState<string>('');
+  const [qmnum, setQmnum] = useState<string>('');
+  const [auart, setAuart] = useState<string>('');
+  const [personResp, setPersonResp] = useState<string>(user?.id || '');
+  const [plannerGroup, setPlannerGroup] = useState<string>('');
+  const [pmBasicStartD, setPmBasicStartD] = useState<string>('');
+  const [pmBasicFinishD, setPmBasicFinishD] = useState<string>('');
+  const [pmFinalDueD, setPmFinalDueD] = useState<string>('');
+  const [revision, setRevision] = useState<string>('');
+  const [priority, setPriority] = useState<string>('');
+  const [assembly, setAssembly] = useState<string>('');
 
   // Plant & Location
-  const [equnr, setEqunr] = useState<string>('10000101');
-  const [tplnr, setTplnr] = useState<string>('PLANT-AREA-101');
-  const [werks, setWerks] = useState<string>('1000');
-  const [arbpl, setArbpl] = useState<string>('MECH101');
-  const [areaLoc, setAreaLoc] = useState<string>('PROCESS AREA D');
-  const [jobDesc, setJobDesc] = useState<string>('HOT WORK ON PROCESS EQUIPMENT - AUDIT DEEP INSERT TEST');
+  const [equnr, setEqunr] = useState<string>('');
+  const [tplnr, setTplnr] = useState<string>('');
+  const [werks, setWerks] = useState<string>('');
+  const [arbpl, setArbpl] = useState<string>('');
+  const [areaLoc, setAreaLoc] = useState<string>('');
+  const [jobDesc, setJobDesc] = useState<string>('');
 
   // Execution & Supervision
   const [execAgency, setExecAgency] = useState<string>('CONT');
-  const [execDept, setExecDept] = useState<string>('MECHANICAL');
-  const [supvName, setSupvName] = useState<string>('TEST SUPERVISOR 101');
-  const [supvPhone, setSupvPhone] = useState<string>('9876510100');
-  const [safetyOfficer, setSafetyOfficer] = useState<string>('SAFETY OFFICER 101');
+  const [execDept, setExecDept] = useState<string>('');
+  const [supvName, setSupvName] = useState<string>('');
+  const [supvPhone, setSupvPhone] = useState<string>('');
+  const [safetyOfficer, setSafetyOfficer] = useState<string>('');
   const [shift, setShift] = useState<string>('GENERAL');
-  const [personsQty, setPersonsQty] = useState<number>(5);
+  const [personsQty, setPersonsQty] = useState<number>(0);
 
   // Validity Period
-  const [validFromD, setValidFromD] = useState<string>('2026-09-21');
-  const [validFromT, setValidFromT] = useState<string>('08:00:00');
-  const [validToD, setValidToD] = useState<string>('2026-09-21');
-  const [validToT, setValidToT] = useState<string>('18:00:00');
+  const [validFromD, setValidFromD] = useState<string>('');
+  const [validFromT, setValidFromT] = useState<string>('');
+  const [validToD, setValidToD] = useState<string>('');
+  const [validToT, setValidToT] = useState<string>('');
   const [gasTestFreqHr, setGasTestFreqHr] = useState<string>('2');
-  const [creatorComment, setCreatorComment] = useState<string>('COMPLETE PTW DEEP INSERT TEST - 0000101');
+  const [creatorComment, setCreatorComment] = useState<string>('');
 
   // LOTO & Isolation Requirements
   const [lotoRequired, setLotoRequired] = useState<'Y' | 'N'>('Y');
-  const [lotoCertNo, setLotoCertNo] = useState<string>('LOTO-000101');
+  const [lotoCertNo, setLotoCertNo] = useState<string>('');
   const [isolationRequired, setIsolationRequired] = useState<'Y' | 'N'>('Y');
   const [isolationRefType, setIsolationRefType] = useState<string>('EQUIP');
-  const [isolationNo, setIsolationNo] = useState<string>('ISO-000101');
+  const [isolationNo, setIsolationNo] = useState<string>('');
 
   // Child Collections State
-  const [workers, setWorkers] = useState<WorkerRecord[]>([
-    {
-      PermitNo: '0000101',
-      ItemNo: '1',
-      WorkerTypeCode: 'EMP',
-      WorkerName: 'EMPLOYEE 101',
-      PhoneNo: '9876510101',
-      ContractorId: '',
-      ContractorName: '',
-      EmpId: 'EMP101',
-      Shift: 'GENERAL'
-    },
-    {
-      PermitNo: '0000101',
-      ItemNo: '2',
-      WorkerTypeCode: 'CONT',
-      WorkerName: 'CONTRACTOR WORKER 101',
-      PhoneNo: '9876510102',
-      ContractorId: 'CONT101',
-      ContractorName: 'ABC CONTRACTOR',
-      EmpId: '',
-      Shift: 'GENERAL'
-    }
-  ]);
-
-  const [ppeItems, setPpeItems] = useState<PPERecord[]>([
-    {
-      PermitNo: '0000101',
-      ItemNo: '1',
-      PpeCode: 'HELMET99',
-      PpeDesc: 'SAFETY HELMET',
-      IsRequired: 'Y',
-      IsAvailable: 'Y',
-      IsIssued: 'Y',
-      CheckedBy: '',
-      CheckedAt: null,
-      Remarks: 'AVAILABLE'
-    },
-    {
-      PermitNo: '0000101',
-      ItemNo: '2',
-      PpeCode: 'GLOVE99',
-      PpeDesc: 'SAFETY GLOVES',
-      IsRequired: 'Y',
-      IsAvailable: 'Y',
-      IsIssued: 'Y',
-      CheckedBy: '',
-      CheckedAt: null,
-      Remarks: 'AVAILABLE'
-    },
-    {
-      PermitNo: '0000101',
-      ItemNo: '3',
-      PpeCode: 'BOOTS99',
-      PpeDesc: 'STEEL TOE SAFETY SHOES',
-      IsRequired: 'Y',
-      IsAvailable: 'Y',
-      IsIssued: 'Y',
-      CheckedBy: '',
-      CheckedAt: null,
-      Remarks: 'CONFIRMED ON SITE'
-    },
-    {
-      PermitNo: '0000101',
-      ItemNo: '4',
-      PpeCode: 'GOGGLE99',
-      PpeDesc: 'SAFETY EYE PROTECTION GOGGLES',
-      IsRequired: 'Y',
-      IsAvailable: 'Y',
-      IsIssued: 'Y',
-      CheckedBy: '',
-      CheckedAt: null,
-      Remarks: 'WELDING / GRINDING SHIELD'
-    }
-  ]);
-
-  const [safetyChecklist, setSafetyChecklist] = useState<SafetyRecord[]>([
-    {
-      PermitNo: '0000101',
-      ItemNo: '1',
-      Category: 'PPE',
-      ItemCode: '001',
-      Response: 'YES',
-      ValueText: 'REQUIRED PPE AVAILABLE',
-      ValueNum: 0,
-      Unit: '',
-      ReferenceNo: '',
-      ResponsibleUser: user?.id || 'ARYA5677',
-      VerifiedBy: '',
-      VerifiedAt: null,
-      Remarks: 'SAFETY REQUIREMENT CHECKED'
-    },
-    {
-      PermitNo: '0000101',
-      ItemNo: '2',
-      Category: 'FIRE',
-      ItemCode: '002',
-      Response: 'YES',
-      ValueText: 'FIRE EXTINGUISHER AVAILABLE',
-      ValueNum: 0,
-      Unit: '',
-      ReferenceNo: '',
-      ResponsibleUser: user?.id || 'ARYA5677',
-      VerifiedBy: '',
-      VerifiedAt: null,
-      Remarks: 'FIRE PROTECTION CHECKED'
-    },
-    {
-      PermitNo: '0000101',
-      ItemNo: '3',
-      Category: 'ENVR',
-      ItemCode: '003',
-      Response: 'YES',
-      ValueText: 'DRAINAGE SEALED AND COVERED WITH FIRE BLANKET',
-      ValueNum: 0,
-      Unit: '',
-      ReferenceNo: '',
-      ResponsibleUser: user?.id || 'ARYA5677',
-      VerifiedBy: '',
-      VerifiedAt: null,
-      Remarks: 'AREA CLEARED OF COMBUSTIBLE MATERIALS'
-    }
-  ]);
-
-  const [hazards, setHazards] = useState<HazardControlRecord[]>([
-    {
-      PermitNo: '0000101',
-      ItemNo: '1',
-      HazardCode: 'FIRE',
-      HazardDesc: 'FIRE AND IGNITION HAZARD',
-      RiskLevel: 'HIGH',
-      ControlCode: 'FIRE01',
-      ControlDesc: 'FIRE EXTINGUISHER AND FIRE WATCH PROVIDED',
-      ControlStatus: 'OPEN',
-      ResponsibleUser: user?.id || 'ARYA5677',
-      VerifiedBy: '',
-      VerifiedAt: null,
-      Remarks: 'CONTROL REQUIRED BEFORE WORK'
-    },
-    {
-      PermitNo: '0000101',
-      ItemNo: '2',
-      HazardCode: 'GAS',
-      HazardDesc: 'FLAMMABLE GAS EXPOSURE',
-      RiskLevel: 'HIGH',
-      ControlCode: 'GAS01',
-      ControlDesc: 'CONTINUOUS GAS MONITORING REQUIRED',
-      ControlStatus: 'OPEN',
-      ResponsibleUser: user?.id || 'ARYA5677',
-      VerifiedBy: '',
-      VerifiedAt: null,
-      Remarks: 'GAS MONITORING REQUIRED'
-    }
-  ]);
-
+  const [workers, setWorkers] = useState<WorkerRecord[]>([]);
+  const [ppeItems, setPpeItems] = useState<PPERecord[]>([]);
+  const [safetyChecklist, setSafetyChecklist] = useState<SafetyRecord[]>([]);
+  const [hazards, setHazards] = useState<HazardControlRecord[]>([]);
   // Selected Hazard for the 5x5 Risk Matrix
   const [selectedHazardIdx, setSelectedHazardIdx] = useState<number>(0);
   const [selectedMatrixCell, setSelectedMatrixCell] = useState<{ c: number; l: number }>({ c: 4, l: 4 });
 
-  // Atmospheric Gas Readings
-  const [o2Pct, setO2Pct] = useState<number>(20.9);
-  const [lelPct, setLelPct] = useState<number>(0);
-  const [h2sVal, setH2sVal] = useState<number>(0);
-  const [coVal, setCoVal] = useState<number>(0);
-
-  const [gasTests, setGasTests] = useState<GasTestRecord[]>([
-    {
-      PermitNo: '0000101',
-      TestSeq: '1',
-      TestType: 'INIT',
-      TestDate: '2026-09-21',
-      TestTime: '07:45:00',
-      TestLocation: 'PROCESS AREA D',
-      SampleLevel: 'TOP',
-      TestedBy: user?.id || 'ARYA5677',
-      Cert: 'GT-CERT-101',
-      MeterType: 'MSA-ALTAIR',
-      MeterId: 'GAS-101',
-      CalibDate: '2026-08-15',
-      BumpTestOk: 'Y',
-      LelPct: 0,
-      O2Pct: 20.9,
-      CoVal: 0,
-      H2sVal: 0,
-      OtherGas: '',
-      OtherVal: 0,
-      OtherUnit: '',
-      TesterSigned: 'Y',
-      Remarks: 'INITIAL GAS TEST'
-    }
-  ]);
-
-  const [isolations, setIsolations] = useState<IsolationRecord[]>([
-    {
-      PermitNo: '0000101',
-      IsolationNo: 'ISO-000101',
-      ItemNo: '1',
-      IsolType: 'FLOCK',
-      ReferenceType: 'EQUIP',
-      ReferenceId: '10000101',
-      Status: 'CRTD',
-      RequestedBy: user?.id || 'ARYA5677',
-      RequestedDate: '2026-09-21',
-      RequestedTime: '08:00:00',
-      VerifiedBy: '',
-      VerifiedDate: null,
-      VerifiedTime: '00:00:00',
-      IsolatedBy: '',
-      IsolatedDate: null,
-      IsolatedTime: '00:00:00',
-      ApprovedBy: '',
-      ApprovedDate: null,
-      ApprovedTime: '00:00:00',
-      NormalizedBy: '',
-      NormalizedDate: null,
-      NormalizedTime: '00:00:00',
-      IsolationPoint: 'PUMP-101 INLET',
-      IsolMethod: 'LOCK',
-      LockTagNo: 'LT-000101',
-      IsIsolated: 'N',
-      PointIsolatedBy: '',
-      PointIsolatedAt: null,
-      ZeroEnergyConf: 'N',
-      ZeroEnergyBy: '',
-      ZeroEnergyAt: null,
-      IsNormalized: 'N',
-      PointNormalizedBy: '',
-      PointNormalizedAt: null,
-      Remarks: 'ISOLATION POINT CREATED',
-      LastChangedAt: null
-    }
-  ]);
-
+  const [isolations, setIsolations] = useState<IsolationRecord[]>([]);
   // UI state for Submitting & Modals
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [creationUncertain, setCreationUncertain] = useState(false);
   const [submissionResponse, setSubmissionResponse] = useState<PermitDeepInsertResponse | null>(null);
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [notificationBanner, setNotificationBanner] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
   // New Worker Form Modal / Row
+  const [newPpeCode, setNewPpeCode] = useState('');
+  const [newPpeDescription, setNewPpeDescription] = useState('');
+  const [newSafetyCode, setNewSafetyCode] = useState('');
+  const [newSafetyDescription, setNewSafetyDescription] = useState('');
   const [newWorkerName, setNewWorkerName] = useState('');
   const [newWorkerPhone, setNewWorkerPhone] = useState('');
   const [newWorkerType, setNewWorkerType] = useState<'EMP' | 'CONT'>('EMP');
@@ -338,149 +122,70 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [newIsoType, setNewIsoType] = useState('FLOCK');
   const [newIsoLockTag, setNewIsoLockTag] = useState('');
 
-  // 2. Real-Time Atmospheric Safety Calculation
-  const isAtmosphereSafe = useMemo(() => {
-    return o2Pct >= 19.5 && o2Pct <= 23.5 && lelPct < 10 && h2sVal < 10 && coVal < 25;
-  }, [o2Pct, lelPct, h2sVal, coVal]);
-
   // 3. Overall Readiness Completion Percentage
-  const completionPercentage = useMemo(() => {
+  const baseCompletionPercentage = useMemo(() => {
     if (!workSelection) return 0;
     let score = 0;
     if (jobDesc && werks) score += 20;
     if (workers.length > 0) score += 20;
     if (ppeItems.length > 0) score += 20;
     if (hazards.length > 0) score += 20;
-    if (gasTests.length > 0 && isAtmosphereSafe) score += 20;
+    if (validFromD && validToD && supvName) score += 20;
     return score;
-  }, [workSelection, jobDesc, werks, workers, ppeItems, hazards, gasTests, isAtmosphereSafe]);
+  }, [workSelection, jobDesc, werks, workers, ppeItems, hazards, validFromD, validToD, supvName]);
 
   // The first step owns reference selection; clear absent fields to avoid stale order linkage.
   const handleWorkSelected = (selection: WorkSelection) => {
-    const ref = selection.reference;
+    const selectionKey = `${selection.reference.ReferenceSource}:${referenceId(selection.source, selection.reference)}`;
+    if (previousWorkKey.current && previousWorkKey.current !== selectionKey) {
+      // A different job must not inherit site-specific preparation or JSA evidence.
+      setSitePlan(emptySitePlan()); setPermitType('');
+      setWorkers([]); setPersonsQty(0); setHazards([]); setIsolations([]);
+      setPpeItems([]); setSafetyChecklist([]); setLotoCertNo(''); setIsolationNo('');
+      setValidFromD(''); setValidFromT(''); setValidToD(''); setValidToT('');
+    }
+    previousWorkKey.current = selectionKey;
+    const ref = toPermitReferenceFields(selection.reference);
     setWorkSelection(selection);
     setAufnr(ref.Aufnr || '');
     setQmnum(ref.Qmnum || '');
     setAuart(ref.Auart || '');
-    setJobDesc(ref.JobDesc || ref.Description || '');
+    setJobDesc(ref.JobDesc);
     setEqunr(ref.Equnr || '');
     setTplnr(ref.Tplnr || '');
     setWerks(ref.Werks || user?.plant || '');
-    setArbpl(ref.Arbpl || '');
-    setAreaLoc(ref.AreaLoc || '');
-    setAssembly(ref.Assembly || '');
+    setArbpl('');
+    setAreaLoc('');
+    setAssembly('');
     setPriority(ref.Priority || '');
-    setRevision(ref.Revision || '');
-    setPersonResp(ref.PersonResp || user?.id || '');
+    setRevision('');
+    setPersonResp(user?.id || '');
     setPlannerGroup(ref.PlannerGroup || '');
     setPmBasicStartD(ref.PmBasicStartD || '');
-    setPmBasicFinishD(ref.PmBasicFinishD || '');
-    setPmFinalDueD(ref.PmFinalDueD || '');
-    setExecDept(ref.ExecDept || '');
-    setPermitType(ref.DefaultPermitType || 'COLD');
-    setCreatorComment(selection.category + ' work · ' + selection.source + ' ' + referenceId(selection.source, ref));
+    setPmBasicFinishD('');
+    setPmFinalDueD('');
+    setExecDept('');
+    setCreatorComment(selection.category + ' work · ' + selection.source + ' ' + referenceId(selection.source, selection.reference));
     setSubmissionResponse(null);
     setNotificationBanner(null);
     setActiveTab('general');
   };
 
-  // 5. Generate New Dummy Permit Number
-  const handleRegenerateDummyNo = () => {
-    const newNum = permitCreateApi.generateDummyPermitNo();
-    setPermitNo(newNum);
-    setLotoCertNo(`LOTO-${newNum}`);
-    setIsolationNo(`ISO-${newNum}`);
-    setCreatorComment(`COMPLETE PTW DEEP INSERT TEST - ${newNum}`);
-
-    setWorkers((prev) => prev.map((w) => ({ ...w, PermitNo: newNum })));
-    setPpeItems((prev) => prev.map((p) => ({ ...p, PermitNo: newNum })));
-    setSafetyChecklist((prev) => prev.map((s) => ({ ...s, PermitNo: newNum })));
-    setHazards((prev) => prev.map((h) => ({ ...h, PermitNo: newNum })));
-    setGasTests((prev) => prev.map((g) => ({ ...g, PermitNo: newNum })));
-    setIsolations((prev) => prev.map((i) => ({ ...i, PermitNo: newNum, IsolationNo: `ISO-${newNum}` })));
-
-    setNotificationBanner({
-      type: 'info',
-      message: `Generated New Dummy Permit Number: ${newNum}`
-    });
-  };
-
-  // 6. One-Click Load Exact User Sample Payload
-  const handleLoadUserSample = () => {
-    const sample = getSampleDeepInsertPayload('0000101');
-    setWorkSelection(null);
-    setActiveTab('work');
-    setPermitNo(sample.Permit_No);
-    setPermitType(sample.PermitType);
-    setFormRev(sample.FormRev || '1');
-    setAufnr(sample.Aufnr);
-    setQmnum(sample.Qmnum);
-    setAuart(sample.Auart);
-    setPersonResp(sample.PersonResp);
-    setPlannerGroup(sample.PlannerGroup);
-    setPmBasicStartD(sample.PmBasicStartD || '2026-09-21');
-    setPmBasicFinishD(sample.PmBasicFinishD || '2026-09-22');
-    setPmFinalDueD(sample.PmFinalDueD || '2026-09-22');
-    setRevision(sample.Revision);
-    setPriority(sample.Priority);
-    setAssembly(sample.Assembly);
-    setEqunr(sample.Equnr);
-    setTplnr(sample.Tplnr);
-    setWerks(sample.Werks);
-    setArbpl(sample.Arbpl);
-    setAreaLoc(sample.AreaLoc);
-    setJobDesc(sample.JobDesc);
-    setExecAgency(sample.ExecAgency);
-    setExecDept(sample.ExecDept);
-    setSupvName(sample.SupvName);
-    setSupvPhone(sample.SupvPhone);
-    setSafetyOfficer(sample.SafetyOfficer);
-    setShift(sample.Shift);
-    setPersonsQty(sample.PersonsQty);
-    setValidFromD(sample.ValidFromD || '2026-09-21');
-    setValidFromT(sample.ValidFromT);
-    setValidToD(sample.ValidToD || '2026-09-21');
-    setValidToT(sample.ValidToT);
-    setGasTestFreqHr(sample.GasTestFreqHr);
-    setLotoRequired(sample.LotoRequired as any);
-    setLotoCertNo(sample.LotoCertNo);
-    setIsolationRequired(sample.IsolationRequired as any);
-    setIsolationRefType(sample.IsolationRefType);
-    setIsolationNo(sample.IsolationNo);
-    setCreatorComment(sample.CreatorComment);
-
-    if (sample._Worker) setWorkers(sample._Worker);
-    if (sample._PPE) setPpeItems(sample._PPE);
-    if (sample._Safety) setSafetyChecklist(sample._Safety);
-    if (sample._HazardControl) setHazards(sample._HazardControl);
-    if (sample._GasTest) {
-      setGasTests(sample._GasTest);
-      setO2Pct(sample._GasTest[0].O2Pct);
-      setLelPct(sample._GasTest[0].LelPct);
-      setH2sVal(sample._GasTest[0].H2sVal);
-      setCoVal(sample._GasTest[0].CoVal);
-    }
-    if (sample._Isolation) setIsolations(sample._Isolation);
-
-    setNotificationBanner({
-      type: 'success',
-      message: 'Successfully loaded user verified sample test payload: 0000101 with all 10 child collections.'
-    });
-  };
-
   // 7. Add Worker Handler
   const handleAddWorker = () => {
-    if (!newWorkerName) return;
-    const nextItemNo = (workers.length + 1).toString();
+    if (!newWorkerName.trim() || (newWorkerType === 'EMP' && !newWorkerEmpId.trim()) || (newWorkerType === 'CONT' && !newWorkerContractorName.trim())) {
+      setNotificationBanner({ type: 'error', message: 'Enter a worker name and employee ID or contractor company.' }); return;
+    }
+    const nextItemNo = (Math.max(0, ...workers.map(row => Number(row.ItemNo))) + 1).toString();
     const newWorker: WorkerRecord = {
       PermitNo: permitNo,
       ItemNo: nextItemNo,
       WorkerTypeCode: newWorkerType,
       WorkerName: newWorkerName.toUpperCase(),
-      PhoneNo: newWorkerPhone || '9876500000',
-      ContractorId: newWorkerType === 'CONT' ? 'CONT101' : '',
-      ContractorName: newWorkerType === 'CONT' ? newWorkerContractorName || 'ABC CONTRACTOR' : '',
-      EmpId: newWorkerType === 'EMP' ? newWorkerEmpId || `EMP${nextItemNo}` : '',
+      PhoneNo: newWorkerPhone.trim(),
+      ContractorId: '',
+      ContractorName: newWorkerType === 'CONT' ? newWorkerContractorName.trim() : '',
+      EmpId: newWorkerType === 'EMP' ? newWorkerEmpId.trim() : '',
       Shift: shift
     };
 
@@ -494,13 +199,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   const handleRemoveWorker = (itemNo: string) => {
     setWorkers(workers.filter((w) => w.ItemNo !== itemNo));
-    setPersonsQty((prev) => Math.max(1, prev - 1));
+    setPersonsQty((prev) => Math.max(0, prev - 1));
   };
 
   // 8. Add Hazard Control Handler
   const handleAddHazard = () => {
-    if (!newHazardDesc) return;
-    const nextItemNo = (hazards.length + 1).toString();
+    if (!newHazardDesc.trim() || !newControlDesc.trim()) { setNotificationBanner({ type: 'error', message: 'Enter the hazard and its required control.' }); return; }
+    const nextItemNo = (Math.max(0, ...hazards.map(row => Number(row.ItemNo))) + 1).toString();
     const newH: HazardControlRecord = {
       PermitNo: permitNo,
       ItemNo: nextItemNo,
@@ -508,7 +213,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       HazardDesc: newHazardDesc.toUpperCase(),
       RiskLevel: 'HIGH',
       ControlCode: newControlCode,
-      ControlDesc: newControlDesc || 'STANDARD SAFETY CONTROL APPLIED',
+      ControlDesc: newControlDesc,
       ControlStatus: 'OPEN',
       ResponsibleUser: user?.id || personResp,
       VerifiedBy: '',
@@ -537,7 +242,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   // 10. Add Isolation Point Handler
   const handleAddIsolation = () => {
     if (!newIsoPoint) return;
-    const nextItemNo = (isolations.length + 1).toString();
+    const nextItemNo = (Math.max(0, ...isolations.map(row => Number(row.ItemNo))) + 1).toString();
     const newIso: IsolationRecord = {
       PermitNo: permitNo,
       IsolationNo: isolationNo,
@@ -563,7 +268,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       NormalizedTime: '00:00:00',
       IsolationPoint: newIsoPoint.toUpperCase(),
       IsolMethod: 'LOCK',
-      LockTagNo: newIsoLockTag || `LT-${permitNo}-${nextItemNo}`,
+      LockTagNo: newIsoLockTag,
       IsIsolated: 'N',
       PointIsolatedBy: '',
       PointIsolatedAt: null,
@@ -587,11 +292,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     return {
       Permit_No: permitNo,
       PermitType: permitType,
-      FormRev: formRev,
 
       Aufnr: aufnr,
       Qmnum: qmnum,
       Auart: auart,
+      Qmart: workSelection?.reference.ReferenceSource === 'NOTIFICATION' ? workSelection.reference.OrderNotifType : '',
+      Qmtxt: workSelection?.reference.ReferenceSource === 'NOTIFICATION' ? workSelection.reference.JobDescription : '',
+      Qmdat: workSelection?.reference.ReferenceSource === 'NOTIFICATION' ? workSelection.reference.WorkDate : null,
 
       PersonResp: personResp,
       PlannerGroup: plannerGroup,
@@ -673,75 +380,14 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
       _Worker: workers,
       _PPE: ppeItems,
-      _Safety: safetyChecklist,
+      _Safety: [...sitePlanRows(permitType, sitePlan), ...safetyChecklist],
       _HazardControl: hazards,
-      _GasTest: [
-        {
-          ...gasTests[0],
-          O2Pct: o2Pct,
-          LelPct: lelPct,
-          H2sVal: h2sVal,
-          CoVal: coVal,
-          PermitNo: permitNo
-        }
-      ],
-      _Isolation: isolations,
-      _Attachment: [
-        {
-          PermitNo: permitNo,
-          FileName: `PERMIT-ATTACH-${permitNo}.PDF`,
-          MimeType: 'application/pdf',
-          DocumentRef: `DOC-${permitNo}`
-        }
-      ],
-      _Approval: [
-        {
-          PermitNo: permitNo,
-          Stage: '01',
-          SeqNo: '1',
-          RoleId: 'VER',
-          Action: 'VR',
-          SignedBy: '',
-          ActionDate: null,
-          ActionTime: '00:00:00',
-          Comments: 'INITIAL VERIFICATION RECORD'
-        }
-      ],
-      _ShiftRenewal: [
-        {
-          PermitNo: permitNo,
-          RenewalNo: '1',
-          PreviousShift: shift,
-          NewShift: 'NIGHT',
-          PreviousValidToD: validToD,
-          PreviousValidToT: validToT,
-          NewValidToD: validToD,
-          NewValidToT: '22:00:00',
-          RequestedBy: personResp,
-          RequestedAt: `${validToD}T17:00:00Z`,
-          ApprovedBy: '',
-          ApprovedAt: null,
-          Status: 'REQUESTED',
-          Reason: 'SHIFT CONTINUATION ENTRY'
-        }
-      ],
-      _AuditLog: [
-        {
-          PermitNo: permitNo,
-          AuditId: '1',
-          Action: 'CREATE',
-          OldStatus: '',
-          NewStatus: 'CRTD',
-          Actor: user?.id || personResp,
-          EventAt: new Date().toISOString(),
-          Comments: `PERMIT CREATED VIA GFL CHEMSAFE PTW UI (REF MO ${aufnr})`
-        }
-      ]
+      _Isolation: isolationRequired === 'Y' ? isolations : []
+
     };
   }, [
     permitNo,
     permitType,
-    formRev,
     aufnr,
     qmnum,
     auart,
@@ -781,22 +427,35 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     workers,
     ppeItems,
     safetyChecklist,
+    sitePlan,
     hazards,
-    gasTests,
     isolations,
-    o2Pct,
-    lelPct,
-    h2sVal,
-    coVal
+    workSelection
   ]);
+
+  const requestPreview = useMemo(() => {
+    try { return { body: preparePermitCreate(fullPayload), error: '' }; }
+    catch (error) { return { body: null, error: error instanceof Error ? error.message : 'Complete the required details.' }; }
+  }, [fullPayload]);
+
+  const completionPercentage = !workSelection ? 0 : requestPreview.error ? Math.min(baseCompletionPercentage, 90) : 100;
 
   // 12. Submit Deep Insert to SAP
   const handleSubmitDeepInsert = async () => {
+    if (submissionLock.current || submissionResponse || creationUncertain) return;
     if (!workSelection) {
       setActiveTab('work');
       setNotificationBanner({ type: 'error', message: 'Select a work reference before submitting the permit.' });
       return;
     }
+    if (tplnr.length > 30) {
+      setActiveTab('general');
+      setNotificationBanner({ type: 'error', message: 'The selected functional location exceeds the 30-character limit of PermitInfo. Please resolve the location with the SAP team before submitting.' });
+      return;
+    }
+    if (!user) { setNotificationBanner({ type: 'error', message: 'Sign in to SAP before creating a permit.' }); return; }
+    try { preparePermitCreate(fullPayload); } catch (error) { setNotificationBanner({ type: 'error', message: error instanceof Error ? error.message : 'Check the permit details.' }); return; }
+    submissionLock.current = true;
     setIsSubmitting(true);
     setNotificationBanner(null);
 
@@ -808,18 +467,21 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         message: `SAP OData V4 Deep Insert Successful! Permit ${response.Permit_No} created in status ${response.Status || 'CRTD'}.`
       });
     } catch (err: any) {
+      if (err instanceof PermitCreateUnconfirmedError) setCreationUncertain(true);
       console.error('[PermitCreateModule] Submit error:', err);
       setNotificationBanner({
         type: 'error',
         message: err.message || 'Failed to submit permit to SAP Gateway.'
       });
     } finally {
+      submissionLock.current = false;
       setIsSubmitting(false);
     }
   };
 
   const handleCopyJson = () => {
-    navigator.clipboard.writeText(JSON.stringify(fullPayload, null, 2));
+    if (!requestPreview.body) return;
+    navigator.clipboard.writeText(JSON.stringify(requestPreview.body, null, 2));
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2000);
   };
@@ -827,12 +489,23 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const stepsList: { key: TabKey; label: string; icon: string; count?: number }[] = [
     { key: 'work', label: '1. Work Selection', icon: 'construction' },
     { key: 'general', label: '2. General Details', icon: 'info' },
-    { key: 'workers', label: '3. Crew Muster', icon: 'group', count: workers.length },
-    { key: 'ppe', label: '4. PPE & Safety', icon: 'security', count: ppeItems.length },
-    { key: 'hazards', label: '5. Hazards & 5x5 Risk', icon: 'warning', count: hazards.length },
-    { key: 'gas-isolation', label: '6. Gas & LOTO', icon: 'air', count: isolations.length },
-    { key: 'payload', label: '7. Review & Submit', icon: 'data_object' }
+    { key: 'procedure', label: '3. Client Procedure', icon: 'fact_check' },
+    { key: 'workers', label: '4. Crew Muster', icon: 'group', count: workers.length },
+    { key: 'ppe', label: '5. PPE & Safety', icon: 'security', count: ppeItems.length },
+    { key: 'hazards', label: '6. Hazards & 5x5 Risk', icon: 'warning', count: hazards.length },
+    { key: 'gas-isolation', label: '7. Isolation Plan', icon: 'air', count: isolations.length },
+    { key: 'payload', label: '8. Review & Submit', icon: 'data_object' }
   ];
+
+  if (submissionResponse) return (
+    <section className="mx-auto mt-10 max-w-2xl rounded-2xl border border-emerald-200 bg-white p-8">
+      <h1 className="text-2xl font-bold text-emerald-800">Permit request created</h1>
+      <p className="mt-4">SAP permit number: <strong>{submissionResponse.Permit_No}</strong></p>
+      <p className="mt-2">Status: {submissionResponse.Status || 'Returned by SAP'}</p>
+      <p className="mt-4 text-sm text-slate-600">Complete the required approval, isolation and gas-testing workflow before work starts.</p>
+      <button type="button" onClick={onBack} className="mt-6 rounded-lg bg-[#006398] px-4 py-2 text-white">Return to launchpad</button>
+    </section>
+  );
 
   return (
     <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 animate-in fade-in duration-300">
@@ -853,30 +526,10 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           <div className="flex items-center gap-1.5 text-xs font-mono text-slate-400">
             <span>PTW Suite</span>
             <span>/</span>
-            <span className="text-[#006398] font-bold">Permit Create (Deep Insert)</span>
+            <span className="text-[#006398] font-bold">Create Permit Request</span>
           </div>
         </div>
 
-        {/* Quick Actions Header */}
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <button
-            onClick={handleLoadUserSample}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 border border-sky-300 text-[#006398] hover:bg-sky-100 rounded-xl font-bold shadow-sm transition-colors"
-            title="Populate form with user verified deep insert sample data"
-          >
-            <span className="material-symbols-outlined text-[16px]">file_open</span>
-            <span>Load Sample Payload (0000101)</span>
-          </button>
-
-          <button
-            onClick={handleRegenerateDummyNo}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200 rounded-xl font-semibold shadow-sm transition-colors"
-            title="Generate new sequential dummy permit number"
-          >
-            <span className="material-symbols-outlined text-[16px]">casino</span>
-            <span>New Dummy No: <strong className="text-[#006398]">{permitNo}</strong></span>
-          </button>
-        </div>
       </div>
 
       {/* Notification Alert Banner */}
@@ -911,12 +564,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#006398] text-[20px]">task_alt</span>
             <span className="font-display font-bold text-sm text-slate-900">
-              Permit Formulation Readiness
+              Request completion
             </span>
           </div>
           <div className="flex items-center gap-2 font-mono text-xs">
             <span className="text-slate-500">Progress:</span>
-            <strong className="text-[#006398]">{completionPercentage}% Ready</strong>
+            <strong className="text-[#006398]">{completionPercentage}% Request complete</strong>
           </div>
         </div>
 
@@ -929,7 +582,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         </div>
 
         {/* Work selection followed by the existing six permit steps */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2">
           {stepsList.map((st) => {
             const isCurrent = activeTab === st.key;
             return (
@@ -969,17 +622,17 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-display font-bold text-xl text-slate-900">
-                  Create Safety Permit
+                  Create permit request
                 </h1>
                 <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-blue-100 text-[#006398] border border-blue-200">
-                  Permit_No: {permitNo}
+                  Permit number: Assigned by SAP
                 </span>
                 <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  SAP Status: CRTD
+                  New request
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Target EntitySet: <code className="font-mono text-[#006398] font-bold">PermitInfo</code> • Deep Insert with 10 Child Collections
+                Create a permit request in SAP. Creation does not authorize work.
               </p>
             </div>
           </div>
@@ -994,28 +647,30 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         )}
 
         {/* Tab Content Panes */}
-        <div className="p-6">
+        <fieldset disabled={isSubmitting || creationUncertain} className="p-6 min-w-0">
           {activeTab === 'work' && (
             <PermitWorkSelectionStep selection={workSelection} client={user?.client}
               onInvalidate={() => { setWorkSelection(null); setSubmissionResponse(null); setNotificationBanner(null); }}
               onContinue={handleWorkSelected} />
           )}
+          {activeTab === 'procedure' && <SiteProcedureStep primary={permitType} plan={sitePlan} startTime={validFromT} onChange={setSitePlan} />}
+
           {/* TAB 1: General Details & PM Order */}
           {activeTab === 'general' && (
             <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="text-sm">Execution agency<select value={execAgency} onChange={e => setExecAgency(e.target.value)} className="block w-full border rounded p-2"><option value="CONT">Contractor</option><option value="EMP">Company employees</option></select></label>
+                <label className="text-sm">Execution department<input value={execDept} onChange={e => setExecDept(e.target.value)} maxLength={40} className="block w-full border rounded p-2" /></label>
+                <label className="text-sm">Shift<input value={shift} onChange={e => setShift(e.target.value)} maxLength={10} className="block w-full border rounded p-2" /></label>
+              </div>
+              <label className="block text-sm">Requester comments<textarea value={creatorComment} onChange={e => setCreatorComment(e.target.value)} maxLength={255} className="block w-full border rounded p-2" /></label>
               {/* Permit Type Radio Bar */}
               <div>
                 <label className="block text-xs font-mono font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Permit Category & Nature of Work *
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono">
-                  {[
-                    { code: 'HOT', label: 'Hot Work', icon: 'local_fire_department', desc: 'Welding, Grinding, Open Flame' },
-                    { code: 'COLD', label: 'Cold Work', icon: 'ac_unit', desc: 'Maintenance, Painting, Civil' },
-                    { code: 'CONF', label: 'Confined Space', icon: 'door_sliding', desc: 'Vessel, Tank, Sump Entry' },
-                    { code: 'ELEC', label: 'Electrical', icon: 'bolt', desc: 'Breaker, HT/LT Switchgear' },
-                    { code: 'HGHT', label: 'Work at Height', icon: 'height', desc: 'Scaffold, Ladder > 1.8m' }
-                  ].map((t) => (
+                  {PERMIT_CATEGORIES.map((t) => (
                     <div
                       key={t.code}
                       onClick={() => setPermitType(t.code)}
@@ -1206,8 +861,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                     >
                       <option value="1">1 Hour</option>
                       <option value="2">2 Hours (Standard)</option>
-                      <option value="4">4 Hours</option>
-                      <option value="8">8 Hours</option>
+
                     </select>
                   </div>
                 </div>
@@ -1470,6 +1124,24 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           {/* TAB 3: PPE & Safety Checklist */}
           {activeTab === 'ppe' && (
             <div className="space-y-6">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="text-sm">PPE code<input value={newPpeCode} onChange={e => setNewPpeCode(e.target.value)} className="block w-full border rounded p-2" /></label>
+                <label className="text-sm">PPE description<input value={newPpeDescription} onChange={e => setNewPpeDescription(e.target.value)} className="block w-full border rounded p-2" /></label>
+                <button type="button" className="rounded border p-2 text-[#006398]" onClick={() => {
+                  if (!newPpeCode.trim() || !newPpeDescription.trim()) return;
+                  setPpeItems(prev => [...prev, { PermitNo: '', ItemNo: String(prev.length + 1), PpeCode: newPpeCode.trim(), PpeDesc: newPpeDescription.trim(), IsRequired: 'Y', IsAvailable: 'N', IsIssued: 'N', CheckedBy: '', CheckedAt: null, Remarks: '' }]);
+                  setNewPpeCode(''); setNewPpeDescription('');
+                }}>Add PPE requirement</button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="text-sm">Safety check code<input maxLength={4} value={newSafetyCode} onChange={e => setNewSafetyCode(e.target.value)} className="block w-full border rounded p-2" /></label>
+                <label className="text-sm">Safety check description<input maxLength={100} value={newSafetyDescription} onChange={e => setNewSafetyDescription(e.target.value)} className="block w-full border rounded p-2" /></label>
+                <button type="button" className="rounded border p-2 text-[#006398]" onClick={() => {
+                  if (!newSafetyCode.trim() || !newSafetyDescription.trim()) return;
+                  setSafetyChecklist(prev => [...prev, { PermitNo: '', ItemNo: String(prev.length + 1), Category: 'GEN', ItemCode: newSafetyCode.trim(), Response: 'NO', ValueText: newSafetyDescription.trim(), ValueNum: 0, Unit: '', ReferenceNo: '', ResponsibleUser: user?.id || '', VerifiedBy: '', VerifiedAt: null, Remarks: '' }]);
+                  setNewSafetyCode(''); setNewSafetyDescription('');
+                }}>Add safety check</button>
+              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-display font-bold text-base text-slate-900">
@@ -1867,120 +1539,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           {/* TAB 5: Gas Testing & Isolation */}
           {activeTab === 'gas-isolation' && (
             <div className="space-y-6">
-              {/* Atmospheric Gas Testing Header */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-display font-bold text-base text-slate-900">
-                      Atmospheric Gas Testing Protocol (_GasTest)
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Live sensor validation with real-time OSHA / HSE threshold safety checks.
-                    </p>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
-                    ✓ Bump Test OK
-                  </span>
-                </div>
-
-                {/* Real-Time Atmospheric Safety Alert Banner */}
-                <div
-                  className={`p-3.5 rounded-xl border flex items-center justify-between font-mono text-xs mb-4 shadow-xs ${
-                    isAtmosphereSafe
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                      : 'bg-rose-50 border-rose-300 text-rose-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[22px]">
-                      {isAtmosphereSafe ? 'verified' : 'crisis_alert'}
-                    </span>
-                    <span className="font-bold">
-                      {isAtmosphereSafe
-                        ? 'ATMOSPHERE NORMAL: All gas parameters within safe OSHA/HSE regulatory limits'
-                        : 'ATMOSPHERE HAZARD DETECTED: Parameters exceed safe limits. Work prohibited!'}
-                    </span>
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded font-bold uppercase text-[10px] ${
-                      isAtmosphereSafe ? 'bg-emerald-200 text-emerald-900' : 'bg-rose-200 text-rose-900 animate-pulse'
-                    }`}
-                  >
-                    {isAtmosphereSafe ? 'SAFE FOR WORK' : 'UNSAFE'}
-                  </span>
-                </div>
-
-                {/* Interactive Gas Readings Inputs */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="p-3 bg-white border border-slate-300 rounded-xl">
-                    <div className="flex justify-between text-xs font-mono font-semibold mb-1">
-                      <span>Oxygen O₂</span>
-                      <span className={o2Pct >= 19.5 && o2Pct <= 23.5 ? 'text-emerald-600' : 'text-rose-600'}>
-                        {o2Pct}%
-                      </span>
-                    </div>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={o2Pct}
-                      onChange={(e) => setO2Pct(parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-mono text-sm font-bold text-slate-900"
-                    />
-                    <span className="text-[10px] text-slate-400 font-mono block mt-1">Safe: 19.5% - 23.5%</span>
-                  </div>
-
-                  <div className="p-3 bg-white border border-slate-300 rounded-xl">
-                    <div className="flex justify-between text-xs font-mono font-semibold mb-1">
-                      <span>Combustible LEL</span>
-                      <span className={lelPct < 10 ? 'text-slate-800' : 'text-rose-600 font-bold'}>
-                        {lelPct}%
-                      </span>
-                    </div>
-                    <input
-                      type="number"
-                      step="1"
-                      value={lelPct}
-                      onChange={(e) => setLelPct(parseInt(e.target.value) || 0)}
-                      className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-mono text-sm font-bold text-slate-900"
-                    />
-                    <span className="text-[10px] text-slate-400 font-mono block mt-1">Max Safe: &lt; 10% LEL</span>
-                  </div>
-
-                  <div className="p-3 bg-white border border-slate-300 rounded-xl">
-                    <div className="flex justify-between text-xs font-mono font-semibold mb-1">
-                      <span>Toxic H₂S</span>
-                      <span className={h2sVal < 10 ? 'text-slate-800' : 'text-rose-600 font-bold'}>
-                        {h2sVal} PPM
-                      </span>
-                    </div>
-                    <input
-                      type="number"
-                      step="1"
-                      value={h2sVal}
-                      onChange={(e) => setH2sVal(parseInt(e.target.value) || 0)}
-                      className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-mono text-sm font-bold text-slate-900"
-                    />
-                    <span className="text-[10px] text-slate-400 font-mono block mt-1">Threshold: &lt; 10 PPM</span>
-                  </div>
-
-                  <div className="p-3 bg-white border border-slate-300 rounded-xl">
-                    <div className="flex justify-between text-xs font-mono font-semibold mb-1">
-                      <span>Carbon Monoxide CO</span>
-                      <span className={coVal < 25 ? 'text-slate-800' : 'text-rose-600 font-bold'}>
-                        {coVal} PPM
-                      </span>
-                    </div>
-                    <input
-                      type="number"
-                      step="1"
-                      value={coVal}
-                      onChange={(e) => setCoVal(parseInt(e.target.value) || 0)}
-                      className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded font-mono text-sm font-bold text-slate-900"
-                    />
-                    <span className="text-[10px] text-slate-400 font-mono block mt-1">Threshold: &lt; 25 PPM</span>
-                  </div>
-                </div>
-              </div>
+              <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">No gas test or tester signature is recorded during permit creation. An authorized gas tester must record actual measurements in the gas-testing workflow before work is authorized.</p>
 
               {/* LOTO Physical Isolation Points */}
               <div className="pt-4 border-t border-slate-200">
@@ -2094,10 +1653,10 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                 <div>
                   <h3 className="font-display font-bold text-base text-slate-900">
-                    Live Deep Insert JSON Payload Inspector
+                    Review permit request
                   </h3>
                   <p className="text-xs text-slate-500">
-                    This payload will be sent via <code className="font-mono text-[#006398]">POST /PermitInfo</code> to SAP Gateway.
+                    Create a request for review. Site preparations, signatures and field authorization must be completed before work starts.
                   </p>
                 </div>
 
@@ -2110,23 +1669,37 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                     <span className="material-symbols-outlined text-[16px]">
                       {copySuccess ? 'done' : 'content_copy'}
                     </span>
-                    <span>{copySuccess ? 'Copied!' : 'Copy JSON'}</span>
+                    <span>{copySuccess ? 'Copied!' : 'Copy request'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleSubmitDeepInsert}
-                    disabled={isSubmitting || !workSelection}
+                    disabled={isSubmitting || creationUncertain || !workSelection || !!requestPreview.error}
                     className="flex items-center gap-1.5 px-4 py-1.5 bg-[#006398] hover:bg-[#004f7a] text-white rounded-xl text-xs font-mono font-bold shadow-sm transition-colors disabled:opacity-50"
                   >
                     <span className="material-symbols-outlined text-[18px]">
                       {isSubmitting ? 'sync' : 'send'}
                     </span>
-                    <span>{isSubmitting ? 'Posting to SAP...' : 'Submit to SAP (POST /PermitInfo)'}</span>
+                    <span>{isSubmitting ? 'Posting to SAP...' : 'Create permit request'}</span>
                   </button>
                 </div>
               </div>
 
+              <div className="rounded-xl border p-4 text-sm">
+                <h3 className="mb-3 font-bold">Request summary</h3>
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  <div><dt className="text-slate-500">Job and area</dt><dd>{jobDesc || 'Not entered'} · {areaLoc || 'Area required'}</dd></div>
+                  <div><dt className="text-slate-500">Primary work category</dt><dd>{PERMIT_CATEGORIES.find(item => item.code === permitType)?.label || 'Not selected'}</dd></div>
+                  <div><dt className="text-slate-500">Requested validity (IST)</dt><dd>{validFromD} {validFromT} → {validToD} {validToT}</dd></div>
+                  <div><dt className="text-slate-500">Crew / hazards / isolation points</dt><dd>{workers.length} / {hazards.length} / {isolations.length}</dd></div>
+                  <div><dt className="text-slate-500">JSA reference</dt><dd>{sitePlan.fields.JSA1 || 'Required'}</dd></div>
+                  <div><dt className="text-slate-500">Issuer / Acceptor / Operator (proposed)</dt><dd>{sitePlan.fields.ISSR || '—'} / {sitePlan.fields.ACCP || '—'} / {sitePlan.fields.OPER || '—'}</dd></div>
+                </dl>
+                {requestPreview.error && <p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-900">{requestPreview.error}</p>}
+              </div>
+              <ProcedureGuidance />
+              <details><summary className="cursor-pointer text-sm font-semibold">Technical request details</summary>
               {/* Code Mirror / Monospace JSON Viewer */}
               <div className="relative border border-slate-300 rounded-xl overflow-hidden shadow-inner bg-[#0b1c30]">
                 <div className="px-4 py-2 bg-slate-900 text-slate-300 font-mono text-[11px] flex items-center justify-between border-b border-slate-800">
@@ -2140,40 +1713,21 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 </div>
 
                 <pre className="p-4 text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-[500px] leading-relaxed">
-                  {JSON.stringify(fullPayload, null, 2)}
+                  {requestPreview.error || JSON.stringify(requestPreview.body, null, 2)}
                 </pre>
               </div>
 
+              </details>
               {/* Response Modal / Box (When available) */}
-              {submissionResponse && (
-                <div className="p-5 border border-emerald-300 bg-emerald-50/70 rounded-2xl animate-in fade-in duration-300">
-                  <div className="flex items-center gap-2 text-emerald-900 font-bold mb-2">
-                    <span className="material-symbols-outlined text-[24px]">verified</span>
-                    <span className="text-sm font-display">SAP S/4HANA OData V4 Response Received</span>
-                  </div>
-                  <p className="text-xs text-emerald-800 font-sans mb-3">
-                    Permit <strong className="font-mono">{submissionResponse.Permit_No}</strong> was created successfully against Maintenance Order <strong className="font-mono">{submissionResponse.Aufnr}</strong>.
-                  </p>
 
-                  <div className="bg-white border border-emerald-200 rounded-xl p-3 font-mono text-xs space-y-1 text-slate-700">
-                    <div><strong>@odata.context:</strong> {submissionResponse['@odata.context']}</div>
-                    <div><strong>@odata.metadataEtag:</strong> {submissionResponse['@odata.metadataEtag']}</div>
-                    <div><strong>Permit Number:</strong> {submissionResponse.Permit_No}</div>
-                    <div><strong>Status:</strong> {submissionResponse.Status}</div>
-                    <div><strong>Workers Created:</strong> {submissionResponse._Worker?.length || 0}</div>
-                    <div><strong>PPE Items Created:</strong> {submissionResponse._PPE?.length || 0}</div>
-                    <div><strong>Hazards Created:</strong> {submissionResponse._HazardControl?.length || 0}</div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
-        </div>
+        </fieldset>
 
         {/* Footer Action Bar */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <div className="text-xs font-mono text-slate-500">
-            Current Permit No: <strong className="text-slate-900">{permitNo}</strong>{workSelection ? ` · ${workSelection.source} ${referenceId(workSelection.source, workSelection.reference)}` : " · Select work to begin"}
+            Permit number: <strong className="text-slate-900">Assigned by SAP after creation</strong>{workSelection ? ` · ${workSelection.source} ${referenceId(workSelection.source, workSelection.reference)}` : " · Select work to begin"}
           </div>
 
           <div className="flex items-center gap-2">
@@ -2181,7 +1735,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <button
                 type="button"
                 onClick={() => {
-                  const tabs: TabKey[] = ['work', 'general', 'workers', 'ppe', 'hazards', 'gas-isolation', 'payload'];
+                  const tabs: TabKey[] = ['work', 'general', 'procedure', 'workers', 'ppe', 'hazards', 'gas-isolation', 'payload'];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex > 0) setActiveTab(tabs[currentIndex - 1]);
                 }}
@@ -2195,7 +1749,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <button
                 type="button"
                 onClick={() => {
-                  const tabs: TabKey[] = ['work', 'general', 'workers', 'ppe', 'hazards', 'gas-isolation', 'payload'];
+                  const tabs: TabKey[] = ['work', 'general', 'procedure', 'workers', 'ppe', 'hazards', 'gas-isolation', 'payload'];
                   const currentIndex = tabs.indexOf(activeTab);
                   if (currentIndex < tabs.length - 1) setActiveTab(tabs[currentIndex + 1]);
                 }}
@@ -2208,13 +1762,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <button
                 type="button"
                 onClick={handleSubmitDeepInsert}
-                disabled={isSubmitting}
+                disabled={isSubmitting || creationUncertain || !!requestPreview.error}
                 className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[18px]">
                   {isSubmitting ? 'sync' : 'verified'}
                 </span>
-                <span>{isSubmitting ? 'Submitting to SAP...' : 'Submit Permit to SAP'}</span>
+                <span>{isSubmitting ? 'Submitting to SAP...' : 'Create permit request'}</span>
               </button>
             )}
           </div>

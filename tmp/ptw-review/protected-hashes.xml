@@ -1,0 +1,59 @@
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04">
+  <Obj RefId="0">
+    <TN RefId="0">
+      <T>Microsoft.PowerShell.Commands.FileHashInfo</T>
+      <T>System.Object</T>
+    </TN>
+    <ToString>Microsoft.PowerShell.Commands.FileHashInfo</ToString>
+    <Props>
+      <S N="Algorithm">SHA256</S>
+      <S N="Hash">BDF9A022C8C821543771D3F44D4AAB153B4F8EBDBBDE102C1EBD9B90A9452C67</S>
+      <S N="Path">D:\App\PTW\src\core\api\modules\auth.api.ts</S>
+    </Props>
+  </Obj>
+  <Obj RefId="1">
+    <TNRef RefId="0" />
+    <ToString>Microsoft.PowerShell.Commands.FileHashInfo</ToString>
+    <Props>
+      <S N="Algorithm">SHA256</S>
+      <S N="Hash">87985BEB12A84252389B5E37D43B718A5FBECE6B08C97A6B8BECDC845A561EB0</S>
+      <S N="Path">D:\App\PTW\src\core\api\modules\permitWorkLookup.api.ts</S>
+    </Props>
+  </Obj>
+  <Obj RefId="2">
+    <TNRef RefId="0" />
+    <ToString>Microsoft.PowerShell.Commands.FileHashInfo</ToString>
+    <Props>
+      <S N="Algorithm">SHA256</S>
+      <S N="Hash">B467B78320144400208092EA20461382E6583A97EC7143507A5A45B9CBEBDF66</S>
+      <S N="Path">D:\App\PTW\src\core\api\odataClient.ts</S>
+    </Props>
+  </Obj>
+  <Obj RefId="3">
+    <TNRef RefId="0" />
+    <ToString>Microsoft.PowerShell.Commands.FileHashInfo</ToString>
+    <Props>
+      <S N="Algorithm">SHA256</S>
+      <S N="Hash">8B7752822AEC67FC86C86CD483A759B4B8244E5707BA2BA68767FF8CEF7CF38C</S>
+      <S N="Path">D:\App\PTW\src\core\auth\sapAuthContext.tsx</S>
+    </Props>
+  </Obj>
+  <Obj RefId="4">
+    <TNRef RefId="0" />
+    <ToString>Microsoft.PowerShell.Commands.FileHashInfo</ToString>
+    <Props>
+      <S N="Algorithm">SHA256</S>
+      <S N="Hash">3F63B053CAA61E24A1F085F04C65A4203DAD9479F0B14CCD6C37A9498959484C</S>
+      <S N="Path">D:\App\PTW\src\features\permits\PermitWorkSelectionStep.tsx</S>
+    </Props>
+  </Obj>
+  <Obj RefId="5">
+    <TNRef RefId="0" />
+    <ToString>Microsoft.PowerShell.Commands.FileHashInfo</ToString>
+    <Props>
+      <S N="Algorithm">SHA256</S>
+      <S N="Hash">F935803DC376DA6104424B0C56AE8165AA368438DDA8EC4AF6D906BDC415E3AE</S>
+      <S N="Path">D:\App\PTW\src\shared\components\SapLoginPage.tsx</S>
+    </Props>
+  </Obj>
+</Objs>

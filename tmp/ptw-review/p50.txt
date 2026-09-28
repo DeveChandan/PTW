@@ -1,0 +1,64 @@
+50 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 50 of 79 
+Checklist for Hot Work Procedure Compliance 
+ 
+PTW: HOT WORK PROCEDURE COMPLIANCE  
+Doc. No.   : HSE/SAF/F/06 
+Issue Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  Job 
+Description :  Date & Time :  
+SR. 
+No. CHECKPOINTS 
+STATUS  
+(Yes / No / 
+NA) 
+REMARKS 
+A PRE-WORK INSPECTION & PREPARATION: 
+01 Is the area free of flammable or combustible materials?   
+02 Is firefighting equipment, including fire extinguishers (ABC 9 Kg), 
+readily available, sufficient, and operational near the work location.   
+03 Are the involved equipment (e.g., welding machine, gas cutting set, 
+tools) in good condition, with no damage or defects   
+04 
+Is the LEL meter/multi -gas detector calibrated and functional? The 
+normal LEL value of flammable vapor/ hazardous gases should be zero 
+(Hazardous area) and never exceed 5%. LEL should be check within 2 
+hrs frequency. (In flameproof area) 
+  
+05 Has the gas cylinder checklist been approved by the acceptor, and are 
+the cylinders kept in a trolley   
+06 Are earthing connection tight at electrical extension box, machine, and 
+welding objects?   
+07 Is the mitigation plan for the task available for emergencies and 
+communicated (ensure it is covered in the P-JSA)   
+09 Is the welding machine on/off switch available near the work area to 
+cut off power in case of an emergency?   
+10 Is the welding machine frame grounded?   
+11 Are welding or thermal cutting performing in confined spaces, gas 
+cylinders and welding machines kept outside?   
+B TOOL BOX TALK (TBT): 
+01 Gas lines purged individually before lighting the torch.   
+02 Oxygen valve closed when lighting acetylene (DA Gas).   
+03 The welder to avoid coiling or looping the welding electrode cable 
+around parts of their body?   
+C AREA PREPARATION: 
+01 Hot work area should be free from combustible material at least 25 ft 
+radius distance.   
+02 If the area cannot be free from combustibles, is it covered with fire -
+resistant materials (e.g., fire blanket)?   
+03 Are workplace floors swept clean of combustible debris?   
+
+

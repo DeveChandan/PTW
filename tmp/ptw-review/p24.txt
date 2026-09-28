@@ -1,0 +1,51 @@
+24 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 24 of 79 
+• Job involving hot work or entry into confined space, positive isolation by insertion of 
+slip blinds or physical disconnection and blinding live ends are necessary. 
+• Vessel entry, where no hot work is to be carried out, shall be permitted if 
+combustible gases are up to 5 
+percent of lower explosive limit [LEL]. Entry with an air-supplied mask shall be 
+permitted with LEL of up to 20 percent.  
+The Oxygen level shall be at least 19.5 to 22.5 percent volume, and the concentration 
+of toxic gases below the threshold limits. 
+• No cylinders of compressed gas, other than those used for self-contained breathing 
+apparatus, shall be taken into a confined space. 
+ 
+4.3.2 Emergency response plans/Rescue plan  are in place and appropriate training  is 
+completed 
+• Air-Supplied breathing equipment is being worn. 
+• All personnel involved have been instructed, practiced and proven competent in its 
+use. 
+• Attendance of all personnel engaged in vessel entry, their entry and exit times is to 
+be recorded. No entry during lunch /dinner breaks and shift changeover is to be 
+ensured. 
+• An observer attendant/Standby person carrying walkie talkie / in centric safe mobile 
+(IS Mobile) is stationed immediately outside the entry to the confined space all the 
+time a person is inside. 
+• In case of Emergency attendant/Standby person should not g o inside confine space. 
+Only ERT members/ Control room team should be communicated for rescue. 
+• A minimum of a single self -contained BA set is on hand for emergency use, unless a 
+P-JSA indicates additional units are required for higher risk activities, e.g.  entry into 
+underground tanks where there is only a single access manhole. 
+• Entrant must have a medical test performed with in last six months. Required 
+parameters checkup are included in routine medical checkup. 
+4.3.3 Rescue Plan: 
+Job Risk Assessment to be carried out for confined space jobs. If Initial Risk is very high, 
+(scoring 8 or more), A rescue plan is to be made. 
+Since Dahej Site has well trained Fire Team, a well -equipped Rescue Tender and Fire 
+Tenders, following steps are to followed for rescue plan. 
+• PTW/Permit issuer has to inform the HoD. 
+• Call Fire Team and explain the job and associated hazards. 
+

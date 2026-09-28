@@ -1,0 +1,63 @@
+53 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 53 of 79 
+Checklist for Rigging Plan 
+ PTW: RIGGING PLAN   
+Doc. No.   : HSE/SAF/F/27 
+Issue 
+Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  
+Job 
+Description :  
+Date & 
+Time :  
+Plant :  
+Location :  
+SR. No. Details 
+01 Equipment Detail (which is to be lifted) 
+A. Name   
+B. Dimension a. Weight: MT 
+ b. Height: Mtr. 
+ c. Length:  Mtr. 
+02 lifting equipment detail (by which job will be lifted) 
+ 
+Types ID No. / 
+Vehicle No 
+Capacity last date of examination 
+by competent person SWL (MT) lifting length 
+(meter) 
+     
+     
+     
+  
+ 
+ 
+At this boom length and radius, as per load chart SWL=   
+_____________MT 
+ 
+Total Weight (Job+ lifting hook+ slings) is to be lifted = 
+______________MT 
+ 
+Percentage of margin = Total Weight X 100 / SWL as per load 
+chart = ____% 
+ 
+It Should be: 
+75% of SWL of Crane Load Chart (When SLI and Wind velocity 
+display not working) 
+85% of SWL of Crane Load Chart (When SLI and Wind velocity 
+display is working) 
+ 
+
+

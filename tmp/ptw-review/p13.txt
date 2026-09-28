@@ -1,0 +1,51 @@
+13 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 13 of 79 
+   3.6 Completion of PTW Format 
+                Section wise details are given below: 
+Section A: Type of Work Permit 
+Tick the appropriate type of work permit based on nature of job. 
+Section B: Job Details  
+Specify - Plant/Unit, Area/location, SAP Notification Number, Equipment Name with tag 
+number, Job description. Provide details of Job execution agency, Executing department and 
+number of person/s at work. 
+Section C: Nature of Work  
+Specify the nature of Work. 
+Section D: Tool and Equipment to be used  
+Specify the tools/equipment required to carry out the work. 
+Section E: Hazard Consideration  
+Specify hazards considered in JSA sheet for the job. 
+Section F:  Job and Equipment Preparation.  
+Specify the compliance ensured to execute the job. 
+Section G: PPEs and Fire Protection 
+Specify the job specific PPE’s required. (Refer SDS for selection of PPEs for chemicals being 
+involved with the job). Specify appropriate fire protection if required. 
+Section H: Isolation. 
+1) Electrical Isolation 
+Refer electrical LOTO procedure.  
+Note: Electrical isolation key must be kept with executing agency. 
+2) Other Isolation 
+Process Isolation: Ensure the system is free from hazardous material, pressure etc. 
+• Depressurized the system by suitably draining/venting of process material in 
+a safe manner.  
+• Wash/de-contaminate the system. 
+• Positive isolation (blinding), locking & tagging 
+Mechanical Isolation 
+• Locking of rotating parts by clamping/chain etc. 
+• Draining of other energy sources such as depressurization, hydraulic, kinetic 
+energy prior to locking. 
+• Ensure the mechanical isolation is done (For positive isolation standard tail 
+blind to be used/Double block & bleed. OR remove the connected line) and th e 
+permit is signed by the person isolated the system. 
+

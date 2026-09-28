@@ -1,0 +1,63 @@
+16 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 16 of 79 
+* Defined chemicals with hazards 
+Section N 
+Following sequence must be followed for permit closing/ cancellation. 
+Sequence of permit closing: (1 means 1stsinging person 2 means 2nd signing person and so on.) 
+ 
+Type of Permit Cold 
+Work 
+Hot 
+Work 
+Confined 
+Space Excavation Rigging job Work at 
+Height 
+Line 
+Breaking Radiography 
+Hydraulic/
+Pneumatic 
+System 
+Permit 
+Acceptor 1 1 1 1 1 1 1 1 1 
+Area 
+Operator 2 2 2 2 2 2 2 2 2 
+Permit 
+Issuer 3 3 3 3 3 3 3 3 3 
+Power 
+Restored 4 4 4 4 NA NA 4 4 NA 
+ 
+• When the work is complete, all copies of the permit should be reunited at the issuing 
+point.  
+• The Permit Issuer or his delegate and the Permit Holder should then inspect the work site 
+and jointly confirm that they are satisfied that the work has been compl eted as intended 
+and the worksite has been left in a safe and tidy condition. Only then the Permit Issuer 
+should sign off the permit. 
+• After completion of jobs executing department to give isolation key to permit issuer. After 
+conformation all the required jobs are done permit issuer will call electrical department 
+to energize the equipment. 
+• In case of any trial required after electrical energization permit issuer, permit acceptor and 
+electrical person must be present and do trial checkup.  
+Note: Anyone can stop working on site if the job execution is violating agreed permit 
+conditions. Reason to stop the work or closure must be written on permit. 
+3.7  Permits are not applicable for the following areas / activities: 
+• Resetting of electrical trips and alarms. 
+• Routine work like Tanker loading and unloading (connection / disconnection) and any 
+other routine activities which are done by qualified trained persons as per SOP, very 
+frequently. 
+• Truck loading unloading /Scrap loading unloading. 
+• Conditional monitoring of running equipment’s by CES Department personnel as they 
+have defined SOP. 
+• Identified and approved by Unit Head/Deputy Unit Head as non-permit area/job. 
+

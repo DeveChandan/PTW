@@ -1,0 +1,52 @@
+29 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 29 of 79 
+• PPE requirements 
+• Standby person duties 
+• Contingency plans 
+• Control of entry 
+Personal Protective Equipment (PPE) 
+Minimum                               : safety shoes, helmet, splash goggles, face shield. 
+Chemical/Corrosive/Toxic  : chemical-resistant suit, gloves, boots, SCBA if required. 
+Flammable/Explosive         : flame-resistant suit, nitrile gloves, SCBA as needed. 
+Steam/Nitrogen/Gas         : face shield, leather gloves, SCBA for oxygen-deficient 
+areas. 
+Job Execution 
+• Barricade work area 
+• Verify safety shower operability 
+• Perform initial break away from line of fire 
+• Loosen bottom bolts slowly 
+• Use secondary containment 
+• Stop and consult operations if plugs or pressure are found 
+Box-up and Return to Service 
+• Reassemble with correct bolts and gaskets 
+• Inspect integrity and cleanliness 
+• Remove isolation as per PTW closure 
+• Conduct turnover review and document sign-offs 
+ 
+Refer to the GFL “Line Breaking” Standard  & Site procedure for details. 
+ 
+4.6 EXCAVATION ACTIVITIES: 
+• For any excavation activity 30 cm or deeper, obtain signatures from Electrical, 
+Instrumentation, Utility, and HSE departments to confirm the absence of underground 
+utilities in the marked area. 
+• A one-time approval is required for the same excavation area, and the approved permit 
+must be attached to the next day's permit. 
+• If any underground utility is present in marked area, then concern dept. must written in 
+permit & confirm manual / Mechanical Excavation on permit. 
+• Excavation area should be free from fumes/gases heavier than air because it may cause 
+suffocation or poisoning.  
+• All excavation of depth more than 1.2 m or more should be treated as confined space and 
+permit for entry into confined space should be obtained. 
+

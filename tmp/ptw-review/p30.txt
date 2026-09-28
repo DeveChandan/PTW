@@ -1,0 +1,50 @@
+30 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 30 of 79 
+• Excavation to a depth of 1 m or more shall be cut stepped back to give a suitable slope or 
+securely held by bracing so as to avoid the danger of side to collapse. 
+• Barricading of 1 m height (with red and white band/ self -glowing caution boards) should 
+be carried out for excavation beyond 1.5 m depth. 
+• Excavated earth shall not be dumped within 1 m of the edge of the excavati on or depth 
+the trench whichever is more. 
+• No vehicle should be allowed to go too close to the edge of the excavation because it may 
+cause side collapse. Maintain at least 2 m distances from the edge of the excavation. 
+Adequate and well -anchored stop blocks  should be provided on the surface to vehicle 
+being driven reversed into the excavation. 
+• No mechanical excavation is to be carried out up to a depth of 1.5 m from the ground level 
+in operating areas. In such cases manual excavation is required to be carrie d out up to a 
+depth of 1.5 m from the ground level. 
+Note -Test pits of 01 M deep are required to be excavated before actual excavation is started 
+and all checking to be verified from concern authority prior to permit approval. 
+4.7. RADIOGRAPHY JOB REQUIREMENTS AND PERMITS: 
+• The radiography should preferably be carried out at a time, when occupancy is least. 
+• The supervisor must be available at site during the radiography work. 
+• Although radiography jobs do not qualify as hot jobs by definition, they still require a 
+hot work permit due to the involvement of radioactive sources. 
+ 
+                           Before issuing permitting to start Radiography, ensure: 
+• TLD badge should be available with Radiographer 
+• Availability of Dosimeter and Radiation level Survey meter and its type  
+• Signage display 
+• Area barricading according to safe distance required 
+• Warning signal  
+• Information to surrounding plant and no other activities allowed in surrounding area. 
+                     Work Involving Radioactive Sources: 
+• The isolation or restoration of a radioactive source, including the use of mobile X -
+ray/radiography equipment.  
+• For radiography jobs on pipelines or equipment, the isolation and restoration of the 
+radioactive source are essential.  
+• A separate radiation permit must be issued for works related to radiography. 
+• Type of Radiation: 
+

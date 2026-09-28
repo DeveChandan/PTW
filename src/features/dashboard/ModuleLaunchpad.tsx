@@ -22,6 +22,20 @@ const MODULE_THEMES: Record<ModuleId, { bg: string; text: string; border: string
     kpiValue: 'Live Dossier',
     kpiLabel: 'P&ID & Real-Time Countdown'
   },
+   'create-isolation': {
+    bg: 'bg-orange-50 hover:bg-orange-100/60',
+    text: 'text-orange-800',
+    border: 'border-orange-200 hover:border-orange-600',
+    kpiValue: 'LOTO Vault',
+    kpiLabel: '100% Zero-Energy Lockout'
+  },
+   'display-isolation': {
+    bg: 'bg-orange-50 hover:bg-orange-100/60',
+    text: 'text-orange-800',
+    border: 'border-orange-200 hover:border-orange-600',
+    kpiValue: 'LOTO Vault',
+    kpiLabel: '100% Zero-Energy Lockout'
+  },
   'permit-approver': {
     bg: 'bg-amber-50 hover:bg-amber-100/60',
     text: 'text-amber-800',
@@ -35,6 +49,13 @@ const MODULE_THEMES: Record<ModuleId, { bg: string; text: string; border: string
     border: 'border-emerald-200 hover:border-emerald-600',
     kpiValue: 'Toolbox Talk',
     kpiLabel: 'Physical Handover Verification'
+  },
+  'permit-area-owner': {
+    bg: 'bg-purple-50 hover:bg-purple-100/60',
+    text: 'text-purple-800',
+    border: 'border-purple-200 hover:border-purple-600',
+    kpiValue: 'Worker Muster',
+    kpiLabel: 'Site Suspension & Handback'
   },
   'permit-holder': {
     bg: 'bg-purple-50 hover:bg-purple-100/60',
@@ -50,13 +71,7 @@ const MODULE_THEMES: Record<ModuleId, { bg: string; text: string; border: string
     kpiValue: 'O₂ • LEL • H₂S',
     kpiLabel: '2-Hr Retest Interval Log'
   },
-  'isolation': {
-    bg: 'bg-orange-50 hover:bg-orange-100/60',
-    text: 'text-orange-800',
-    border: 'border-orange-200 hover:border-orange-600',
-    kpiValue: 'LOTO Vault',
-    kpiLabel: '100% Zero-Energy Lockout'
-  },
+ 
   'admin': {
     bg: 'bg-rose-50 hover:bg-rose-100/60',
     text: 'text-rose-800',

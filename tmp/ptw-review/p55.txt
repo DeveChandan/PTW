@@ -1,0 +1,47 @@
+55 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 55 of 79 
+PTW Format 
+Annexure-V 
+(Permit Format & Safety Precautions) HSE/SAF/02 , Rev-08 
+PERMIT VALIDITY: The validity of permit must be extended if work is allowed to be continued after it has expired. Work Permit No: 
+Section A:           Cold Work            Hot Work                 Confined Space                       Excavation          Work at Height           Line Breaking 
+                             Rigging job            Radiography            Hydraulic/Pneumatic System                    Others ____________ 
+Section B: Job Details                                                                                                                        Work Permit No.: 
+Plant/Unit:   ____________       Area/Location: _________    SAP Notification. ____________ 
+Job Description:  ____________                                                   Equipment Name/ tag No:   ____________                                                      
+                                                  ____________                                               ____________                                           ____________ 
+Job Execution Agency: Own Employees / Contractor                    Executive Department                               Number of Persons at Work:      
+Section C: Nature of Work 
+        Work at Height                       Welding/Gas Cutting          Hot Tapping          Opening Line/Equipment         Excavation          Civil work 
+        Insulation                                 Material Handling                Painting              Work on Electrical System          Fire Network 
+         Mechanical Lockout              Work on Fragile Roofs           Closure of Roads            Hydro-jetting 
+        Work on Inst. Systems           Radiation Sources           Grinding/Drilling/Cutting          Online Sealing          Others ____________ 
+Section D: Tools and Equipment To Be Used 
+        Welding Machine                    Gas Cylinders/ Gas Cutting Set             Man Lift           Non-Sparking Tools          Mobile Crane/Winch 
+        Crane/ Farana/HEMM           Lifting Tools & tackles           Portable Electric Tools           Scaffold                         Ladders         
+        Grinding/Cutting/Drilling Set           Civil Hand Tools           Hydraulic Tools           Pneumatic Tools                     Lifeline 
+          Mechanical Handy Tools                 Electrical Insulated Tools                  Others ____________ 
+Section E: Hazard/Risk Considerations 
+         Fire / Flash                    Fall from Height             Oxygen Deficiency            Chemical/Toxic Gas Exposure              
+        Corrosive Mat.             Hot Surface                     Stored Energy                    Crush/Cut Injury                      Pressurized Equip. 
+        Noise Exposure            Dust Exposure                Radiation Hazard               Caught inside                Electric Shock           Slip/Trip 
+         Strike by                       Crush/cut Injury             Spark                                   Ergonomic                      Awkward Position           Splash                                        
+         Splash                            Skin Burn                         Environment Exposure          On/ Off Site Emergency          Static Charge 
+         Exposure to rotating equipment                        Simultaneously operation           Others ____________ 
+Section F: Job/Equipment Preparation 
+         Mechanical Isolation                                                                                                      Equipment/vessel de-pressurized/drained                                                                                    
+         Equipment/Pipe Blinded                                                                                               Use of 24 Volt Lamp (Flame-Proof)                                                                                                                    
+         Isolation/Blinding Tag No.  ____________                                                                Vehicle Entry Procedure Compliance                                                                                                                               
+

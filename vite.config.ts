@@ -35,6 +35,7 @@ export default defineConfig(({ mode }) => {
         '/sap/opu/odata4': {
           target: sapTarget,
           changeOrigin: true,
+          cookieDomainRewrite: '',
           secure: false, // Set to true if using valid corporate SSL certificates
           headers: {
             'sap-client': sapClient
@@ -44,15 +45,18 @@ export default defineConfig(({ mode }) => {
         '/sap/bc/ui2': {
           target: sapTarget,
           changeOrigin: true,
+          cookieDomainRewrite: '',
           secure: false,
           headers: {
             'sap-client': sapClient
           }
         },
+        '/sap/public': { target: sapTarget, changeOrigin: true, secure: false, cookieDomainRewrite: '' },
         // Proxy generic SAP ICF services (MIME repository, authentication)
         '/sap/bc': {
           target: sapTarget,
           changeOrigin: true,
+          cookieDomainRewrite: '',
           secure: false,
           headers: {
             'sap-client': sapClient

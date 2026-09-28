@@ -1,0 +1,80 @@
+65 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 65 of 79 
+ 
+ 
+ 
+ 
+ 
+Motor LLF ✓       ✓ ✓     ✓             ✓          ✓   
+Control Circuit checking ✓        ✓                     ✓          ✓    
+  Head, Face, Eyes, Ears Respiratory Body Feet  Hands 
+Location/ Activity 
+Safety Glasses 
+Welding or cutting Goggles 
+Chemical Splash Goggles  
+  Face shield 
+  Safety helmet 
+  Hearing Protection 
+  Half-face (mouth, nose) 
+Full-Face (air purifying via cartridge) 
+Dust Mask  
+Full Body protection (Jacket /apron 
+(rubber, neoprene-suits)  
+Arc Flash Suit with Hood (LV) 
+Arc Flash Suit with Hood (HV) 
+Fall protection – Safety harness 
+Gum Boots 
+Safety shoes  
+Di-electric rubber shoes 
+Cut resistance gloves 
+Chemical resistant gloves 
+ 
+High voltage gloves 
+Low voltage gloves(1.1KV) 
+Cotton Gloves (with or W/O PVC 
+Dots 
+Heat resistant gloves 
+UPS/DCDB/Battery Charger PM ✓       ✓       ✓             ✓          ✓   
+ACB/MCCB Isolation ✓     ✓ ✓           ✓         ✓        ✓     
+SFU Maintenance (@ Live 
+panel) ✓     ✓ ✓           ✓         ✓        ✓     
+Motor Greasing ✓       ✓                     ✓          ✓   
+Panel Busbar 
+removal/Installation ✓       ✓                     ✓ ✓            
+Heater Maintenance ✓       ✓       ✓       ✓     ✓          ✓   
+AC Maintenance ✓       ✓       ✓       ✓     ✓          ✓   
+Panel Shifting & Erection ✓       ✓                     ✓          ✓   
+Cable Tray Installation ✓       ✓               ✓     ✓          ✓   
+Cable Laying/Dressing Work ✓       ✓               ✓     ✓          ✓   
+Temporary Power Connection ✓       ✓                     ✓          ✓   
+CA/Rectifier Current 
+measurement ✓     ✓ ✓           ✓         ✓        ✓     
+CA/Harmonic filter bank 
+maintenance ✓       ✓               ✓     ✓      ✓       
+CA/Polarization Rectifier 
+Maintenance ✓       ✓           ✓         ✓        ✓     
+CA/ DC Isolator 
+Maintenance ✓       ✓                     ✓          ✓   
+R125 HF /Electrical Job ✓   ✓   ✓     ✓   ✓           ✓   ✓    ✓     
+CPP/66kV Line Isolation ✓       ✓             ✓       ✓      ✓       
+CPP/Isolator or Earth 
+switch operation ✓       ✓             ✓       ✓      ✓       
+CPP/66Kv SF6 CB 
+Operation ✓       ✓             ✓       ✓      ✓       
+CPP/66Kv bay 
+maintenance  ✓       ✓       ✓             ✓          ✓   
+CPP/Generator PM ✓       ✓       ✓             ✓          ✓   
+CPP/ESP Field Discharge ✓       ✓                     ✓      ✓       
+

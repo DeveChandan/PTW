@@ -1,0 +1,48 @@
+10 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 10 of 79 
+Self-Permitting: 
+  In a Permit to Work (PTW) system, self-permitting refers to the practice where an individual 
+authorizes their own work permit without requiring approval from a separate, designated authority. ( 
+e.g Mr. XYZ is issuing the permit to Mr XYZ for Hot Work) 
+Isolation: 
+A physical barrier between a source of energy (mechanical, electrical, hydraulic or static head) or 
+process materials. 
+Live Permit: 
+A permit for a work that is active and ongoing. 
+Method Statement: 
+A breakdown of an activity into individual tasks. 
+Monitoring:  
+Routine checking of permits and controls in the course of the work. 
+Revalidation: 
+Reassessing the work site and PTW controls to determine if work can continue safely for another set 
+period of time. 
+Review: 
+Examining the fundamental design of the system to see whether it should be changed in the light of 
+experience. 
+Shift Handover: 
+Process of transferring responsibility for controlling and monitoring work from the present Operations 
+shift to the oncoming shift. 
+Supporting Certificate Signatory: 
+The person responsible for confirming that the hazards have been (Validated, Authorized Safety 
+correctly identified and assessed and, that the proposed controls area inspector, Fire Permit 
+Signatory) adequate. 
+Suspension:  
+Temporary invalidation of a permit for a period during which the work may not proceed. 
+Validity Period: 
+The period during which a permit may remain active, and after which the work site controls must be 
+reassessed. 
+Worker (User): 
+ A member of the work party, working to the instruction of the Permit Holder. 
+

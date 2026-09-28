@@ -1,0 +1,52 @@
+23 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 23 of 79 
+• Confined Spaces include, but are not limited to: - tanks, vessels, vaults, certain pipelines, 
+certain pits, elevated water towers, boilers, columns, reactors, spheres, silos, sumps, 
+sewers, underground service and column skirts (those skirts where operator  goes for 
+valve operations is excluded from the definition, provided there is cross ventilation and 
+there are two opening for ingress and egress.)  
+• Note that these spaces could reasonably have atmospheres that are oxygen deficient or 
+contain other hazards, typical examples of confined space hazards. 
+• These spaces are subjected to potential hazards, viz., accumulation of toxic or flammable 
+gas, vapors, inert gas, oxygen deficient (<19.5%v/v), flooding of liquid, steam or any other 
+hazardous substance or development of hazardous conditions. 
+• A Work permit must be issued before a person enters a Confined Space, and before the 
+issue of the Work permit, a formal documented P-JSA must take place.  
+• The Work permit must specify details of the location and the type of work to be done, 
+with the P-JSA attached or cross referenced, and with the necessary protective measures 
+detailed or attached. 
+• Use of Destress meter is also mandatory when person entering inside the confined space. 
+4.3.1 Entry into a Confined Space must be in accordance with GFL Standard and a 
+requirement demanded by legislation. Thus: 
+ 
+No person shall enter a Confined Space unless:  
+• Formal P-JSA has been completed. 
+• All product and service lines entering the space are disconnected, blanked and 
+checked. Drawing for the same is to be attached with the permit. 
+• All mechanical equipment such as stirrers and heaters are positively disconnected and 
+electrically locked off. 
+• All appropriate operating and maintenance personnel are advised of the activity and 
+the period for which it is approved. 
+• All electric connection shall be provided with ELCB. 
+• For jobs in confined spaces only 24 V Flame proof hand lamp to be used. If lighting is 
+required for any job involving release of flammable vapors or work is carried out in a 
+hazardous area, it is mandatory to use flameproof electrical equipment. Only 
+flameproof 24 V electric hand lamp shall be used. Use of 230 V hand lamps inside 
+confined space/vessel is prohibited. 
+• When a person is entering confined space, the receiver must keep minimum one 
+trained attendants at the manhole or entry point 
+• Wherever possible, lifelines with safety harness should be used for entry into 
+confined space 
+

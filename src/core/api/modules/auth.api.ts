@@ -11,9 +11,14 @@ export const authApi = {
    * Fetches user profile, assigned plant, and SAP authorizations from the OData V4 userinfo entity set
    */
   async fetchUserInfo(userId: string, client: string = '200'): Promise<SapUserInfoRecord[]> {
-    const filter = encodeURIComponent(`UserId eq '${userId.trim().toUpperCase()}'`);
-    const endpoint = `${ODATA_ENTITIES.USER_INFO}?$filter=${filter}&sap-client=${client}`;
-    const response = await odataClient.get<ODataCollectionResponse<SapUserInfoRecord>>(endpoint);
+    // Axios merges these with the active client's defaults; embedding a query
+    // string in the URL would append a second sap-client parameter.
+    const response = await odataClient.get<ODataCollectionResponse<SapUserInfoRecord>>(ODATA_ENTITIES.USER_INFO, {
+      params: {
+        $filter: `UserId eq '${userId.trim().toUpperCase().replace(/'/g, "''")}'`,
+        'sap-client': client,
+      },
+    });
     return response.data?.value || [];
   },
 

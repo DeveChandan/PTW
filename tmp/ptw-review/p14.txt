@@ -1,0 +1,48 @@
+14 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 14 of 79 
+Section I: GAS Test: Accepted value of gas testing result. 
+ 
+General Guidelines for Gas Tester: 
+i. Authorized Gas Tester: Gas testing is to be done by an authorized gas tester 
+(trained, approved and listed in the Permit Matrix). 
+ii. Equipment Checking : Ensure that the gas detection equipment/instrument is 
+calibrated and suitable for detecting the specific gases that may be present. It is 
+suggested to read OEM/manual/ brochure for gas testing equipment. 
+iii. Personal Protective Equipment (PPE) : Wear appropriate PPE, such as gloves, 
+safety glasses, and a gas mask if necessary. 
+iv. Area Inspection : Inspect the area wher e the hot work will be performed to 
+identify potential sources of gas. 
+v. Gas Detector Setup: Turn on the gas detector as per manufacturer's instructions. 
+vi. Baseline Reading: Take a baseline reading in a safe area to ensure the detector 
+is functioning correctly. 
+vii. Test at Different Levels: Conduct the gas test at various levels (e.g., ground level, 
+mid-level, and high level) to detect any stratified gases. 
+viii. Wherever forced ventilation is used, gas test should be carried out after 
+minimum 10 min of stopping the educator/fan/blower.  
+ix. Gas testing in confined spaces must be revalidated before reentry if there has 
+been a break of more than one hour. 
+x. If there is any abnormality found the work must be stopped immediately and 
+inform the permit issuer and responsible person.  
+Frequency of Gas testing: 
+    For Hot Work: 
+Gas testing shall be carried out at least once every 2 hours within 15 M of the work site 
+by the authorized gas tester if hot work is at close proximity of area where there is 
+potential fire and/or explosion risk.  
+ 
+ 
+Allowable limit for gases 
+Oxygen Toxic Gases Flammable Gases 
+19.5% to 23.5 % Zero Zero 
+

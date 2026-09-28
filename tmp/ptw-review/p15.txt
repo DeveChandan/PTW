@@ -1,0 +1,66 @@
+15 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 15 of 79 
+For Confined Space Entry:  
+1. Entry to the confined to made within 1 hrs. of gas testing otherwise conduct gas testing 
+again. 
+2. A periodic gas testing, using portable gas testing instrument to be done, every 2 hrs. 
+3. It is suggested If Continuous gas monitor is available is to be used inside the confined 
+space to quickly detect the change in atmospheric conditions inside the Confined Space. 
+                      Oxygen concentration:  
+• Wherever forced ventilation is used. The gas test should be carried out after 
+minimum 10 min of stopping the educator/fan/blower.  
+• Gas testing in confined spaces must be revalidated before reentry if there has 
+been a break of more than one hour. 
+• If there is any abnormality found the work must be stopped immediately and 
+inform the permit issuer and responsible person.  
+    NOTE: 
+• Carry out regular gas test of confined spaces, where there is possibility of gas 
+generation due to nature of work, being performed inside, such as removal of 
+sludge, hot works, etc.  
+Section J, K, L & M  
+Following sequence must be followed for getting signature & job clearance on permit. 
+          Sequence of approval for issuing a permit: ( 1 means 1 st singing person 2 means 2 nd signing     
+person and so on.) 
+Type of Permit Cold 
+Work 
+Hot 
+Work 
+Confined 
+Space Excavation Rigging 
+job 
+Work at 
+Height 
+Line 
+Breaking Radiography Hydraulic/Pneumatic 
+System 
+Section: J  1 1 1 1 1 1 1 1 1 
+Permit Issuer  
+Section: H 
+Isolation 2 2 2 
+2 
+NA NA 2 2 NA Excavation 
+Clearance 
+(Section F)  
+Section: M                    
+Approver I - 3 3 3 3 2 3 3 - 
+Approver II - 4 4 4 4 - 4* - - 
+Section: L 
+Permit Acceptor  3 5 5 5 2 3 5 4 2 
+Section: K  4 6 6 6 5 4 6 5 3 
+Area operator  
+ 
+ 
+ 
+

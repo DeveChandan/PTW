@@ -1,0 +1,1071 @@
+{
+  "PermitInfoType": {
+    "Permit_No": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PermitType": {
+      "type": "Edm.String",
+      "maxLength": "32",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Aufnr": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Qmnum": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Auart": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Qmart": {
+      "type": "Edm.String",
+      "maxLength": "2",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Qmtxt": {
+      "type": "Edm.String",
+      "maxLength": "40",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Qmdat": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "PersonResp": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PlannerGroup": {
+      "type": "Edm.String",
+      "maxLength": "3",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PmBasicStartD": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "PmBasicFinishD": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "PmFinalDueD": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "Revision": {
+      "type": "Edm.String",
+      "maxLength": "8",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Priority": {
+      "type": "Edm.String",
+      "maxLength": "2",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Assembly": {
+      "type": "Edm.String",
+      "maxLength": "18",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Equnr": {
+      "type": "Edm.String",
+      "maxLength": "18",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Tplnr": {
+      "type": "Edm.String",
+      "maxLength": "30",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Werks": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Arbpl": {
+      "type": "Edm.String",
+      "maxLength": "8",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "AreaLoc": {
+      "type": "Edm.String",
+      "maxLength": "40",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "JobDesc": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ExecAgency": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ExecDept": {
+      "type": "Edm.String",
+      "maxLength": "40",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SupvName": {
+      "type": "Edm.String",
+      "maxLength": "60",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SupvPhone": {
+      "type": "Edm.String",
+      "maxLength": "16",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SafetyOfficer": {
+      "type": "Edm.String",
+      "maxLength": "60",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Shift": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PersonsQty": {
+      "type": "Edm.Decimal",
+      "maxLength": null,
+      "precision": "5",
+      "scale": null,
+      "nullable": false
+    },
+    "ValidFromD": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "ValidFromT": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ValidToD": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "ValidToT": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "GasTestFreqHr": {
+      "type": "Edm.String",
+      "maxLength": "2",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Status": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "RefPermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "LotoRequired": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "LotoCertNo": {
+      "type": "Edm.String",
+      "maxLength": "20",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolationRequired": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolationRefType": {
+      "type": "Edm.String",
+      "maxLength": "6",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolationNo": {
+      "type": "Edm.String",
+      "maxLength": "20",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolationStatus": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PermitIssuer": {
+      "type": "Edm.String",
+      "maxLength": "40",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SuspendReason": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "CancelReason": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Ernam": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Erdat": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "Erzet": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "CreatorComment": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifiedBy": {
+      "type": "Edm.String",
+      "maxLength": "64",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifiedDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "VerifiedTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifierComment": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ApprovedBy": {
+      "type": "Edm.String",
+      "maxLength": "64",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ApprovedDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "ApprovedTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ApproverComment": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IssuedBy": {
+      "type": "Edm.String",
+      "maxLength": "64",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IssuedDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "IssuedTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IssuerComment": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Aenam": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Aedat": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "Aezet": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "LastChangedAt": {
+      "type": "Edm.DateTimeOffset",
+      "maxLength": null,
+      "precision": "7",
+      "scale": null,
+      "nullable": true
+    },
+    "SAP__Messages": {
+      "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "WorkerType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ItemNo": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "WorkerTypeCode": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "WorkerName": {
+      "type": "Edm.String",
+      "maxLength": "64",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PhoneNo": {
+      "type": "Edm.String",
+      "maxLength": "20",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ContractorId": {
+      "type": "Edm.String",
+      "maxLength": "20",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ContractorName": {
+      "type": "Edm.String",
+      "maxLength": "64",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "EmpId": {
+      "type": "Edm.String",
+      "maxLength": "20",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Shift": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SAP__Messages": {
+      "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "PPEType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ItemNo": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PpeCode": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PpeDesc": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsRequired": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsAvailable": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsIssued": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "CheckedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "CheckedAt": {
+      "type": "Edm.DateTimeOffset",
+      "maxLength": null,
+      "precision": "7",
+      "scale": null,
+      "nullable": true
+    },
+    "Remarks": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SAP__Messages": {
+      "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "SafetyType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ItemNo": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Category": {
+      "type": "Edm.String",
+      "maxLength": "6",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ItemCode": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Response": {
+      "type": "Edm.String",
+      "maxLength": "3",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ValueText": {
+      "type": "Edm.String",
+      "maxLength": "100",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ValueNum": {
+      "type": "Edm.Decimal",
+      "maxLength": null,
+      "precision": "8",
+      "scale": null,
+      "nullable": false
+    },
+    "Unit": {
+      "type": "Edm.String",
+      "maxLength": "6",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ReferenceNo": {
+      "type": "Edm.String",
+      "maxLength": "30",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ResponsibleUser": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifiedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifiedAt": {
+      "type": "Edm.DateTimeOffset",
+      "maxLength": null,
+      "precision": "7",
+      "scale": null,
+      "nullable": true
+    },
+    "Remarks": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SAP__Messages": {
+      "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "HazardControlType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ItemNo": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "HazardCode": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "HazardDesc": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "RiskLevel": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ControlCode": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ControlDesc": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ControlStatus": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ResponsibleUser": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifiedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifiedAt": {
+      "type": "Edm.DateTimeOffset",
+      "maxLength": null,
+      "precision": "7",
+      "scale": null,
+      "nullable": true
+    },
+    "Remarks": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SAP__Messages": {
+      "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "IsolationType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolationNo": {
+      "type": "Edm.String",
+      "maxLength": "20",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ItemNo": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolType": {
+      "type": "Edm.String",
+      "maxLength": "6",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ReferenceType": {
+      "type": "Edm.String",
+      "maxLength": "6",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ReferenceId": {
+      "type": "Edm.String",
+      "maxLength": "30",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Status": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "RequestedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "RequestedDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "RequestedTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifiedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "VerifiedDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "VerifiedTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolatedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolatedDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "IsolatedTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ApprovedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ApprovedDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "ApprovedTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "NormalizedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "NormalizedDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "NormalizedTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolationPoint": {
+      "type": "Edm.String",
+      "maxLength": "60",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsolMethod": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "LockTagNo": {
+      "type": "Edm.String",
+      "maxLength": "30",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "IsIsolated": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PointIsolatedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PointIsolatedAt": {
+      "type": "Edm.DateTimeOffset",
+      "maxLength": null,
+      "precision": "7",
+      "scale": null,
+      "nullable": true
+    },
+    "ZeroEnergyConf": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ZeroEnergyBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ZeroEnergyAt": {
+      "type": "Edm.DateTimeOffset",
+      "maxLength": null,
+      "precision": "7",
+      "scale": null,
+      "nullable": true
+    },
+    "IsNormalized": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PointNormalizedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PointNormalizedAt": {
+      "type": "Edm.DateTimeOffset",
+      "maxLength": null,
+      "precision": "7",
+      "scale": null,
+      "nullable": true
+    },
+    "Remarks": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "LastChangedAt": {
+      "type": "Edm.DateTimeOffset",
+      "maxLength": null,
+      "precision": "7",
+      "scale": null,
+      "nullable": true
+    },
+    "SAP__Messages": {
+      "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  }
+}

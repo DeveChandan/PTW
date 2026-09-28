@@ -1,0 +1,52 @@
+43 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 43 of 79 
+6. Open sides of an excavation where a person may fall in shall be guarded by adequate 
+protective barricades and suitable warning signs shall be put up at conspicuous positions. 
+If the trench is 3m or deeper, barricades made of rigid materials instead of ropes must be 
+used. Covering of trench with canvas sheet or the like  without such barricades is strictly 
+prohibited. 
+7. Pick-and-shovel people working in  excavations should be kept far enough apart to 
+prevent injury to one another. 
+8. All road-crossing trenches must be covered  by steel plates of sufficient strength for 
+vehicles to pass through. 
+9. Vessel and Confined Space Entry Permit may be required before any person is allowed to 
+enter a trench exceeding 1.5m in depth as the atmosphere in it may not be safe for entry.   
+Special attention should be paid  to those trenches being dug within process area or any 
+place where there are possible sources of flammable or toxic gas emission. Such emission 
+sources may be from the nearby equipment or the pipes underneath the trenches. 
+ 
+SAFETY PRECAUTIONS FOR COLD WORK 
+           The following precautions (though not necessarily exhaustive) should be observed in 
+relation to the performance of Cold Work: 
+ 
+1. For work involving the opening -up or de-energizing of equipment, the Lock, Tag and Try 
+Procedure must be followed. 
+2. If equipment is to be opened up, it should first be depressurized, drained and purged of 
+hazardous material  under valve isolation, before  positive mechanical isolation can be 
+achieved. 
+           The effectiveness of the valve isolation should be tested and if it is found that a valve is 
+passing, appropriate  measures will have to be adopted. These may include shutting 
+additional valves or taking further equipment  out of commission, the p ossibility of the 
+presence of wax or ice under a valve should be considered, as subsequent melting would 
+defeat the isolation. Where valve isolation is used, the valves should be locked off  with 
+chain and padlock or other equally effective device, to ensure that they are  not opened 
+inadvertently. 
+3. If toxic gases could be present, suitable breathing apparatus should be specified. 
+           The possibility of the presence of pyrophoric material should be considered before 
+admitting air. If necessary, the equipment should be water flushed/filled before opening 
+up and wetted down afterwards. 
+4. Where hazardous materials such as hydrocarbons and chemicals are involved, mechanical 
+isolation should consist of spading, blanking or disconnecting. 
+

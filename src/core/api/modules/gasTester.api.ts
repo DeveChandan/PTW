@@ -6,18 +6,13 @@ import { ODataCollectionResponse } from '../../types/odata.types';
 export interface GasSafetyThresholds {
   minOxygen: number;       // 19.5%
   maxOxygen: number;       // 23.5%
-  maxFlammableLel: number; // 10.0%
-  maxH2sPpm: number;       // 10 PPM
-  maxCoPpm: number;        // 25 PPM
+  maxFlammableLel: number; // Approved % LEL
+  maxH2sPpm: number;       // Approved ppm
+  maxCoPpm: number;        // Approved ppm
 }
 
-export const DEFAULT_GAS_THRESHOLDS: GasSafetyThresholds = {
-  minOxygen: 19.5,
-  maxOxygen: 23.5,
-  maxFlammableLel: 10.0,
-  maxH2sPpm: 10.0,
-  maxCoPpm: 25.0,
-};
+// The source has conflicting gas limits (pp. 11, 14, 24). No implicit clearance policy.
+export const DEFAULT_GAS_THRESHOLDS: GasSafetyThresholds | undefined = undefined;
 
 /**
  * Module API: Gas Tester (Atmospheric O2, LEL%, H2S, CO Calibration & Logs)
@@ -37,56 +32,30 @@ export const gasTesterApi = {
    * Records a new calibrated gas test reading
    */
   async recordTest(testData: Omit<PermitGasTest, 'TestId'>): Promise<PermitGasTest> {
-    const passed =
-      testData.OxygenPct >= DEFAULT_GAS_THRESHOLDS.minOxygen &&
-      testData.OxygenPct <= DEFAULT_GAS_THRESHOLDS.maxOxygen &&
-      testData.FlammableLelPct <= DEFAULT_GAS_THRESHOLDS.maxFlammableLel &&
-      testData.H2sPpm <= DEFAULT_GAS_THRESHOLDS.maxH2sPpm &&
-      testData.CoPpm <= DEFAULT_GAS_THRESHOLDS.maxCoPpm;
-
-    const payload: Partial<PermitGasTest> = {
-      ...testData,
-      Passed: passed,
-      TestTimestamp: testData.TestTimestamp || new Date().toISOString(),
-    };
-
-    const response = await odataClient.post<PermitGasTest>(ODATA_ENTITIES.GAS_TESTS, payload);
-    return response.data;
+    // The legacy write contract is not the current GasTestType. Use a verified SAP action.
+    void testData;
+    throw new Error('Gas-test recording requires the approved site limits and SAP workflow action.');
   },
 
-  /**
-   * Helper utility to validate whether gas sensor readings meet statutory safety criteria
-   */
+  /** Compare readings only against an explicitly supplied site policy. */
   validateLimits(
     readings: { oxygenPct: number; flammableLelPct: number; h2sPpm: number; coPpm: number },
-    thresholds: GasSafetyThresholds = DEFAULT_GAS_THRESHOLDS
+    thresholds: GasSafetyThresholds | undefined = DEFAULT_GAS_THRESHOLDS
   ): { safe: boolean; violations: string[] } {
+    if (!thresholds) return { safe: false, violations: ['HSE-approved gas limits are required; the source procedure contains conflicting values.'] };
+    if ([readings.oxygenPct, readings.flammableLelPct, readings.h2sPpm, readings.coPpm].some(value => !Number.isFinite(value) || value < 0) || readings.oxygenPct > 100 || readings.flammableLelPct > 100) {
+      return { safe: false, violations: ['All gas readings must be finite, nonnegative values with valid percentage ranges.'] };
+    }
+    if ([thresholds.minOxygen, thresholds.maxOxygen, thresholds.maxFlammableLel, thresholds.maxH2sPpm, thresholds.maxCoPpm].some(value => !Number.isFinite(value) || value < 0) || thresholds.minOxygen > thresholds.maxOxygen || thresholds.maxOxygen > 100 || thresholds.maxFlammableLel > 100) {
+      return { safe: false, violations: ['The supplied gas limit policy is invalid.'] };
+    }
     const violations: string[] = [];
-
-    if (readings.oxygenPct < thresholds.minOxygen) {
-      violations.push(`Oxygen deficiency: ${readings.oxygenPct}% (min ${thresholds.minOxygen}%)`);
-    } else if (readings.oxygenPct > thresholds.maxOxygen) {
-      violations.push(`Oxygen enrichment: ${readings.oxygenPct}% (max ${thresholds.maxOxygen}%)`);
-    }
-
-    if (readings.flammableLelPct > thresholds.maxFlammableLel) {
-      violations.push(`Combustible gas excursion: ${readings.flammableLelPct}% LEL (max ${thresholds.maxFlammableLel}%)`);
-    }
-
-    if (readings.h2sPpm > thresholds.maxH2sPpm) {
-      violations.push(`Toxic H2S limit exceeded: ${readings.h2sPpm} PPM (max ${thresholds.maxH2sPpm} PPM)`);
-    }
-
-    if (readings.coPpm > thresholds.maxCoPpm) {
-      violations.push(`Carbon monoxide limit exceeded: ${readings.coPpm} PPM (max ${thresholds.maxCoPpm} PPM)`);
-    }
-
-    return {
-      safe: violations.length === 0,
-      violations,
-    };
+    if (readings.oxygenPct < thresholds.minOxygen || readings.oxygenPct > thresholds.maxOxygen) violations.push('Oxygen is outside the approved range.');
+    if (readings.flammableLelPct > thresholds.maxFlammableLel) violations.push('Flammable gas exceeds the approved limit.');
+    if (readings.h2sPpm > thresholds.maxH2sPpm) violations.push('H2S exceeds the approved limit.');
+    if (readings.coPpm > thresholds.maxCoPpm) violations.push('CO exceeds the approved limit.');
+    return { safe: violations.length === 0, violations };
   },
-
   /**
    * Retrieves calibrated status for field gas sniffer detectors
    */
@@ -97,14 +66,14 @@ export const gasTesterApi = {
       return {
         deviceId: response.data?.DeviceId || deviceId,
         validUntil: response.data?.ValidUntil || '',
-        isCalibrated: response.data?.IsCalibrated ?? true,
+        isCalibrated: response.data?.IsCalibrated === true && response.data?.DeviceId === deviceId && Number.isFinite(Date.parse(response.data?.ValidUntil || '')) && Date.parse(response.data.ValidUntil) > Date.now(),
       };
     } catch {
-      // Fallback response for dev/offline environments
+      // Missing calibration evidence cannot assert a valid instrument.
       return {
         deviceId,
-        validUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
-        isCalibrated: true,
+        validUntil: '',
+        isCalibrated: false,
       };
     }
   },

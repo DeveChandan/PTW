@@ -1,0 +1,72 @@
+48 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 48 of 79 
+05 Is the draining, washing, cleaning, and purging done properly?  Done by 
+Name_________  
+06 Is the CSE free from physical hazards like extreme cold or heat 
+through proper cooling and air purging?   
+07 Is there proper air ventilation inside the CSE, such as an exhaust 
+fan or a movable blower provided with adequate capacity?   
+08 
+Follow Electrical Safety: 
+8.1 Are only 24-volt bulbs with flameproof fittings used? 
+8.2 Are there any cable joints observed? 
+8.3 Is the power supply protected by an ELCB? 
+  
+09 Is the earthing resistance of the process vessel or tank less than 
+1 ohm? (Done with planning)   
+10 
+Has the air quality been tested and recorded for the presence of 
+toxic, poisonous, and flammable gases, as well as for oxygen 
+percentage, at all locations of the vessel/confined space? and at 
+different levels i.e. (top, middle and bottom) of vertical vessel, 
+reactors  
+  
+11 
+Is there a provision for a properly sized ladder (Aluminium, M.S., 
+or rope type) for ascending and descending inside the CSE, 
+according to location requirements? 
+  
+12 Is a stretcher arranged at the nearest location of the CSE 
+activity, if required?   
+13 A distress meter (motion meter) is arranged, and anyone 
+entering the CSE must wear it.  
+ 
+ 
+ 
+14 Have the names and details of all personnel entering the 
+confined space been recorded on the permit before entry?   
+15 
+Arrangement of Fresh Air supplying facility (Airline respirator, 
+Cascade system) available for respiratory protection against 
+dangerous gases, fumes, vapours and oxygen deficient 
+environment done?  (Sulfuric Acid, Chlorine, Caustic, Natural 
+Gas, Methanol, HCl, Anhydrous Hydrofluoric Acid, DHF, 
+Chloroform, R22 (Chlorodifluoromethane), TFE (Tetra Fluoro 
+ethylene), Ammonia, Nitric Acid, Methyl Chloride, MDC & CTC 
+(carbon tetra chloride)).  
+  
+16 
+Have all jobs, inspections, and briefings on hazards and 
+precautions for the confined space been completed for all 
+personnel involved before starting the job? 
+  
+17 
+Does the person entering the CSE wear a full body harness with 
+a double lifeline, anchored with a separate lifeline tied outside 
+the CSE at a secure location? 
+  
+18 Standby Person Responsibility:  
+ Is there a person stationed outside the CSE near the   
+

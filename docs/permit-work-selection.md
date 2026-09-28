@@ -1,90 +1,105 @@
-# Permit work selection and SAP backend contract
+# Unified PMIntegration lookup
 
-Permit creation now starts with work selection, followed by the existing six
-permit steps. Users choose Corrective, Predictive, Preventive, Inspection,
-Shutdown or Other, then a reference source and inclusive From/To dates. They
-search, select a reference and continue. Other steps and submission stay locked
-until selection is confirmed. Changing search criteria clears the selection and
-cancels the previous request. Reference keys in General Details are read-only.
+Updated against the supplied OData V4 metadata and ZI_PTW_PM_INTEGRATION CDS.
+PMIntegration is read-only. Its composite key is ReferenceId + ReferenceSource.
+WorkDate is nullable Edm.Date. Date filters are inclusive. The source values are
+NOTIFICATION and ORDER; shutdown is an ORDER categorized as SHUTDOWN.
 
-Work category is the requester's classification; it does not guess a mapping
-between each maintenance category and an SAP order type. The 85% / 13% / 2%
-labels reflect the distribution supplied for notification/order/shutdown work.
+## Filter mapping
 
-## Backend team: extend PMIntegration
+| UI category | UI source | ReferenceSource | WorkCategory | OrderNotifType |
+| --- | --- | --- | --- | --- |
+| Corrective | Notification | NOTIFICATION | CORRECTIVE | M2 |
+| Corrective | Maintenance order | ORDER | CORRECTIVE | PM06 |
+| Preventive | Maintenance order | ORDER | PREVENTIVE | PM01 |
+| Shutdown | Shutdown | ORDER | SHUTDOWN | PM03 |
+| Inspection | Maintenance order | ORDER | INSPECTION | PM05 |
+| Other | Maintenance order | ORDER | OTHER | PM07 / PM08 |
 
-The user supplied an OData V4 response from `PMIntegration` with PermitNo, Status,
-Qmnum, Aufnr, Auart, Tplnr, Equnr, Werks and Arbpl. The frontend calls this entity
-under the configured OData service root using the existing SAP session.
+Predictive remains visible but disabled: the supplied CDS contains no PREDICTIVE
+branch. Category selection restricts reference sources and the order-type menu.
+Switching category, source, type or dates invalidates previous results/selection
+and aborts the in-flight lookup. Subsequent permit steps require a confirmed row.
 
-Add these filterable properties to support the requested first step:
-
-| Property | OData type | Required behavior |
-| --- | --- | --- |
-| WorkDate | Edm.Date, non-null | Date used for work lookup, serialized YYYY-MM-DD. Both From and To are inclusive. |
-| Qmart | Edm.String | Notification type, M2 for the notification route. Empty for work without a notification. |
-| IsShutdown | Edm.Boolean, non-null | True for shutdown work; false for other work. |
-
-Retain the existing properties and support filtering on Qmnum, Aufnr and Auart.
-Return the full matching `value` collection, or standard `@odata.nextLink` for
-server paging. Currently, a paged response asks users to narrow their dates
-instead of silently displaying an incomplete list.
-
-Source filters sent by the frontend:
-
-- Notification: Qmart = M2, Auart = PM02, nonempty Qmnum, IsShutdown = false.
-- Order: Auart in PM01/PM03/PM05/PM06/PM07/PM08 (or the chosen type), nonempty
-  Aufnr, IsShutdown = false.
-- Shutdown: IsShutdown = true. Identify each row by Aufnr, Qmnum or PermitNo.
-
-PM02 follows the user's original notification mapping. Keep the work category
-separate from source selection. If business rules allow an M2 notification
-without a PM02 order, adjust that filter in permitWorkLookup.api.ts.
-
-Example order request (shown unencoded for readability):
+Example (unencoded for readability):
 
 ```http
-GET PMIntegration?$filter=WorkDate ge 2026-09-01 and WorkDate le 2026-09-24 and (Auart eq 'PM01') and Aufnr ne '' and IsShutdown eq false&sap-client=200
+GET PMIntegration?$filter=WorkDate ge 2026-09-01 and WorkDate le 2026-09-25 and WorkCategory eq 'CORRECTIVE' and ReferenceSource eq 'NOTIFICATION' and (OrderNotifType eq 'M2')
 ```
 
-Example extended record:
+The CDS itself excludes notification phase 3 and orders with PHAS2 = X; the
+frontend does not treat those two different source status fields as a common
+status code. It no longer filters on the absent lookup properties Qmart, Auart,
+Qmnum, Aufnr or IsShutdown. Notification selection does not require a PM02 order.
 
-```json
-{
-  "PermitNo": "PTW000001",
-  "Status": "DUMM",
-  "Qmnum": "10000123",
-  "Aufnr": "40001234",
-  "Auart": "PM01",
-  "Tplnr": "PLANT-AREA-001",
-  "Equnr": "10001234",
-  "Werks": "1000",
-  "Arbpl": "MECH-001",
-  "WorkDate": "2026-09-24",
-  "Qmart": "M2",
-  "IsShutdown": false,
-  "JobDesc": "Inspect process equipment"
-}
-```
+## Autofill into PermitInfo
 
-The sample belongs to the order route because its Auart is PM01. A notification
-result must match the notification filter above. Wrap results in `{ "value": [...] }`.
+| Unified property | PermitInfo destination |
+| --- | --- |
+| ReferenceId | Qmnum for NOTIFICATION, Aufnr for ORDER |
+| OrderNotifType | Qmart for NOTIFICATION, Auart for ORDER |
+| JobDescription | JobDesc; also Qmtxt for NOTIFICATION |
+| WorkDate | Qmdat for NOTIFICATION, PmBasicStartD for ORDER |
+| Plant | Werks |
+| EquipmentTag | Equnr |
+| FunctionalLocation | Tplnr |
+| PlannerGroup | PlannerGroup |
+| Priority | Priority |
 
-Optional autofill properties: JobDesc (or Description), AreaLoc, Assembly,
-Priority, Revision, PersonResp, PlannerGroup, PmBasicStartD, PmBasicFinishD,
-PmFinalDueD, ExecDept and DefaultPermitType. Missing values clear prior source
-values so a notification cannot retain an unrelated order. Missing descriptive
-fields remain available for manual completion in General Details.
+Opposite-source linkage is cleared. Leading zeroes are preserved. Fields absent
+from the unified lookup (work center, finish date, area, assembly, revision,
+execution department) are cleared instead of retaining sample/prior work data.
+Permit hazard category is independent of the maintenance work category.
 
-## Frontend configuration
+Metadata mismatch: FunctionalLocation allows 40 characters while PermitInfo.Tplnr
+allows only 30. Values are not silently truncated; submission is blocked for an
+overlength value so the SAP team can resolve this contract difference.
 
-Defaults are PMIntegration, WorkDate and IsShutdown eq true. Override these with
-VITE_PTW_WORK_ENTITY, VITE_PTW_WORK_DATE_FIELD and VITE_PTW_SHUTDOWN_FILTER when
-needed. The date property must be Edm.Date. Restart Vite after changing config.
-Backend errors are shown as errors; lookups never substitute dummy records.
+## Configuration and validation
 
-Category and reference are included in the existing CreatorComment. No unknown
-properties are added to PermitInfo. The lookup's PermitNo is not copied into the
-new permit's identifier. Existing sample payload tools and downstream submission
-behavior are outside this change. Loading a sample returns to step one and
-invalidates the reference. Live integration remains pending the backend fields.
+VITE_PTW_WORK_ENTITY defaults to PMIntegration under VITE_ODATA_BASE_URL.
+The old VITE_PTW_WORK_DATE_FIELD and VITE_PTW_SHUTDOWN_FILTER settings are no longer
+used. WorkDate and the source/category/type properties now follow the metadata.
+No additional Qmart or IsShutdown property is needed on PMIntegration.
+
+Run `npm test`, `npm run lint` and `npm run build`. Unit tests cover each CDS branch,
+invalid combinations, dates, key identity, response parsing, and permit mapping.
+Live SAP data has not been tested; the supplied XML verifies the schema, not the
+execution of CDS joins, authorizations or backend filtering.
+
+## Real permit creation
+
+The create screen starts empty and no longer ships sample workers, PPE, hazards,
+gas results, signatures, attachments, approvals, renewals or random permit IDs.
+The requester chooses a real reference, enters the actual work and crew, records
+hazards/controls and adds the real PPE and safety requirements. Empty gas-testing
+and approval evidence is intentionally not created. Creating a CRTD request is
+not issuing a permit or authorizing work.
+
+The user confirmed SAP generates Permit_No. The create serializer omits that key
+and child PermitNo foreign keys from the deep insert, requests a returned entity,
+and only displays success with SAP's returned permit number. It uses a property
+schema extracted from the supplied XML to exclude FormRev/unknown properties and
+validate lengths, dates, times and numeric values. Complete validity, supervisor,
+work reference, crew and controls are checked before posting.
+
+The POST has no automatic network retry. Missing returned identifiers, timeouts
+and server errors are treated as unconfirmed outcomes; the screen blocks another
+submission and asks the requester to check SAP before starting another request.
+A successful save replaces the form with the returned number and status.
+
+SAP login now requires a successful userinfo request and a real PTW role. The
+SAP-returned role Z_MOBILE_PI_SHEET also grants all module access for testing,
+as requested. This is an exact role match, not a username or offline login bypass.
+The
+old offline/mock bypass paths are removed. Passwords are not stored in browser
+storage, and session restoration revalidates with SAP. The obsolete v1 browser
+session is cleared. The selected SAP client is applied to all service requests.
+SAP login HTML (including HTTP 200 with sap-authenticated: pending) is rejected.
+CSRF token failure prevents a modifying request from being sent.
+
+Read-only connectivity was checked on 2026-09-25: the SAP development host was
+reachable and returned an authentication-pending login page. No authenticated
+lookup or real permit was created during verification. Sign in to the local
+application and perform the real workflow to verify SAP numbering and deep insert
+behavior. Server-side authorization and business validation remain SAP's responsibility.

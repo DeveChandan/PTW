@@ -1,0 +1,4014 @@
+
+=== PDF PAGE 1 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 1 of 79 
+ 
+ 
+ 
+ 
+       
+
+
+=== PDF PAGE 2 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 2 of 79 
+DOCUMENT MANAGEMENT 
+Distribution:  GFL Dahej plant HOD, Control room and & Sustainability internal portal 
+Sr # Description Page 
+# 
+1 0.0 ABBREVIATIONS  4 
+2 0.0 DEFINITIONS 5 
+3 1.0 PURPOSE 11 
+4 2.0 SCOPE 11 
+5 3.0 PROCEDURE  11 
+6 3.1 Preparation of Permit Matrix and training records 11 
+7 3.2 Identification of jobs which require PTW 11 
+8 3.3 Listing out the Specific PPEs Requirement 12 
+9 3.4 Job planning and Identification of Jobs to be carried out 12 
+10 3.5 Preparation of JSA 12 
+11 3.6 Completion of PTW Format 13 
+12 3.7 Permits are not applicable for the following areas / activities 16 
+13 3.8 Permit Validity, Extension and Approver 17 
+14 3.9 PTW Rule for Hot Work at Contractor’s Fabrication Yard Located Inside Plant. 18 
+15 3.10 PTW rule for operating equipment in other area. 19 
+16 3.11 Road Closer & PTW 19 
+17 3.12 Permit-To-Work in Electrical Substation/ Electric Sub-district/Transformer, panel 
+room. 19 
+18 3.13 PTW in Utility Area / Operating Equipment  20 
+19 3.14 PTW Management for the Process Related Activities (where mech/elect/Inst 
+department is not involved) 20 
+20 3.15 Fire Water Line Related Work 20 
+21 3.16. The Work Permit Format distribution 20 
+22 4.0 PTW DETAILS FOR VARIOUS TYPES OF JOBS: 4.1 Work at Height  20 
+23 4.2 HOT WORK  22 
+24 4.3 CONFINED SPACE ENTRY  22 
+25 4.4 ELECTRIC WORK  25 
+26 4.5 LINE BREAKING 27 
+27 4.6 EXCAVATION ACTIVITIES 29 
+28 4.7 RADIOGRAPHY JOB REQUIREMENTS AND PERMITS 30 
+29 4.8 RIGGING JOBS 31 
+30 4.9 HYDRAULIC AND PNEUMATIC SYSTEM WORK 31 
+31 5.0 ROAD CLOSER 32 
+32 6.0 FOR FIRE WATER NETWORK ISOLATION 32 
+33 7.0 Changes in Conditions & Emergency Action 32 
+34 8.0 ROLES & RESPONSIBILITIES  33 
+
+=== PDF PAGE 3 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 3 of 79 
+35 8.2 Permit Issuer   34 
+36 8.3 Permit Acceptor (Person who is responsible to execute work)  35 
+37 8.4 Permit Holder Worker(s) who carryout Work  36 
+38 8.5 Permit Approver I/II/III 36 
+39 8.6 Area Operator  37 
+40 8.7 Authorized Toxic Gas/Oxygen Level Tester  37 
+41 9.0 MONITOR, AUDIT & REVIEW of PTW SYSTEM 37 
+42 9.1 Records 37 
+43 9.2 InDepth Inspections 38 
+44 9.3 Audits  38 
+45 9.4 Deviation Process  38 
+46 9.5 Loss of Work Permit Copy & Contact  38 
+47 9.6 Contact 38 
+48 10.0 REFERENCE 39 
+49 11.0 Revision History 39 
+50 12.0ANNECURES 39 
+51 SAFETY PRECAUTIONS AND REQUIREMENTS FOR HOT WORK, EXCAVATION WORK & 
+COLD WORK 40 
+52 Checklist for temporary Welding Machine/De watering pump & all other electrically 
+operated portable tools 45 
+53 Checklist for Height Work Compliance 46 
+54 Checklist for Confined space Entry Compliance   47 
+55 Checklist for Hot Work Procedure Compliance 50 
+56 Checklist for Line Break-Job and Planning Sheet 52 
+57 Checklist for Rigging Plan 53 
+58 PTW Format & Confined space entrance record 55 
+59 JSA Format 59 
+60 Isolation tags 60 
+61 PTW format for Electrical Wok 61 
+62 Electrical PTW Proper PPE 64 
+63 Permit matrix and training record format 66 
+64 Emergency Rescue Plan for Confined space jobs 67 
+65 list of all routine and non-routine activities 68 
+66 Safety District layout & Procedure for Safety District Owner  69 
+67 Frequently asked Question and Answer Key 73 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 4 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 4 of 79 
+ABBREVIATIONS 
+BA Breathing apparatus 
+CES Centre engineering service 
+COR Corporate 
+EHS Environment, Health, Safety 
+EHSS Environment, Health, Safety & Sustainability 
+ERP Emergency response procedure/Plan 
+GFRC Gujarat Fluorochemical Research Centre 
+HOD Head of Department 
+HR Human Resource 
+HSE Health Safety Environment 
+IMS Integrated management System 
+IS Indian Standards 
+JSA Job safety Analysis 
+LEL Lower explosive limit 
+LOTO Lock-out Tag-out 
+MOC Management of Change 
+NA Not Applicable 
+NDO Night Duty Officer 
+OHC Occupational Health and Safety 
+P-JSA Pre-Job safety Analysis 
+PM Preventive maintenance 
+PPE Personal Protective Equipment 
+PTW Permit to Work 
+Rev Revision 
+SD Safety District 
+SMP Standard Maintenance Procedure 
+SOP Standard Operating Procedure 
+TLD Thermo-luminescent dosimeter 
+SRP                                                                                                                    Standard Rules and procedure 
+AGL Act Group Leader 
+SDS Safety data Sheet 
+SDO Special Duty officer  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 5 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 5 of 79 
+DEFINITIONS 
+These definitions are provided to describe the intend for this procedure. Meaning /definitions of these 
+terms might be different for other purposes. 
+GFL Complex: 
+Means all the operating areas of various Plants and units of Fillings, Power, Utilities, Loading and 
+unloading areas, Off-site pipelines, pipe racks and crossings, corridor, tank farms and other associated 
+service areas and buildings such as Laboratory, Administrative Building, Stores etc. at Dahej. 
+Safety District: 
+It is predefined demarked and approved area. This has been approved by the unit head as per 
+document number GFL-PP-DWG-SD-04-15-D0127.  
+In the some of the safety districts small area/equipment are being operated/maintain by other HOD. In 
+this case the particular area will be under ownership of the operating HOD of the equipment. 
+Routine activities:  
+The Activities which are regular operations and are controlled through established procedures do not 
+require permit. These activities should to be well defined by each department with proper SOP / SMP/ 
+checklist (Document number must in IMS document). 
+Non-functional Area: 
+Means Engineering Stores, canteen building, HR Building, Material gate, OHC, security gate, weight 
+bridge station, Offices, GFRC and laboratories. 
+Non-Routine non-functional activities: 
+The activities other than routine which may or may not have well established procedures. e.g.  Change 
+management (MOC). 
+Permit/PTW/Permit-to-Work: 
+Means a written certificate in prescribed format allowing certain work to be carried out in a fixed place 
+and during a given period of time, or a certificate allowing entrance and stay in certain facilities. 
+Cold work: 
+All jobs that do not fall under purview of a hot work permit require a cold work permit. 
+ 
+ 
+
+=== PDF PAGE 6 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 6 of 79 
+Hot work: 
+Any work which involves welding, burning, soldering, brazing, blasting, gas cutting, chipping by spark 
+production tools, use of certain power-driven tools, non-flame-proof electrical equipment or 
+equipment with internal combustion engines and including any other work which is likely to produce 
+sufficient heat capable of igniting flammable gases.  
+Some examples of hot work are: 
+• Welding or flame cutting equipment. 
+• Grinder, electric drill or other non-flameproof electrical equipment 
+• Hammering, chipping, drilli ng (particularly in the presence of flammable/ 
+combustible/ explosive atmospheres) 
+• Spark ignition engines or non-approved compression ignition engines 
+• Hand tools that may generate a spark. 
+• Any device, which is likely to produce a source of ignition or be a n ignition source, 
+e.g., cell phones, pagers, radios, cameras/camcorders etc. 
+ 
+Work at Height: 
+Work at height (permit is required) to perform any (maintenance / inspection) work above/below 1.8 
+mtr elevation from ground level where permanent platforms / railings are not available.  
+  Some examples ‘’working at height: 
+• Working on trestles 
+• Working on a (flat) roof 
+• Erecting falsework (Falsework refers to temporary structures used in construction to 
+support a permanent structure) or formwork (Formwork refers to temporary molds or 
+structures used to shape and support concrete until) 
+• Working on a ladder 
+• Working at ground level adjacent to an excavation. 
+• Working on formwork within an excavation 
+• Working near or adjacent to fragile materials 
+Confined Space Entry: 
+A Confined Space is any enclosed or partially enclosed space, either above or below ground, where 
+there is some risk of reduced oxygen level, or accumulation of toxic flammability or explosive 
+materials, or entry or exit are limited or there is a risk of engulfment. 
+ 
+
+=== PDF PAGE 7 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 7 of 79 
+Excavation Permit: 
+Means digging, road cutting, removing soil, chipping, grading, any excavation work which involves 
+excavation of ground 1 Ft or more deep either using mechanical equipment or manually, site 
+preparation.  
+Line Breaking: 
+Intentional opening of a pipe, line, or duct that contains or has contained material capable of causing 
+injury It requires that all members of a line breaking team understand the hazards related to the 
+material and equipment involved. 
+Hydraulic & Pneumatic System Work: 
+Any machine & equipment where hydraulic energy, like hydraulic jaw, hydraulic doors, chambers, 
+cutters, hammers, pusher and lifting hydraulic tools where pneumatic energy is stored & used for 
+operating, functioning of the machine, Many hydraulic & pneumatic operated equipment working 
+require a full hazard analysis during maintenance & repair as store hydraulic/pneumatic energy of the 
+equipment having high potential hazard for accident if release suddenly, so release the hydraulic 
+pressure or pneumatic pressure of related in an operating system prior to removing or adjusting 
+components. The hot fluid in the system is under extreme pressure. If a worker is exposed to hydraulic 
+fluid while removing or adjusting components, he or she may sustain burns, bruises, cuts, abrasions, 
+or injection of fluid into the skin. Do not rely solely on the hydraulic lift if you must work on hydraulic 
+components with the system raised. Set the working unit on blocks as a precautionary measure. 
+Radiography: 
+Industrial radiography uses radiation to assess the integrity of structure. Industrial Radiography 
+Permits are issued to each service provider for a defined period of time as needed by the service 
+provider. 
+Electrical Isolation: 
+Means positive isolation of equipment connected to an electrical power system for the purpose of 
+maintenance and installation.   
+Blanket Permits: 
+A single PTW given for multiple jobs at different location or same job at multiple location. Blanket 
+permit strictly prohibited. For e.g 1) A single permit is given for PM of Pump A at X location and Pump 
+B at Y location.  
+ 
+
+=== PDF PAGE 8 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 8 of 79 
+Permit issuer: 
+A Permit Issuer is a person who is engineer/ shift In-charge, has experience of total one year plus 3-
+month experience in same plant. He has got trained, (PTW standard, JSA Standard, & ERP), 
+competent, and authorized to issue a Permit to Work as per permit matrix Annexure format. Has gone 
+through MOC(P). 
+Note: matrix approved by Plant HOD. 
+Permit Acceptor: 
+A person who is an engineer accepting the permit. Person who is responsible to handle work. He/She 
+shall have experience of total 1 year plus 3 months in same plant. Is trained (PTW standard, JSA 
+Standard, & ERP), competent, and authorized to accept a Permit to Work as per permit matrix. 
+Annexure format. Has gone through MOC(P). 
+Note:  PTW matrix approved by Plant HOD. 
+Permit Approver-I: 
+A person who is L4 (Manager) and above level, can approve the permit as Approve-I. He/ She shall 
+have minimum experience of total 5 years including 3 months in the same area/plant. He/ She has to 
+complete the self-study of training module of PTW , JSA, CSE, Hot Work and ERP . Has gone through 
+MOCP Process. He can approve all the permits of plant/area/equipment which are under his 
+jurisdiction. 
+Note: PTW matrix approved by Dy Unit Head/Unit Head. 
+Permit Approver-II: 
+A person who is L3 (Plant HOD level) can approve the permit as Approver-II. He/ She shall have 
+experience of 3 months in same plant/area. He/ She has to complete the self-study of training module 
+of PTW, JSA, CSE, Hot Work and ERP . He should have gone through MOCP process. He can approve all 
+the permit of plant/area/equipment which are under his jurisdiction. 
+On w/off, Holiday or non-availability of Approver I, He can approve all the permit of 
+plant/area/equipment which are under his jurisdiction as Approver I & Approver II. 
+Note:  PTW matrix approved by Dy Unit Head/Unit Head. 
+Permit Approver-III : 
+A person who is L2 (VP/AVP/Sr.VP) can approve the permit as Approver-III. He/ She shall have 
+experience of 3 months in same plant/area. He/ She has to complete the self-study of training module 
+of PTW, JSA, CSE, Hot Work and ERP . He should have gone through MOCP process.  
+
+=== PDF PAGE 9 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 9 of 79 
+The responsibilities of this role are: 
+In case of confined space/Vessel entry permit extended to C shift or on non-working day, the permit 
+shall be approved by Approver-III after informing Dy UH/Unit head. 
+On w/off, Holiday or non-availability L-3, He can approve all the permit of plant/area/equipment 
+which are under his jurisdiction as approver II & Approver III. 
+NOTE: Jobs requiring Approver-III is discouraged. Hence such jobs to be avoided unless it is extremely 
+urgent. 
+Permit Matrix: 
+A list of duly authorized persons who will perform the duties of issuer, acceptor, gas tester, and 
+approvers (Matrix format as per annexure). 
+Fire Watch: 
+A fire watch is a person who will oversee any probability of fire due to hot surfaces or spillage of 
+sparks during the hot work and for 30 minutes after job completion. He/ She could be the contractor 
+supervision and may work as fire watch for more than one job in his vicinity.  He/ She should have 
+basic knowledge of operating fire extinguisher and able to communicate clearly. 
+Standby Person: 
+A Standby Person must be always available at the entry during confined space work. His name must 
+be mention in the permit. He/ She should able to: 
+✓ Communicate clearly. 
+✓ Control the exit and entry of person and keeping the record. 
+✓ Raise a call for help in case of any distress call/ raised by persons working inside.  
+✓ Alert and call for evacuation the people inside in case of outside emergency. 
+ 
+Gas Tester: 
+A designated person who has received training for the operation of gas testing machines/instrument 
+and procedure of gas testing.  
+He/ She is responsible for: 
+✓ Carrying out gas testing before the starting and during the jobs. Keep record of the gas testing data 
+on PTW.  
+✓ A gas Tester carries out Gas test for oxygen content, LEL and toxic content. 
+✓ LEL concentration within 5.0 m radius of the work location for welding jobs/ hot work. 
+ 
+
+=== PDF PAGE 10 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 10 of 79 
+Self-Permitting: 
+  In a Permit to Work (PTW) system, self-permitting refers to the practice where an individual 
+authorizes their own work permit without requiring approval from a separate, designated authority. ( 
+e.g Mr. XYZ is issuing the permit to Mr XYZ for Hot Work) 
+Isolation: 
+A physical barrier between a source of energy (mechanical, electrical, hydraulic or static head) or 
+process materials. 
+Live Permit: 
+A permit for a work that is active and ongoing. 
+Method Statement: 
+A breakdown of an activity into individual tasks. 
+Monitoring:  
+Routine checking of permits and controls in the course of the work. 
+Revalidation: 
+Reassessing the work site and PTW controls to determine if work can continue safely for another set 
+period of time. 
+Review: 
+Examining the fundamental design of the system to see whether it should be changed in the light of 
+experience. 
+Shift Handover: 
+Process of transferring responsibility for controlling and monitoring work from the present Operations 
+shift to the oncoming shift. 
+Supporting Certificate Signatory: 
+The person responsible for confirming that the hazards have been (Validated, Authorized Safety 
+correctly identified and assessed and, that the proposed controls area inspector, Fire Permit 
+Signatory) adequate. 
+Suspension:  
+Temporary invalidation of a permit for a period during which the work may not proceed. 
+Validity Period: 
+The period during which a permit may remain active, and after which the work site controls must be 
+reassessed. 
+Worker (User): 
+ A member of the work party, working to the instruction of the Permit Holder. 
+
+=== PDF PAGE 11 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 11 of 79 
+Gas Test - For Hot Work: 
+A signed statement on PTW by an authorized Gas Tester experienced in gas monitoring, that a gas 
+test has been taken for the presence of flammable vapors/toxic gases within a specified location and 
+that the concentration shows a nil LEL response. 
+Gas Test for Confined Space:  
+A signed statement by an Authorized Gas Tester for/toxic gases, flammable gases and oxygen tests 
+have been taken within the confined space to be entered. Prior to entering a confined space (without 
+the assistance of long line breathing apparatus) the toxic gas vapors shall show nil,  LEL - below 5%  
+and oxygen concentration shall be between 19.5 and 23.5 % by volume. The frequency of testing shall 
+be specified and the certificate re-signed after each test. 
+Hazard: -  
+The potential a substance, activity, event, process or energy source has, to impair the health or well-
+being of a person or the environment. 
+Risk: -  
+The probability that a hazard may fulfill its potential. 
+Lower Explosive Limit (LEL):-  
+The concentration of flammable gas, vapor or mist in air below which an explosive gas atmosphere 
+will not be formed. 
+1. PURPOSE: 
+The purpose of this procedure is to provide clarity and helps in  
+• Aligning the requirement for PTW process with Corporate Standard and other Statutory Requirement.  
+• To provide a guideline for completing permit to work (PTW) perfectly. 
+• To provide guideline for uniform understanding about PTW & its compliance. 
+2. SCOPE: 
+This Procedure is applicable to all non-routine jobs that are carried out in the premises of M/s Gujarat 
+Fluorochemicals Limited at Dahej site. 
+3. PROCEDURE: 
+3.1 Preparation of Permit Matrix and training records: 
+Every Plant HOD has to prepare the Permit Matrix and keep training records (both Format in annexure) 
+of all eligible Permit Issuers, Acceptors, Approvers, Gas Testers. Eligibility criteria for all these functions 
+is elaborated in respective sections. Keep it readily available (preferably displayed in the control 
+room/field room).  
+3.2 Identification of jobs which require PTW 
+Every Plant has to prepare a list of all routine and non-routine activities. Clearly specify which activity 
+require a permit and which do not. Ensure that the activities list is available in the control room in 
+both soft or hard copy formats. (Activity list to be prepare as per format given in annexure- Routine 
+
+=== PDF PAGE 12 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 12 of 79 
+and non-routine activities) Jobs, routinely carried out following an approved SOP , do not require the 
+permit and non-routine jobs required the permit. 
+ 
+Note:  
+Generally, routine jobs do not require permit, however, few high-risk potential jobs (like tanker loading 
+/unloading require a PTW. Respective HOD has to identify such jobs which require a permit. 
+ 
+3.3 Listing out the Specific PPEs Requirement.  
+List PPE Required for handling the chemicals used in the plant. Ensure that the necessary PPE is 
+readily available whenever needed. 
+Every Plant has to prepare a list of specific PPEs required for their plant based on the activities 
+carried out and chemicals being handled.  
+3.4 Job planning and Identification of Jobs to be carried out 
+A job planning meeting is to be carried out every day evening in every plant. Operations and 
+maintenance team has to decide the jobs for the next day, jointly. Few of the criterion for the job 
+selection, for the next day, could be urgency of the job- impact on the safety, availability of 
+manpower, spares etc. 
+ 
+Note: Emergency Jobs can be started without Permit and can be regularized after emergency handling. 
+(Emergency e.g Chlorine leakage, Fire, chemical leakage etc....)  
+ 
+3.5 Preparation of JSA  
+Team of permit issuer, acceptor & Contractor Supervisor jointly visit the job site and prepare the 
+JSA (Format No HSE/SAF/F/05). Permit Issuer & Acceptor to write the JSA. 
+• Sequence of basic job steps - list-down the activities/sub-activities. 
+• Potential Hazard - Identify potential hazards associated with all listed activities. 
+• Risk - Identity the risk associated with all the activities. 
+• Safeguard/Control - Suggest the control measure to mitigate/Control potential hazards. 
+• Assign responsibility for each suggested control measure.  
+• The JSA team should sign the document upon completion. 
+        Note:  
+1. Refer JSA site procedure & CORPORATE HEALTH & SAFETY STANDARD - GFL/COR/EHSS 
+2002.00-2. 
+2. Hazard identified in JSA and suggested control measures should align with the PTW 
+section E. 
+
+=== PDF PAGE 13 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 13 of 79 
+   3.6 Completion of PTW Format 
+                Section wise details are given below: 
+Section A: Type of Work Permit 
+Tick the appropriate type of work permit based on nature of job. 
+Section B: Job Details  
+Specify - Plant/Unit, Area/location, SAP Notification Number, Equipment Name with tag 
+number, Job description. Provide details of Job execution agency, Executing department and 
+number of person/s at work. 
+Section C: Nature of Work  
+Specify the nature of Work. 
+Section D: Tool and Equipment to be used  
+Specify the tools/equipment required to carry out the work. 
+Section E: Hazard Consideration  
+Specify hazards considered in JSA sheet for the job. 
+Section F:  Job and Equipment Preparation.  
+Specify the compliance ensured to execute the job. 
+Section G: PPEs and Fire Protection 
+Specify the job specific PPE’s required. (Refer SDS for selection of PPEs for chemicals being 
+involved with the job). Specify appropriate fire protection if required. 
+Section H: Isolation. 
+1) Electrical Isolation 
+Refer electrical LOTO procedure.  
+Note: Electrical isolation key must be kept with executing agency. 
+2) Other Isolation 
+Process Isolation: Ensure the system is free from hazardous material, pressure etc. 
+• Depressurized the system by suitably draining/venting of process material in 
+a safe manner.  
+• Wash/de-contaminate the system. 
+• Positive isolation (blinding), locking & tagging 
+Mechanical Isolation 
+• Locking of rotating parts by clamping/chain etc. 
+• Draining of other energy sources such as depressurization, hydraulic, kinetic 
+energy prior to locking. 
+• Ensure the mechanical isolation is done (For positive isolation standard tail 
+blind to be used/Double block & bleed. OR remove the connected line) and th e 
+permit is signed by the person isolated the system. 
+
+=== PDF PAGE 14 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 14 of 79 
+Section I: GAS Test: Accepted value of gas testing result. 
+ 
+General Guidelines for Gas Tester: 
+i. Authorized Gas Tester: Gas testing is to be done by an authorized gas tester 
+(trained, approved and listed in the Permit Matrix). 
+ii. Equipment Checking : Ensure that the gas detection equipment/instrument is 
+calibrated and suitable for detecting the specific gases that may be present. It is 
+suggested to read OEM/manual/ brochure for gas testing equipment. 
+iii. Personal Protective Equipment (PPE) : Wear appropriate PPE, such as gloves, 
+safety glasses, and a gas mask if necessary. 
+iv. Area Inspection : Inspect the area wher e the hot work will be performed to 
+identify potential sources of gas. 
+v. Gas Detector Setup: Turn on the gas detector as per manufacturer's instructions. 
+vi. Baseline Reading: Take a baseline reading in a safe area to ensure the detector 
+is functioning correctly. 
+vii. Test at Different Levels: Conduct the gas test at various levels (e.g., ground level, 
+mid-level, and high level) to detect any stratified gases. 
+viii. Wherever forced ventilation is used, gas test should be carried out after 
+minimum 10 min of stopping the educator/fan/blower.  
+ix. Gas testing in confined spaces must be revalidated before reentry if there has 
+been a break of more than one hour. 
+x. If there is any abnormality found the work must be stopped immediately and 
+inform the permit issuer and responsible person.  
+Frequency of Gas testing: 
+    For Hot Work: 
+Gas testing shall be carried out at least once every 2 hours within 15 M of the work site 
+by the authorized gas tester if hot work is at close proximity of area where there is 
+potential fire and/or explosion risk.  
+ 
+ 
+Allowable limit for gases 
+Oxygen Toxic Gases Flammable Gases 
+19.5% to 23.5 % Zero Zero 
+
+=== PDF PAGE 15 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 15 of 79 
+For Confined Space Entry:  
+1. Entry to the confined to made within 1 hrs. of gas testing otherwise conduct gas testing 
+again. 
+2. A periodic gas testing, using portable gas testing instrument to be done, every 2 hrs. 
+3. It is suggested If Continuous gas monitor is available is to be used inside the confined 
+space to quickly detect the change in atmospheric conditions inside the Confined Space. 
+                      Oxygen concentration:  
+• Wherever forced ventilation is used. The gas test should be carried out after 
+minimum 10 min of stopping the educator/fan/blower.  
+• Gas testing in confined spaces must be revalidated before reentry if there has 
+been a break of more than one hour. 
+• If there is any abnormality found the work must be stopped immediately and 
+inform the permit issuer and responsible person.  
+    NOTE: 
+• Carry out regular gas test of confined spaces, where there is possibility of gas 
+generation due to nature of work, being performed inside, such as removal of 
+sludge, hot works, etc.  
+Section J, K, L & M  
+Following sequence must be followed for getting signature & job clearance on permit. 
+          Sequence of approval for issuing a permit: ( 1 means 1 st singing person 2 means 2 nd signing     
+person and so on.) 
+Type of Permit Cold 
+Work 
+Hot 
+Work 
+Confined 
+Space Excavation Rigging 
+job 
+Work at 
+Height 
+Line 
+Breaking Radiography Hydraulic/Pneumatic 
+System 
+Section: J  1 1 1 1 1 1 1 1 1 
+Permit Issuer  
+Section: H 
+Isolation 2 2 2 
+2 
+NA NA 2 2 NA Excavation 
+Clearance 
+(Section F)  
+Section: M                    
+Approver I - 3 3 3 3 2 3 3 - 
+Approver II - 4 4 4 4 - 4* - - 
+Section: L 
+Permit Acceptor  3 5 5 5 2 3 5 4 2 
+Section: K  4 6 6 6 5 4 6 5 3 
+Area operator  
+ 
+ 
+ 
+
+=== PDF PAGE 16 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 16 of 79 
+* Defined chemicals with hazards 
+Section N 
+Following sequence must be followed for permit closing/ cancellation. 
+Sequence of permit closing: (1 means 1stsinging person 2 means 2nd signing person and so on.) 
+ 
+Type of Permit Cold 
+Work 
+Hot 
+Work 
+Confined 
+Space Excavation Rigging job Work at 
+Height 
+Line 
+Breaking Radiography 
+Hydraulic/
+Pneumatic 
+System 
+Permit 
+Acceptor 1 1 1 1 1 1 1 1 1 
+Area 
+Operator 2 2 2 2 2 2 2 2 2 
+Permit 
+Issuer 3 3 3 3 3 3 3 3 3 
+Power 
+Restored 4 4 4 4 NA NA 4 4 NA 
+ 
+• When the work is complete, all copies of the permit should be reunited at the issuing 
+point.  
+• The Permit Issuer or his delegate and the Permit Holder should then inspect the work site 
+and jointly confirm that they are satisfied that the work has been compl eted as intended 
+and the worksite has been left in a safe and tidy condition. Only then the Permit Issuer 
+should sign off the permit. 
+• After completion of jobs executing department to give isolation key to permit issuer. After 
+conformation all the required jobs are done permit issuer will call electrical department 
+to energize the equipment. 
+• In case of any trial required after electrical energization permit issuer, permit acceptor and 
+electrical person must be present and do trial checkup.  
+Note: Anyone can stop working on site if the job execution is violating agreed permit 
+conditions. Reason to stop the work or closure must be written on permit. 
+3.7  Permits are not applicable for the following areas / activities: 
+• Resetting of electrical trips and alarms. 
+• Routine work like Tanker loading and unloading (connection / disconnection) and any 
+other routine activities which are done by qualified trained persons as per SOP, very 
+frequently. 
+• Truck loading unloading /Scrap loading unloading. 
+• Conditional monitoring of running equipment’s by CES Department personnel as they 
+have defined SOP. 
+• Identified and approved by Unit Head/Deputy Unit Head as non-permit area/job. 
+
+=== PDF PAGE 17 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 17 of 79 
+3.8 Permit Validity, Extension and Approver: 
+ 
+• All permit to be revalidated during every shift change and has to sign on the permit. 
+• Permit to be revalidate if any issuer, operator or acceptor change during work and has to 
+sign on permit.   
+• All permits issued by the A -shift engineer need to be extended before 15:45 hrs. B - Shift 
+team has to sign the permit. 
+• All permits issued by the G shift engineer that need to be extended after 17:40 Hrs, must 
+be revalidated and signed by the B shift engineer within one Hrs. 
+• If both the Head of Department (HOD) and the assigned L4 person are not available (during 
+w/off /Holiday), PTW will be approved b y SDO/NDO after obtaining approval from the 
+concerned plant HOD via email. 
+ 
+3.8.1 PTW Validity and Extension 
+Type of 
+Permit/Validity 
+Cold Work Permit & 
+Height Work 
+Hot Work/Confine Space/ /Excavation/Rigging 
+Job/Line Braking /Radiography/ Hydraulic 
+/Pneumatic System. 
+VALIDITY 
+08 Hrs. from issue time 
+or shift end whichever is 
+earlier 
+08 Hrs. from issue time or shift end whichever 
+is earlier 
+EXTENSION 
+7 days if the condition of 
+work is remained 
+unchanged (Review and 
+signed JSA every day) 
+24 Hrs. for the same day but extend in each 
+shift starting 
+ 
+Note: For Project work within the operating plant permit validity, Approval requirement & extension 
+will remain the same. 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 18 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 18 of 79 
+3.8.3 Permit Approval       
+ 9:00 Hrs to 17:30 Hrs 17:30 Hrs to 23:00 Hrs 23:00 Hrs to 09:00 Hrs 
+Cold Work Approver Sign Not Required Approver Sign Not Required Approver Sign Not Required 
+Hot Work Approver I And Approver II Approver I And Approver II Approver II 
+Confined Space Approver I And Approver II Approver I And Approver II Approver III 
+Excavation Below 1.8 Approver I And 
+Approver II 
+Below 1.8 Approver I And 
+Approver II 
+Below 1.8 Approver II 
+Work at Height Approver I Approver I Approver II 
+Line Breaking Approver I And Approver II Approver I And Approver II Approver II 
+Radiography Approver I  Approver I And Approver II Approver II 
+Rigging job Approver I Approver I And Approver II Approver II 
+ 
+  Note: 
+1) 23:00 Hrs to 09:00 Hrs: (if fresh permit is being issued /extension is required then NDO may be 
+requested to sign with communication on the mail by Approver II. 
+2) Approver I (L4) is authorized as Approver II in absence of Approver II (HOD). Approver I name 
+should     be included as Approver II in permit matrix. 
+3) Rigging Plan must be approved as per checklist HSE/SAF/F/27  
+i)  For load ≤15 MT rigging plan should be approval by Maintenance Engineer, Maintenance 
+Manager and Maintenance HOD. 
+ii) For load > 15 MT rigging plan should be approval by Maintenance Engineer, Maintenance 
+Manager, Maintenance HOD, CES / Project head. For load > 30 MT additional Engineering Head 
+approval required. 
+3.8.4 Permit Extension During Annual Shutdown:  
+          Same as per regular Procedure, however permit relaxation in permit approver can be taken from 
+unit head on mail.  
+        3.9 PTW Rule for Hot Work at Contractor’s Fabrication Yard Located Inside Plant. 
+3.9.1 Permit Issuance and Validity:  
+• Permit will be issued on Monday and will be valid from Monday to Saturday. 
+
+=== PDF PAGE 19 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 19 of 79 
+• On Sunday, only essential job will be done with prior permission. Issuing and 
+approval authorities will be as per safety districts. 
+3.9.2 Specific Locations and Responsibility: 
+For hot work activity at contractor’s shed near CPP- South, CaCl2- East, central work shop: 
+3.9.2.1 Permit issuer: Mechanical Engineer from Central Engineering. 
+3.9.2.2 Permit Approver: HOD of Central Engineering. 
+3.9.2.3  Permit Receiver: Contractor Supervisor/other Mechanical Engineer. (Note: He/ She 
+must not be issuer)  
+3.10 PTW rule for operating equipment in other area. 
+At Dahej site, there are some Safety Districts in which a part of the area is being operated /used 
+by other departments/district owners. In such cases, following clarification is to be used. 
+3.10.1 Issue of Permit to be done by user. 
+3.10.2 Maintenance and preventive maintenance to be done by user maintenance team.  
+For Example: -1) PFA MMT location in PTFE: Issuer PFA team & Receiver PFA Maintenance 
+team.  
+1) TFE 1 Electrical Transformer: Issuer Electrical Engineer & receiver Maintenance electrical 
+team. 
+2) AHU location in PTPTFE plant: Issuer Utility Engineer & Maintenance Utility Mechanical 
+Team. 
+ 
+Note: All such permit must be counter sign by safety district owner/area issuer.  
+ 
+3.11 Road Closer & PTW: The Respective plant HOD has to take approval for road closer and alternate 
+route from HSEF, Security, and Logistics teams via email at least 24 hours in advance. 
+ 
+3.12   Permit-To-Work in Electrical Substation/ Electric Sub -district/Electrical Transformer, Panels 
+room. 
+• PTW is issue by department electrical engineer & accepted by the electrical engineer (executor). 
+• PTW is to be counter signed by process shift engineer of respective Safety District /affecting the 
+plant. 
+Note:  1) Electrical department has to prepare permit matrix as per format given in annexure.  
+  2) For further clarification, please refer Electrical Safety Standard and Site Procedure. 
+ 
+
+=== PDF PAGE 20 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 20 of 79 
+3.13  PTW in Utility Area: 
+• PTW is issue by Department Utility Engineer & Accepted by the Utility Engineer (executor). 
+•  PTW is to be counter signed by process shift engineer of respective Safety District /affecting 
+the plant.  
+       Note:  1) Utility department has to prepare permit matrix as per format given in annexure.  
+3.14    PTW Management for the Process Related Activities (where mech/elect/Inst department is not 
+involved) 
+• PTW is issue by the Operations Engineer and accepted by other aut horized Process 
+Engineer.  
+ 
+3.15 Fire Water Line Related Work  
+ Please follow HSEF guidelines. 
+ 
+3.16 The Work Permit Format distribution 
+• A minimum of two copies of the permit are needed: 
+• The Permit Acceptor copy displayed on site. 
+• The Permit Issuer copy held at the issuing point. 
+• It is important that the Permit holder of the permit has a copy readily available for 
+reference by the work group and by persons conducting inspections of the work. The 
+permit, and any supporting documents, should therefore be displayed at the work site. 
+4.0 PTW DETAILS FOR VARIOUS TYPES OF JOBS: 
+In case of Conflict between PTW & individual procedure, individual procedure to be consider 
+final.  
+4.1 Work at Height: 
+Work at height permit is required to perform any Maintenance / inspection work at and 
+above 1.8 meters elevation from ground level where permanent platforms / railings are not 
+available.  
+   Examples of “Working at Height” are: 
+1. Flat roofs, slopping roofs, fragile roof 
+2. Structure erection/ special structure 
+3. Working on pipe racks and cable trays, 
+4. Working on flat and sloping tank roofs, 
+5. Working on tall structures like lighting towers, chimneys, electrostatic precipitators, 
+transmission towers, cooling towers etc. 
+
+=== PDF PAGE 21 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 21 of 79 
+6. Insulation of piping at height 
+7. Confined space work at Height 
+8. Loading and unloading of materials from trucks 
+9. Working near Excavations 
+10. Working on Bucket Trucks and Man lifts 
+11. Painting works inside or outside the building 
+ 
+The Work at height permit issuer is requires to ensure that: 
+• A P-JSA is carried out for all work conducted at height. 
+• People working at a height are medical fit. 
+• Equipment used for work at height is properly inspected and maintained. 
+• Risks from fragile surfaces are properly controlled.  
+• The P -JSA should include a careful examination of what harm could be caused from 
+working at height with a view to taking the effective steps to reduce the likelihood of this 
+harm occurring, either through avoiding the activity or, whe re this is not reasonably 
+practicable, by carrying it out in a safe manner using work equipment that is appropriate 
+to the task and the level of risk. 
+General Medical fitness is prerequisite for the persons performing all the job at height. 
+In additions the following must be done: 
+• Hypertension / High blood pressure 
+• Epilepsy fits (Past History of illness) 
+• Vertigo/Height Phobia 
+ 
+Employees (including Contractors) who have not undergone additional medical check -up, 
+required for ‘Work at Height’ must not be deployed on height work. 
+ 
+Medical tests performed for Work at Height is valid for in six months. 
+                      
+Refer to the GFL “Work at Height” Standard for details of mandatory requirements and safeguards of 
+working at Height. 
+ 
+ 
+ 
+
+=== PDF PAGE 22 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 22 of 79 
+4.2 Hot Work:  
+Few Examples of ‘Hot Work’ - the use or operation of any of the following: 
+• Welding or flame cutting equipment 
+• Grinder, electric drill or other non-flameproof electrical equipment 
+• Hammering, chipping, drilling (particularly in the presence of fla mmable/ combustible/ 
+explosive atmospheres) 
+• Spark ignition engines or vehicle movement in plant area or non -approved compression 
+ignition engines. 
+• Match, naked flame, cigarette lighter, flame or spark 
+• Hand tools that may create a spark 
+• Non-flameproof electric cables, cords, switches, lights, connectors or fittings 
+• Any device, which is likely to produce a source of ignition or be an ignition source, e.g. cell 
+phones, pagers, radios, etc. 
+• Hot Work shall not be carried out in or adjacent to any hazardous area unless a Gas Test 
+has been carried out using an approved explosimeter/toxic gas meter.  
+• The area or site shall be certified free of flammable vapors and gases and a “Hot Work 
+Permit” issued by an authorized GFL signatory. 
+• A gas/vapor barrier fence may be required in some circumstances to exclude vapors from 
+the work area. 
+•  A fully charged fire extinguisher (pressure needle healthy sign) must always be stationed 
+within easy reach in the work area where hot work is involved. 
+• Whenever any hot work is carried out in a highly flammable area then the presence of 
+trained fire watch man/stand bay person is must, with necessary accessories near the spot 
+where hot job to be carried out. 
+• P-JSA is required to be carried out for all work conducted as Hot work. 
+                         
+                             Refer to the GFL “Hot Work” Standard for details of mandatory requirements 
+ 
+4.3 CONFINED SPACE ENTRY: 
+A Confined Space: 
+• Is not intended as a regular workplace; 
+• Has restricted means for entry and exit; 
+• May have inadequate ventilation and/or an atmosphere which is either contaminated or 
+oxygen- deficient; and is at atmospheric pressure during occupancy. 
+
+=== PDF PAGE 23 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 23 of 79 
+• Confined Spaces include, but are not limited to: - tanks, vessels, vaults, certain pipelines, 
+certain pits, elevated water towers, boilers, columns, reactors, spheres, silos, sumps, 
+sewers, underground service and column skirts (those skirts where operator  goes for 
+valve operations is excluded from the definition, provided there is cross ventilation and 
+there are two opening for ingress and egress.)  
+• Note that these spaces could reasonably have atmospheres that are oxygen deficient or 
+contain other hazards, typical examples of confined space hazards. 
+• These spaces are subjected to potential hazards, viz., accumulation of toxic or flammable 
+gas, vapors, inert gas, oxygen deficient (<19.5%v/v), flooding of liquid, steam or any other 
+hazardous substance or development of hazardous conditions. 
+• A Work permit must be issued before a person enters a Confined Space, and before the 
+issue of the Work permit, a formal documented P-JSA must take place.  
+• The Work permit must specify details of the location and the type of work to be done, 
+with the P-JSA attached or cross referenced, and with the necessary protective measures 
+detailed or attached. 
+• Use of Destress meter is also mandatory when person entering inside the confined space. 
+4.3.1 Entry into a Confined Space must be in accordance with GFL Standard and a 
+requirement demanded by legislation. Thus: 
+ 
+No person shall enter a Confined Space unless:  
+• Formal P-JSA has been completed. 
+• All product and service lines entering the space are disconnected, blanked and 
+checked. Drawing for the same is to be attached with the permit. 
+• All mechanical equipment such as stirrers and heaters are positively disconnected and 
+electrically locked off. 
+• All appropriate operating and maintenance personnel are advised of the activity and 
+the period for which it is approved. 
+• All electric connection shall be provided with ELCB. 
+• For jobs in confined spaces only 24 V Flame proof hand lamp to be used. If lighting is 
+required for any job involving release of flammable vapors or work is carried out in a 
+hazardous area, it is mandatory to use flameproof electrical equipment. Only 
+flameproof 24 V electric hand lamp shall be used. Use of 230 V hand lamps inside 
+confined space/vessel is prohibited. 
+• When a person is entering confined space, the receiver must keep minimum one 
+trained attendants at the manhole or entry point 
+• Wherever possible, lifelines with safety harness should be used for entry into 
+confined space 
+
+=== PDF PAGE 24 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 24 of 79 
+• Job involving hot work or entry into confined space, positive isolation by insertion of 
+slip blinds or physical disconnection and blinding live ends are necessary. 
+• Vessel entry, where no hot work is to be carried out, shall be permitted if 
+combustible gases are up to 5 
+percent of lower explosive limit [LEL]. Entry with an air-supplied mask shall be 
+permitted with LEL of up to 20 percent.  
+The Oxygen level shall be at least 19.5 to 22.5 percent volume, and the concentration 
+of toxic gases below the threshold limits. 
+• No cylinders of compressed gas, other than those used for self-contained breathing 
+apparatus, shall be taken into a confined space. 
+ 
+4.3.2 Emergency response plans/Rescue plan  are in place and appropriate training  is 
+completed 
+• Air-Supplied breathing equipment is being worn. 
+• All personnel involved have been instructed, practiced and proven competent in its 
+use. 
+• Attendance of all personnel engaged in vessel entry, their entry and exit times is to 
+be recorded. No entry during lunch /dinner breaks and shift changeover is to be 
+ensured. 
+• An observer attendant/Standby person carrying walkie talkie / in centric safe mobile 
+(IS Mobile) is stationed immediately outside the entry to the confined space all the 
+time a person is inside. 
+• In case of Emergency attendant/Standby person should not g o inside confine space. 
+Only ERT members/ Control room team should be communicated for rescue. 
+• A minimum of a single self -contained BA set is on hand for emergency use, unless a 
+P-JSA indicates additional units are required for higher risk activities, e.g.  entry into 
+underground tanks where there is only a single access manhole. 
+• Entrant must have a medical test performed with in last six months. Required 
+parameters checkup are included in routine medical checkup. 
+4.3.3 Rescue Plan: 
+Job Risk Assessment to be carried out for confined space jobs. If Initial Risk is very high, 
+(scoring 8 or more), A rescue plan is to be made. 
+Since Dahej Site has well trained Fire Team, a well -equipped Rescue Tender and Fire 
+Tenders, following steps are to followed for rescue plan. 
+• PTW/Permit issuer has to inform the HoD. 
+• Call Fire Team and explain the job and associated hazards. 
+
+=== PDF PAGE 25 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 25 of 79 
+• Fire team member has to visit the site and discuss a rescue plan with plant team, 
+considering different scenarios. 
+• Document the rescue plan. 
+• Fire team has to keep his team informed and prepare the rescue equipment ready 
+(rescue plan is to be made, keeping the equipment available in the rescue tender in 
+mind). 
+NOTE: Rescue team and Rescue Tender has to mobilized in case of actual requirement 
+ 
+Refer to the GFL “Confined Space Entry” Standard for details of mandatory requirements and 
+safeguards of working safely in a confined space. 
+4.4 ELECTRIC WORK:  
+4.4.1 Electrical Work permit requirement. 
+This electrical work Permit is required to be taken for any maintenance, installation & repair 
+related work to be carried out on electrical equipment and power operated equipment in the 
+electrical safety district/sub district/panel room at GFL, Dahej Site. 
+• Electrical work Permit is taken by all persons working on live or electrical equipment at the 
+following locations inside the GFL Dahej Complex: 
+• Electrical Switch gears, Electrical switch yards, Electrical substation. 
+• Cable cellars, cable racks & cable trenches inside Substation or switchyard area. 
+• Transformers and Circuit breakers, UPS System, Battery /Battery charger systems inside 
+Substation or switchyard area. 
+• Motors/ Motor Terminal Boxes, Power operated equipment inside Substation or 
+switchyard area. 
+• Actuators of motorized valves, Junction Boxes, MCC Panels , Control Stations, HVAC 
+systems, Cathodic protection systems, Electrical Heat Tracing, Electrical Earthing inside 
+Substation or switchyard area. 
+ 
+4.4.2 Work permit requirement for Electrical activities. 
+ 
+    The following examples are considered Electrical Work that required permit (for the 
+purpose of this Standard):  
+• The task of adding a de -energized insulated jumper to an energized terminal (120VAC or 
+less) while wearing proper PPE.  
+• Similar task of removing an insulated jumpers from an energized terminal (120VAC or less), 
+if the removed jumper is de-energized as it is unplugged.  
+• Use of approved fuse pullers and test equipment such as voltmeters, clip-on ammeters, hot 
+sticks, and non-contacting voltage sensing devices for higher voltages will be considered as 
+Hazardous work. 
+• Normal operation of electrical welding machines.  
+
+=== PDF PAGE 26 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 26 of 79 
+•  Testing of energized electrical circuits with approved test equipment when it can only be 
+done without 
+interrupting the circuit. 
+• Replacing electrical fittings (lamps etc.) when circuits are energized. 
+• Disconnecting motors without switching off motor starter. 
+• Fuse pulling and installing on energized circuits rated 415 volts and above (using 
+approved tools) 
+• Working on energized "draw out" type circuit breakers on 415 volts or higher.  
+• Installing and removal of insulating barrier when energized circuits are nearby and beyond 
+the distances prescribed for Electrical Proximity Work.  
+• Installation of safety grounds when energized circuits are nearby and beyond the distances 
+prescribed for Electrical Proximity Work.  
+• Work on high energy "battery system" of greater than 100 Vdc.  
+• All non-routine activities like Preventive Maintenance on electrical equipment. 
+ 
+The following are examples of Electrical Work on energized equipment performed by GFL 
+personnel that may not require a work permit.  
+However, similar work performed by contractors require a work permit  
+• Changing out fluorescent lamp and bulbs with lighting fixture de-energized.  
+• Racking out / Rack -in motor starter and circuit breaker following other approved work 
+procedures.  
+• Polarity testing of power point in non-hazardous areas.  
+• Working on electrical equipment where the maximum operating voltage is 50 Va c-gnd. or 
+100 Vdc.  
+• Testing of energized circuits with approved test equipment when it can only be done 
+without interrupting the circuit in non-hazardous areas. 
+• Racking out breakers for maintenance work on non -electrical portion of equipment less 
+than 415 Vac 
+• Troubleshooting of energized control circuits / relays by keeping power circuit de -
+energized in Electrical district ownership areas using approved test equipment and 
+applying proper PPE.  
+• Troubleshooting energized control circuit in MCC/Electrical pane l Room using approved 
+test equipment, applying proper PPE and applying a work plan. 
+• Measurement of Current in LT feeders using calibrated measuring instruments by using 
+defined PPEs as per approved procedures. 
+• Daily Temperature monitoring of LT critical panels using calibrated measuring instruments 
+by wearing defined PPEs as per approved procedures. 
+
+=== PDF PAGE 27 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 27 of 79 
+Refer to the GFL “Electrical Safety Management” Standard for details of mandatory 
+Requirements. 
+4.5. LINE BREAKING: 
+Line breaking refers to the controlled opening of piping, ductwork, or 
+containment systems that hold hazardous materials. This activity is considered 
+high-risk due to the potential release of chemicals, gases, or steam, which can 
+pose serious hazards to personnel and the environment. 
+This procedure applies to lines containing high pressure, high vacuum, 
+corrosive, flammable, toxic, or hazardous fluids. Water supply, Process water, 
+steam below 3 Kg/cm² and airline systems are excluded from line-breaking 
+permits. 
+First breaking/opening of the line must be done in presence of filed 
+operator/process engineer.  
+Examples of Line Breaking Activities 
+• Removing bolts( even single bolt) from flanges 
+• Opening valves to release material 
+• Removing valve bonnets and check valves 
+• Turning spectacle plates (blanks/blinds) 
+• Disconnecting tubing or hoses 
+• Penetrating a line by mechanical means 
+• Opening inspection ports or sight glasses 
+• Replacing gland packing on valves 
+• Making the first cut on isolated pipelines 
+Approver I & Approver II requirements: 
+• PTW line breaking activities involving the following hazardous materials (but not limited 
+to) require approval I & Approval II signature on PTW. 
+1. Sulfuric Acid 
+2. Chlorine 
+3. Methanol 
+4. Natural Gas 
+5. Caustic Soda 
+6. Hydrochloric Acid 
+7. Anhydrous Hydrofluoric Acid 
+8. Diethyl Ether (DHF) 
+9. Chloroform 
+10. Chlorodifluoromethane (R-22) 
+
+=== PDF PAGE 28 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 28 of 79 
+11. Tetrafluoroethylene (TFE) 
+12. Ammonia 
+13. Nitric Acid 
+14. Methyl Chloride 
+15. Methylene Dichloride (MDC) 
+16. Carbon Tetrachloride (CTC) 
+17. Florine gas 
+For all other line breaking activities, only approver 1 signature is required and PTW will 
+be issue as per below Table. The permit issuer to decide the job execution team. 
+           Ownership of line passing through multiple district: 
+Condition Line Layout Description Line Owner 
+1 Single supplier to single receiver. Supplier Plant/Utility plant 
+2 Single supplier to multiple receivers. Supplier plant/Utility plant 
+3 Multiple suppliers to single receiver.  Receiver/Utility plant 
+Note: In reference of above additional approval sign must be taken from district owner.  
+ Responsibilities of Line Owner 
+➢ Lockout or Isolation: Ensure isolation from supplier and receiver sides, tagging 
+and locking. 
+➢ Hazard Identification: Assess toxicity, flammability, pressure, temperature, and 
+secondary energy sources. 
+➢ Draining and Decontamination: Drain low points, vent high points, flush and 
+purge lines. 
+➢ Tagging and Isolation: Tag valves and blinds; keep valves open to avoid trapping 
+material. 
+➢ Permit Coordination: Issue permit from safety district owner. 
+➢ Job Turnover: Review job scope before and after work. 
+ 
+System Preparation (Clearing & Verification) 
+• Drain low points and vent high points 
+• Flush or purge lines until hazards are reduced 
+• Verify cleanliness and absence of trapped pressure 
+• Stop work if hazards persist 
+Job Planning Details 
+• Hazard list and isolation points 
+• Flushing and clearing steps 
+
+=== PDF PAGE 29 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 29 of 79 
+• PPE requirements 
+• Standby person duties 
+• Contingency plans 
+• Control of entry 
+Personal Protective Equipment (PPE) 
+Minimum                               : safety shoes, helmet, splash goggles, face shield. 
+Chemical/Corrosive/Toxic  : chemical-resistant suit, gloves, boots, SCBA if required. 
+Flammable/Explosive         : flame-resistant suit, nitrile gloves, SCBA as needed. 
+Steam/Nitrogen/Gas         : face shield, leather gloves, SCBA for oxygen-deficient 
+areas. 
+Job Execution 
+• Barricade work area 
+• Verify safety shower operability 
+• Perform initial break away from line of fire 
+• Loosen bottom bolts slowly 
+• Use secondary containment 
+• Stop and consult operations if plugs or pressure are found 
+Box-up and Return to Service 
+• Reassemble with correct bolts and gaskets 
+• Inspect integrity and cleanliness 
+• Remove isolation as per PTW closure 
+• Conduct turnover review and document sign-offs 
+ 
+Refer to the GFL “Line Breaking” Standard  & Site procedure for details. 
+ 
+4.6 EXCAVATION ACTIVITIES: 
+• For any excavation activity 30 cm or deeper, obtain signatures from Electrical, 
+Instrumentation, Utility, and HSE departments to confirm the absence of underground 
+utilities in the marked area. 
+• A one-time approval is required for the same excavation area, and the approved permit 
+must be attached to the next day's permit. 
+• If any underground utility is present in marked area, then concern dept. must written in 
+permit & confirm manual / Mechanical Excavation on permit. 
+• Excavation area should be free from fumes/gases heavier than air because it may cause 
+suffocation or poisoning.  
+• All excavation of depth more than 1.2 m or more should be treated as confined space and 
+permit for entry into confined space should be obtained. 
+
+=== PDF PAGE 30 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 30 of 79 
+• Excavation to a depth of 1 m or more shall be cut stepped back to give a suitable slope or 
+securely held by bracing so as to avoid the danger of side to collapse. 
+• Barricading of 1 m height (with red and white band/ self -glowing caution boards) should 
+be carried out for excavation beyond 1.5 m depth. 
+• Excavated earth shall not be dumped within 1 m of the edge of the excavati on or depth 
+the trench whichever is more. 
+• No vehicle should be allowed to go too close to the edge of the excavation because it may 
+cause side collapse. Maintain at least 2 m distances from the edge of the excavation. 
+Adequate and well -anchored stop blocks  should be provided on the surface to vehicle 
+being driven reversed into the excavation. 
+• No mechanical excavation is to be carried out up to a depth of 1.5 m from the ground level 
+in operating areas. In such cases manual excavation is required to be carrie d out up to a 
+depth of 1.5 m from the ground level. 
+Note -Test pits of 01 M deep are required to be excavated before actual excavation is started 
+and all checking to be verified from concern authority prior to permit approval. 
+4.7. RADIOGRAPHY JOB REQUIREMENTS AND PERMITS: 
+• The radiography should preferably be carried out at a time, when occupancy is least. 
+• The supervisor must be available at site during the radiography work. 
+• Although radiography jobs do not qualify as hot jobs by definition, they still require a 
+hot work permit due to the involvement of radioactive sources. 
+ 
+                           Before issuing permitting to start Radiography, ensure: 
+• TLD badge should be available with Radiographer 
+• Availability of Dosimeter and Radiation level Survey meter and its type  
+• Signage display 
+• Area barricading according to safe distance required 
+• Warning signal  
+• Information to surrounding plant and no other activities allowed in surrounding area. 
+                     Work Involving Radioactive Sources: 
+• The isolation or restoration of a radioactive source, including the use of mobile X -
+ray/radiography equipment.  
+• For radiography jobs on pipelines or equipment, the isolation and restoration of the 
+radioactive source are essential.  
+• A separate radiation permit must be issued for works related to radiography. 
+• Type of Radiation: 
+
+=== PDF PAGE 31 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 31 of 79 
+• X-Ray & Gamma Ray: Ir-192, Co-60 
+• Number of Sources: _____________Radiation Activity (Intensity):__________ Specify 
+intensity in kV/Ci.  
+              Measurement and Control of Radiation Exposure: 
+1. Collimator 
+2. Radiation survey meter 
+3. Film badge 
+4. Concrete wall barrier 
+5. Pocket dosimeter 
+6. Alarm/Lamp 
+Specify Barricade Off Distance: ____________ 
+4.8 RIGGING JOBS: 
+• Pre-Job Meeting:  Conduct a meeting with all personnel involved in the rigging job to 
+discuss the plan, potential hazards, and emergency procedures 
+• Equipment Inspection: Inspect all rigging equipment, including cranes, slings, and hooks, 
+to ensure they are in good working condition and meet safety standards 
+• Execution of Work: Perform the rigging job as per the approved plan, ensuring all safety 
+measures are followed. Continuous monitoring is essential to address any issues that arise 
+• Post-Job Review: After completing the job, conduct a review to identify any incidents or 
+near-misses and document lessons learned for future reference. 
+• Rigging Plan must be approved as per checklist HSE/SAF/F/27  
+•  i) For load ≤15 MT rigging plan should be approval by Mainte nance Engineer, 
+Maintenance Manager and Maintenance HOD. 
+• ii) For load > 15 MT rigging plan should be approval by Maintenance Engineer, 
+Maintenance Manager, Maintenance HOD, and CES / Project head. 
+• iii) For load > 30 MT rigging plan should be approval by Ma intenance Engineer, 
+Maintenance Manager, Maintenance HOD, CES / Project head and Engineering Head. 
+ 
+4.9 HYDRAULIC AND PNEUMATIC SYSTEM WORK:  
+• Any machine & equipment where hydraulic energy like hydraulic jaw, hydraulic doors, 
+chambers, cutters, hammers, pusher and lifting hydraulic tools where pneumatic energy 
+is stored & used for operating, functioning of the machine. 
+
+=== PDF PAGE 32 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 32 of 79 
+• Many hydraulic & pneumatic operated equipment working require a full hazard analysis 
+during maintenance & repair as store hydraulic/pneumatic en ergy of the equipment 
+having high potential hazard for accident if release suddenly, so release the hydraulic 
+pressure or pneumatic pressure of related in an operating system prior to removing or 
+adjusting components.  
+• The hot fluid in the system is under extreme pressure. If a worker is exposed to hydraulic 
+fluid while removing or adjusting components, he or she may sustain burns, bruises, 
+cuts, abrasions, or injection of fluid into the skin.  
+• Do not rely solely on the hydraulic lift if you must work on hydraulic components with 
+the system raised. Set the working unit on blocks as a precautionary measure. 
+  
+5. ROAD CLOSER: 
+• The Respective plant HOD has to plan the road closure and inform to the HSEF, 
+Security, SSM and Logistics teams via email at least 24 hours in advance. 
+• The Respective plant HOD & engineer Incharge decide on the road/street to be 
+blocked and alternate route to be use.   
+• The Respective plant HOD has to marked (Road Blocked & alternate route) on the 
+plant layout and share to the HSEF, Security, SSM and Logistics teams via email at 
+least 24 hours in advance. 
+• The Respective plant HOD must obtain road block approval via email from the HSEF 
+and Security teams for the period between 09:00 AM and 05:30 PM. For the period 
+between 05:30 PM and 09:00 AM, approval must be obtained from the Deputy Unit 
+Head or Unit Head. 
+• The Security and Logistics teams have to manage traffic and transportation 
+according to the road block and alternate route decided. 
+• SSM must mention the road closure in the daily report for management's 
+information every day until the road is clear. 
+ 
+6. FOR FIRE WATER NETWORK ISOLATION 
+ Approval from the HSE department is required, with the knowledge of the Unit Head and 
+Deputy Unit Head. 
+7. Changes in Conditions & Emergency Action: 
+ 
+• In the event of any of the following circumstances occurring during the course of an 
+activity under permit, the Permit Holder must refer back to the Permit Issuer (through 
+Permit Acceptor) on the appropriate course of action: 
+• The specified equipment or tools to be used not being available. 
+
+=== PDF PAGE 33 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 33 of 79 
+• The type & nature of work changes. 
+• The process conditions change (e.g., unexpected release of gas from a nearby tank) 
+• An emergency in the area. 
+• Weather conditions change. 
+ 
+8. ROLES & RESPONSIBILITIES: 
+ 
+Table 1: Summary of appropriate people to fill each role 
+ Can Be a 
+contractor 
+Issue Permits to 
+others 
+Self-
+Permit? 
+Appoint Permit 
+Issuers 
+Stop Work on 
+site if necessary 
+Audit 
+System 
+Unit Head No No No Yes Yes Yes 
+Permit Approver No No No Yes Yes Yes 
+Permit Issuer No Yes No No Yes No 
+Permit Acceptor No No No No Yes No 
+Permit Holder Yes No No No Yes No 
+Area Operator Yes No No No Yes No 
+ 
+Table 2: Roles and responsibilities in PTW 
+Sr 
+No. 
+Name / Designation PTW System 
+Manager 
+Permit 
+Approver 
+Permit 
+Issuer 
+Permit 
+Acceptor 
+Permit 
+Holder 
+Area 
+Operator 
+1 Unit Head/Dy Unit Head Yes Yes     
+2 Plant Manager (HOD 
+Operations)/Functional Head 
+ Yes     
+3 Maintenance Manager (HOD)  Yes Yes    
+4 Head, Project Yes Yes     
+5 Project Managers  Yes     
+6 Construction 
+Manager/Engineer 
+  Yes    
+7 Shift In-Charge  Yes Yes    
+8 Shift Engineer 
+(Operation/Maintenance) 
+   Yes Yes Yes 
+9 Shift Operator      Yes 
+10 Maintenance Supervisor    Yes Yes  
+11 Plant Technician    Yes Yes  
+12 Maintenance Contractor    Yes* Yes  
+* In Project Areas/Activities only 
+ 
+Set out below are the principal roles and associated responsibilities required in operating a 
+Permit to Work system. 
+
+=== PDF PAGE 34 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 34 of 79 
+ 
+8.1  Unit Head/Project Manager: Refer PTW Corporator Standard.  
+8.2  Permit Issuer: 
+• The Permit Issuer (PI) is responsible for writing the permit for his/her safety district/Sub 
+district/operating equipment/owner of equipment and for identifying (in conjunction with 
+the person who is to undertake work/contractor if practical) hazards, risk s and controls 
+required to manage the risks.  
+• He must confirm that the hazards have been correctly identified and P -JSA and, that the 
+proposed controls are adequate. The permit issuer has the requisite training, experience 
+and competence in the PTW system.  
+• A permit Issuer can only be authorized to issue Permits in areas where they are trained to 
+do so, e.g. Toxic Gas/oxygen Testing, Confined Space Entry, Hot Work, Working at Height 
+etc.  
+                           The Permit Issuer is responsible for the following:  
+• Confirming that all hazards associated with the work have been identified, assessed, and 
+managed and all relevant parties have provided their input and agree with the 
+precautions. 
+• Ensuring that the permit accurately details the scope of works and that the documented 
+controls combined are adequate to ensure the work can be completed in a safe manner.  
+• Ensuring that all necessary supporting permits/certificates, Checklist, P-JSA and drawings 
+are attached or referred to in the permit.  
+• Ensuring that the Permit Holder knows the exact location of the work, all the hazards 
+that may be present and all the precautions and controls that must be taken during the 
+work  
+• Ensuring that the Permit Holder understands all the hazards and controls, will explain 
+them to the work group, and will ensure they are maintained throughout the work.  
+• If discussion at the work site and checking the controls are delegated to another 
+member of the operating team, the Permit Issuer still takes full responsibility for 
+authorizing the work to go ahead.  
+• Confirming that all operational preparations, including process clearance and isolations, 
+have been completed.  
+• Confirming that the work site is safe for the work to proceed.  
+• Specifying on the permit any additional precautions that need to be taken during the 
+work.  
+• Identifying any conflicts between the proposed work and other activities in the area, and 
+if necessary, cross-referencing the permits.  
+
+=== PDF PAGE 35 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 35 of 79 
+• Informing all people who may be affected by the work.  
+• Knowing the status of the work at all times,  
+• Signing off and canceling the permit when the work is complete or suspended.  
+• The PI can only delegate their authority during a period of absence. Authority can only 
+be delegated to another PI who satisfies the competencies required for a PI, as outlined 
+in  
+• The PI must notify the custodian if their responsibilities have been delegated. 
+8.3 Permit Acceptor (Person who is responsible to execute work)  
+• The permit acceptor is normally Company staff but in certain instances (e.g., in a project 
+site) may be the contractor.  
+• There are many activities that will be undertaken where the contractor is more of an 
+expert than Company staff.  
+• It is not the purpose of the PTW system, or the Work Permit, to advise the contractor 
+how to specifically address the expertise issues in their scope of work – the contractor 
+will address this via completion of the P-JSA.  
+• The permit, when combined with a P-JSA, and contractor expertise, ensures that EHS 
+risks involved in the work are addressed.  
+• Permit acceptor shall be responsible for executing the entire work in full compliance 
+with the permit requirements.  
+ 
+               His/her responsibilities include the following:  
+• Give tool box talk to permit holder and manpower involve in work. Mention their name 
+in Permit and take signature.  
+• Understanding the potential hazards  
+• Understanding how the hazards are controlled. 
+• Knowing the emergency situations likely to occur in the work area and actions to be 
+taken including evacuation procedure.  
+• Ensuring that the permit holder understands all the hazards and controls, will explain 
+them to the work group, and will ensure they are maintained throughout the work.  
+• Informing all people who may be directly affected by the work.  
+• Signing and accepting the permit.  
+• Knowing the status of the work at all times,  
+• Transferring duties formally  
+ 
+ 
+
+=== PDF PAGE 36 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 36 of 79 
+8.4 Permit Holder - Worker(s) who carryout Work  
+• The permit holder(s) shall be responsible for commencing and completing the authorized 
+task while fully complying with all the requirements as listed in the permit. His/Their 
+responsibilities include the following:  
+• Knowing and understanding the potential hazards.  
+• Knowing how to use PPE and complies.  
+• Knowing and understanding how the hazards are controlled.  
+• Knowing the emergency situations likely to occur in the work area and actions to be taken 
+including evacuating the area.  
+• Knowing the terms and conditions of safe work  
+8.5 Permit Approver I/II/III 
+• The Permit Approver shall be responsible for ensuring that the hazards have been 
+evaluated, adequate controls are provided and precautions are specified in the permit. 
+He/she is responsible for the following:  
+• Knowing the hazards including potential hazards and confirming that all hazards 
+associated with the work have been identified, assessed, and managed and all relevant 
+agencies have provided their input and agree with the precautions.  
+• Knowing how to control and manage hazards.  
+• Verifying that the work area is safe to commence and carryout work, including checking 
+that representative atmospheric sampling results are within the acceptable limits.  
+• Confirming that the permit accurately details the scope of works and that the 
+documented controls are adequate to ensure the work can be undertaken and 
+completed in a safe manner.  
+• Confirming that all necessary supporting permits, P-JSA are attached or referred to in 
+the permit  
+• Confirming that the permit holder has been explained the exact location of the work, all 
+the hazards & risks that may be present and all the precautions and controls that must 
+be taken during the work.  
+• Confirming that the permit holder understands all the hazards and controls.  
+• Confirming that all operational preparations, including process clearance and isolations, 
+have been completed.  
+• Signing the permit  
+ 
+ 
+
+=== PDF PAGE 37 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 37 of 79 
+8.6 Area Operator  
+• Area Operator shall be responsible for ensuring that the work location has all the necessary 
+safeguards available in line with the permit requirements.  
+His/her responsibilities include the following:  
+• Understanding the potential hazards in the work to be done and no new hazards are 
+introduced during the execution of the assigned work. If the situation alters and new 
+hazards occur or the safety requirements are not complied with, stop the work and inform 
+the permit issuer.  
+• Understanding how the hazards are controlled.  
+• Knowing the emergency situations likely to occur in the work area and actions to be taken 
+including evacuation procedure.  
+• Take appropriate actions when an emergency occurs.  
+• Ensuring that the permit holder complies with the controls and takes all specified 
+precautions throughout the work.  
+• Ensure that the permit holder restores the site to its original condition after completion of 
+work.   
+• Signing the permit.  
+• Knowing the status of the work at all times. 
+• Transferring duties formally.  
+8.7  Authorized Toxic Gas/Oxygen Level Tester  
+• The Authorized Toxic Gas/Oxygen Level Tester shall be suitably trained for the work he is 
+undertaking and shall have access to and be competent to use approved and calibrated gas 
+testing equipment.  
+The Authorized Toxic Gas/Oxygen Level Tester is responsible for: 
+• Carrying out gas tests (oxygen/ toxic gas and flammability) at the frequency specified on the 
+permit and supporting certificates.  
+• Stopping the work and instructing personnel to withdraw from the area whenever a gas test 
+or change in conditions indicates that it is unsafe for the work to continue, then reporting 
+back to the Permit Issuer. 
+9. MONITOR, AUDIT & REVIEW of PTW SYSTEM 
+9.1 Records 
+▪ Permits to Work & supporting certificates shall be retained for a minimum period of 12 
+months for reference in case of an incident investigation or for auditing purposes.  (Local 
+legislation may specify a longer retention period). 
+ 
+
+=== PDF PAGE 38 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 38 of 79 
+9.2 In-Depth Inspections 
+▪ In depth inspections should be carried out on a pre -determined frequency by persons 
+independent of the  PTW System ( e.g. by line personnel from plants/areas other than 
+where work is in progress (Plant HOD), SHE Personnel). The purpose of these inspections 
+is to obtain an independent check on how the PTW process is operating. 
+ 
+9.3 Audits 
+▪ Each site shall audit compliance with this standard as part of its Safety audit program (this 
+should include 1st and 2nd Party Audits).  
+▪ Independent, qualified technical auditors should carry out audits of the operation of the 
+PTW System.  
+▪ These audits should be carried out as part of the EHS audit program at least annually for 
+1st Party Audits and 3 yearly for the 2nd Party Audits. 
+ 
+9.4 Deviation Process: 
+           Ref CORPORATE HEALTH & SAFETY STANDARD -GFL/COR/EHSS 2002.00. 
+ 
+9.5 Loss of Work Permit Copy 
+▪ In case of lost permit, duplicate copy from permit issuer's copy may be used as original 
+Permit for further processing.  
+▪ In such case Permit needs to be closed by concerned HoD.  
+▪ In case both copies are missing, permit shall be closed by giving  a note, which shall be 
+initiated by concerned HoD and must be approved by UH. 
+• Training and Communication Requirements 
+▪ Training is the responsibility of each plant HOD.  In the event that interpretation or 
+clarification is needed, questions shall be directed to the respective Unit Standards, Rules 
+& Procedures Sub-Committee (SR&PSC), EHS Manager or the Corporate EHS. 
+9.6 Contact: 
+▪ The contact for this standard is the Standards, Rules & Procedure Sub-Committee 
+(SR&PSC). Clarification/Interpretation regarding this standard shall be referred to 
+the Chairman, Standards, Rules & Procedures Sub-Committee (SR&PSC). 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 39 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 39 of 79 
+10. REFERENC: 
+1. Standard for Permit to work                          GFL/COR/EHSS 2002.00 Rev 01 
+2. Job Safety Analysis (JSA)                                 GFL/COR/EHSS 2004.00 Rev 01 
+3. Work Permit format                                        Doc. No. HSE/SAF/02, 01/07/2021, (Rev.08)  
+4. Safety District Demarcation Layout              GFL-PP-DWG-SD-04-15-D0127 Rev. 02.08.2024 
+5. Standard Confine Space                                 GFL/COR/EHSS 2005.00 
+6. Standard Work at height and scaffolding   GFL/COR/EHSS 2001.00 
+7. Standard Hot Work                                         GFL/COR/EHSS 2011.00 
+8. SOP of Line breaking                                       GFL/COR/EHSS 3004.00 
+9. SOP of Rigging operation / crane safety      SAF/P/26     Rev. 00 
+10. Standard Excavation work                             GFL/COR/EHSS 2007.00 
+11. SOP of Chemical Handling                              SAF/P/29     Rev. 01 
+12. Electrical Safety Standard                              GFL/COR/EHSS 2003.00 
+13. LOTO safety standard                                     GFL/COR/EHSS 2008.00 
+14. Indian Standards                                         IS 17893: 2023 JUN- BUREAU OF INDIAN STANDARDS                                              
+11 REVISION HISTORY: 
+Rev. No Effective Date Details of Changes Reasons for Changes 
+0 01-11-2023 Procure updated as per 
+PTW standard First Issue 
+New Standard 
+GFL/COR/EHSS/2002.00 
+1 31.12.2024 Procure updated as per 
+PTW standard with detail 
+Procedure written in detail 
+2 01.02.2025 Procure updated as per 
+PTW standard and Site 
+detail 
+Procedure update with clause 
+and sub clauses  
+3 01.04.2026 1) Gas testing frequency 
+change from 4 Hrs to 2 
+Hrs. 
+2) Minor changes done in 
+Entry into a Confined 
+Space, Electrical activities 
+and Line Breaking 
+3) Electrical standard 
+PTW included 
+4) 2 no’s of format 
+1) New Corporate safety 
+Standard electrical, Confined 
+space & line breaking 
+procedure updated.  
+2) Permit to Work corporate 
+Safety revision Rev 01.  
+3) Corporate Electrical 
+standard 
+4)  Training records & Confined 
+space entrance records added 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 40 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 40 of 79 
+12 ANNEXURES: 
+ List of Annexures as below 
+ 
+     SAFETY PRECAUTIONS AND REQUIREMENTS FOR HOT WORK 
+The following safety precautions and requirements, though not necessarily exhaustive, shall be 
+observed before and during the hot work: 
+1. The equipment to be worked on shall be positively isolated, both mechanically and 
+electrically. Mechanical isolation shall be achieved either by disconnection, or by 
+blanking following the isolation procedure. 
+2. Blanking is not required for stand-alone utilities supply piping. Utilities supply in this 
+instance are: process water, potable water, LP/HP De-mineralized water, soft water, 
+direct/indirect sea-water, ID cooling water, chilled water, fire water, LP/HP nitrogen, 
+steam, plant air, process air, instrument air and steam condensate. 
+3. Prior to commencement of hot work on the utilities supply line mentioned above, it is of 
+utmost important that the line to be worked on is verified to be cleared and 
+depressurized. This verification can be done by: a) opening a bleed valve (drain valve); b) 
+first break; or c) by doing a cold-cut. The drain valve should be left locked in open 
+position throughout the duration of the hot work to prevent pressure build-up. 
+4. The equipment shall be freed of liquid and gas by depressurizing, draining, venting, 
+purging and flushing. 
+5. In lined vessels or equipment containing pockets, recesses, double bulkheads, etc. 
+precautions shall be taken to ensure that no material is trapped behind the lining. This 
+may require cold drilling and steaming through behind the lining followed by gas testing. 
+Where it is not possible to achieve gas free in the equipment or there is a doubt that all 
+potentially hazardous materials have been removed, the space shall be inserted with 
+nitrogen or water filled during hot work. 
+6. Any combustible material, including paper cartons, oily rugs and grass, located nearby 
+shall be removed. Oil spills or deposits around the work site shall be cleaned up. Where 
+it is not practical to remove combustible materials they shall be suitably covered or 
+wetted with water. 
+7. Drain covers and surface manhole covers within 15 m from the work site shall be 
+properly sealed throughout the work period to prevent emission of flammable vapors. 
+8. If flammable liquid is present in any open drain or ditch which runs within 15m of the 
+work site, it shall be dammed at locations not less than 15m from the work site and 
+pumped out 
+9. Any potential source of flammable gas or vapor emission, such as sampling point, vent or 
+drain situated within 15m of the work site shall be rendered safe by sealing. If there is a 
+
+=== PDF PAGE 41 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 41 of 79 
+potential release of flammable gas or vapor in the vicinity of hot work, it may be 
+necessary to monitor the atmosphere using continuous gas monitors which will alarm on 
+detection. 
+10. The equipment on which hot work is to be carried out must be certified as being gas free 
+by the authorized gas tester. The equipment cannot be certified as gas free until all 
+sludge, grease, scale, deposits, etc. have been removed, as subsequent work could 
+disturb or heat the remaining materials and give rise to a hazardous condition. 
+11. Gas free condition must also be maintained within 15m from the work site throughout 
+the hot work period. 
+12. If the hot work could result in the projection of material, the work site must be 
+adequately contained. In the case of welding, cutting or grinding, where molten metal 
+and sparks are produced, the work site must be adequately surrounded by fire resistant 
+or flame retarding tarpaulin to contain such sources of ignition. Particular attention must 
+be paid to elevated hot work where sparks and molten metal can fall and cause injury to 
+passers-by or ignition to potential sources of flammable or combustible materials 
+underneath. The immediate area around and underneath the hot work site must be 
+properly barricaded or roped off with warning signs. Proper ventilation shall be used to 
+ensure the hot work workers do not inhale the welding fumes. 
+13. All hot work sites must be equipped with sufficient portable firefighting appliances such 
+as fire extinguishers of the appropriate type, fire hose lines charged with water from the 
+nearby fire hydrants. The end sections of the 2½" hose line shall be 1½" hose connected 
+to the gated "Y" piece with stream/fog shut-off nozzles for easy maneuverability. 
+14. The vicinity of the hot work area where there is a potential of sparks or molten metals 
+falling off the ground shall be wetted with water where practicable. 
+15. The Performing and Approving Authorities must monitor the progress of hot work on a 
+regular basis to ensure the work group abides by the permit conditions and 
+requirements. In the case where hot work, especially heavy hot work, is carried out 
+reasonably close to an operating plant of 'live' system containing hazardous materials, a 
+'fire watch/standby person' from the Performing Authority must be stationed at the 
+work site to closely monitor and supervise the work where practicable. 
+16. The sitting of mobile equipment such as welding sets and generators must be outside 
+the classified hazardous area and away from the pipe-bridge carrying flammable 
+materials. 
+17. All electrical appliances, connectors and power sockets or extension cords to be used in 
+the classified hazardous areas must be of industrial and flame-proof type. 
+18. Cigarette or tobacco smoking including the use of lighters or matches at the hot work 
+site is STRICTLY PROHIBITED even if the work site is covered with a hot work permit. 
+ 
+
+=== PDF PAGE 42 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 42 of 79 
+• Prohibited Hot Work Areas  
+ 
+1. PESO Tank farm area 
+2. Flammable chemical storage areas & process areas 
+ 
+SAFETY PRECAUTIONS FOR EXCAVATION WORK 
+           The following safety precautions, though not necessarily exhaustive, shall be observed 
+where applicable in the course of excavation work to prevent injury  and property 
+damage: 
+ 
+1. Before an attempt is made to excavate, the Performing Authority must know the exact 
+locations of underground facilities. 
+2. No excavator or other digging machine shall be allowed to excavate close to underground 
+facilities that must  be left in place. A proximity limit for machine  operations shall be 
+established and the excavation completed  by hand digging. When work has to be done 
+over or around electrical cables, special precautions must be  stated in the permit. If the 
+underground cables, service tiles or any other piping are discovered in the course of 
+excavation, the job must be suspended and the Approving Authority must be notified 
+immediately. When mechanical excavator is used, a full-time contractor supervisor must 
+be present at the site to guide the operator of the excavator and supervise the excavation. 
+Close proximity digging with any machinery SHALL  require a GFL person  who is 
+knowledgeable of the underground facilities. 
+3. Where a trench to be excavated exceeds 1.5m in depth, adequate piling, shoring and 
+bracing shall be provided against the bank or side to prevent it from collapsing. 
+ 
+            Piling, shoring and bracing used in a trench excavation to protect persons against falling 
+or sliding material  shall be of adequate strength. Planks used as sheet piling shall be at 
+least 50mm thick. The maximum spacing  between horizontal stringers or wales shall be 
+such as to keep the planks within their safe bending stress. Shores and braces shall be of 
+adequate dimensions for stiffness and shall be so placed as to be effective for  their 
+intended purposes. Each end of each stringer piece shall be separately braced. 
+                    Where trenching of more than 4 m in depth is done, such protection shall be constructed 
+in accordance with the design and drawings of a professional engineer. 
+4. In every excavation exceeding 1.2m in depth, there sha ll be provided ladders, stairways 
+or ramps to furnish safe access to and egress from such excavation. 
+5. Excavated material should be placed at least 0.60m back from the edge of the 
+excavation, unless toe boards or other effective barricades have been installed to prevent 
+fallback. The excavated material should be kept away from the drains and access ways. 
+
+=== PDF PAGE 43 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 43 of 79 
+6. Open sides of an excavation where a person may fall in shall be guarded by adequate 
+protective barricades and suitable warning signs shall be put up at conspicuous positions. 
+If the trench is 3m or deeper, barricades made of rigid materials instead of ropes must be 
+used. Covering of trench with canvas sheet or the like  without such barricades is strictly 
+prohibited. 
+7. Pick-and-shovel people working in  excavations should be kept far enough apart to 
+prevent injury to one another. 
+8. All road-crossing trenches must be covered  by steel plates of sufficient strength for 
+vehicles to pass through. 
+9. Vessel and Confined Space Entry Permit may be required before any person is allowed to 
+enter a trench exceeding 1.5m in depth as the atmosphere in it may not be safe for entry.   
+Special attention should be paid  to those trenches being dug within process area or any 
+place where there are possible sources of flammable or toxic gas emission. Such emission 
+sources may be from the nearby equipment or the pipes underneath the trenches. 
+ 
+SAFETY PRECAUTIONS FOR COLD WORK 
+           The following precautions (though not necessarily exhaustive) should be observed in 
+relation to the performance of Cold Work: 
+ 
+1. For work involving the opening -up or de-energizing of equipment, the Lock, Tag and Try 
+Procedure must be followed. 
+2. If equipment is to be opened up, it should first be depressurized, drained and purged of 
+hazardous material  under valve isolation, before  positive mechanical isolation can be 
+achieved. 
+           The effectiveness of the valve isolation should be tested and if it is found that a valve is 
+passing, appropriate  measures will have to be adopted. These may include shutting 
+additional valves or taking further equipment  out of commission, the p ossibility of the 
+presence of wax or ice under a valve should be considered, as subsequent melting would 
+defeat the isolation. Where valve isolation is used, the valves should be locked off  with 
+chain and padlock or other equally effective device, to ensure that they are  not opened 
+inadvertently. 
+3. If toxic gases could be present, suitable breathing apparatus should be specified. 
+           The possibility of the presence of pyrophoric material should be considered before 
+admitting air. If necessary, the equipment should be water flushed/filled before opening 
+up and wetted down afterwards. 
+4. Where hazardous materials such as hydrocarbons and chemicals are involved, mechanical 
+isolation should consist of spading, blanking or disconnecting. 
+
+=== PDF PAGE 44 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 44 of 79 
+           An exception to this requirement would be some cases of minor work when locked off 
+valve would suffice, providing the isolation is proved to be effective by opening drains on 
+the equipment and proving those drains to be clear. 
+        This exception is not made in the interests of expediency, but recognizes that swinging 
+spades or making disconnection can be equally, or more hazardous, than some examples 
+of minor work. 
+5. Work should not be attempted on any equipment where the possibility exists of hot 
+material escaping, e.g., temperature exceeds its flash point, boiling point or auto-ignition 
+temperature. The material should be allowed to cool before draining  and extra care  
+exercised when checking isolation integrity. 
+6. Particular care is required in  achieving and proving isolation when equipment operates 
+under a vacuum. 
+        Wherever practicable, a formal maintenance preparatio n procedure should be written 
+for any equipment  where hazards  such as hot  material or vacuum  operation are 
+encountered. 
+7. Where driven machinery is to be worked on, the prime mover should be positively 
+isolated and any switch gear locked off as per the Lock, Tag and Try Procedure. 
+8. Appropriate protective equipment must be specified. 
+9. The area around any work site  must be appropriately identified  and barricaded, if 
+necessary, to prevent other personnel in or passing through the area from being exposed 
+to hazards. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 45 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 45 of 79 
+Checklist for temporary Welding Machine/De watering pump & all other electrically operated 
+portable tools  
+ 
+ 
+ 
+
+
+=== PDF PAGE 46 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 46 of 79 
+Checklist for Height Work Compliance: 
+ 
+PTW: HEIGHT WORK COMPLIANCE   
+Doc. No.   : HSE/SAF/F/08 
+Issue 
+Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  Job 
+Description :  Date & Time  :  
+SR. 
+No. CHECKPOINTS STATUS  
+(Yes / No / NA) REMARKS 
+1 Is work being performed at heights above 1.8 meters using 
+either a ladder or a scaffold?   
+2 
+Are workers instructed on the proper method to wear and use 
+the full body safety harness, and how to attach it to the lifeline 
+or anchorage point? 
+  
+3 
+Are the full body safety harness, anchorage, lifeline, or fall 
+arrest system inspected by a GFL authorized CES person before 
+use by the workers? 
+  
+4 Is sufficient and secure anchorage or a lifeline provided?   
+5 
+Are ISI marked, high -quality, and well -maintained full body 
+safety harnesses with twin lanyards used while working at 
+heights? 
+  
+6 Has a rescue plan been developed and implemented for work 
+at height?   
+7 When any work at height is to be carried out, is a safe means of 
+access and egress provided?   
+8 Is there adequate supervision to ensure that safe work 
+practices for working at heights are in place   
+IF LADDER IS USE FOR HEIGNT WORK   
+8 Are the ladder and scaffold in good condition and marked with 
+inspection tags?   
+9 Is the ladder placed on a secure and level surface?   
+10 Is the ladder placed at an angle greater than 75 degrees to the 
+horizontal ground?   
+11 
+When a ladder is used for access or as a working platform, are 
+adequate handholds provided to a height of at least one meter 
+above the landing point of the highest rung that a person’s feet 
+will reach? 
+  
+IF SCAFFOLDING IS USE FOR HEIGHT WORK   
+12 Has the scaffolding been erected only on rigid/ firm / level 
+surfaces?   
+13 Has the scaffolding been designed to bear the intended load, 
+and has a load calculation certificate been issued by CES?   
+
+
+=== PDF PAGE 47 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 47 of 79 
+ 
+Authorization  Issuer Accepter Area Operator 
+Name    
+Signature    
+Date & Time     
+Note: (1) PTW-WAH to be done by issuer and accepter jointly, if required include other cross functional 
+members.   
+           (2) Area Operator is responsible for all the control measures and the effective implementation by 
+signing this  “PTW-WAH” before start of the activity. 
+Checklist for Confined space Entry Compliance 
+ 
+PTW: CONFINED SPACE ENTRY COMPLIANCE   
+Doc. No.   : HSE/SAF/F/07 
+Issue 
+Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  Job 
+Description :  Date & Time :  
+SR. 
+No. CHECKPOINTS (Ref: CES Std GFL/COR/EHSS/2055.00) STATUS  
+(Yes / No / NA) REMARKS 
+01 
+PROCEDURE FOR Working in CSE: 
+Is the electrical isolation of rotating equipment done by 
+removing the fuse, locking it, and tagging it? 
+  
+02 Are all connected pipelines, including those with CSE positively 
+isolated?    
+03 
+Are the ends of the detached lines fitted with blinds? The blinds 
+should be indicated in the drawings/register should be 
+maintained. 
+  
+04 Are isolation tags available on the valves to prevent accidental 
+operation?   
+14 Is a suitable platform with a toe guard, handrail, and mid -rail 
+provided?   
+15 Has the scaffold been inspected and certified by an authorized 
+engineer before being put into use?   
+16 Is provision made to arrange a duck ladder or crawling board 
+for working on fragile roofs or asbestos?   
+17 
+Has the scissor lift / man lifter used for work at height been 
+inspected and certified by a competent person (CES person) 
+before use?  
+  
+18 Are there any high -tension cables, honeybee combs, or other 
+hazards directly above the work being performed at height?   
+
+
+=== PDF PAGE 48 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 48 of 79 
+05 Is the draining, washing, cleaning, and purging done properly?  Done by 
+Name_________  
+06 Is the CSE free from physical hazards like extreme cold or heat 
+through proper cooling and air purging?   
+07 Is there proper air ventilation inside the CSE, such as an exhaust 
+fan or a movable blower provided with adequate capacity?   
+08 
+Follow Electrical Safety: 
+8.1 Are only 24-volt bulbs with flameproof fittings used? 
+8.2 Are there any cable joints observed? 
+8.3 Is the power supply protected by an ELCB? 
+  
+09 Is the earthing resistance of the process vessel or tank less than 
+1 ohm? (Done with planning)   
+10 
+Has the air quality been tested and recorded for the presence of 
+toxic, poisonous, and flammable gases, as well as for oxygen 
+percentage, at all locations of the vessel/confined space? and at 
+different levels i.e. (top, middle and bottom) of vertical vessel, 
+reactors  
+  
+11 
+Is there a provision for a properly sized ladder (Aluminium, M.S., 
+or rope type) for ascending and descending inside the CSE, 
+according to location requirements? 
+  
+12 Is a stretcher arranged at the nearest location of the CSE 
+activity, if required?   
+13 A distress meter (motion meter) is arranged, and anyone 
+entering the CSE must wear it.  
+ 
+ 
+ 
+14 Have the names and details of all personnel entering the 
+confined space been recorded on the permit before entry?   
+15 
+Arrangement of Fresh Air supplying facility (Airline respirator, 
+Cascade system) available for respiratory protection against 
+dangerous gases, fumes, vapours and oxygen deficient 
+environment done?  (Sulfuric Acid, Chlorine, Caustic, Natural 
+Gas, Methanol, HCl, Anhydrous Hydrofluoric Acid, DHF, 
+Chloroform, R22 (Chlorodifluoromethane), TFE (Tetra Fluoro 
+ethylene), Ammonia, Nitric Acid, Methyl Chloride, MDC & CTC 
+(carbon tetra chloride)).  
+  
+16 
+Have all jobs, inspections, and briefings on hazards and 
+precautions for the confined space been completed for all 
+personnel involved before starting the job? 
+  
+17 
+Does the person entering the CSE wear a full body harness with 
+a double lifeline, anchored with a separate lifeline tied outside 
+the CSE at a secure location? 
+  
+18 Standby Person Responsibility:  
+ Is there a person stationed outside the CSE near the   
+
+=== PDF PAGE 49 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 49 of 79 
+manhole/opening as a standby, equipped with communication 
+tools like a walkie-talkie for proper communication? 
+19 
+Both the standby person and the person entering the CSE 
+should be well-trained and possess sufficient knowledge about 
+the process hazards and risks associated with that CSE 
+  
+20 Is a rescuer team member available during the CSE? Name: 
+_____________________________________   
+21 Is the rescuer team member trained in rescue operations?   
+22 
+If the work continues for an extended period, does the person 
+take a 15–20-minute rest intermittently. Is a gas test conducted 
+after each rest and before re-entering the CSE & Recorded? 
+  
+23 
+Facilities Available at the location for Confined Space Entry 
+Work: Multi-gas detectors with sensors for Oxygen, LEL, CO 
+(carbon monoxide), H2S (hydrogen sulfide), and portable Cl2 
+meters. 
+1. Online airline respirators located in different location of 
+the plant. 
+2. SCBA sets provided in the plant control room and at key 
+locations. 
+3. Trained first-aiders. 
+  
+ 
+Authorization  Issuer Accepter Area Operator 
+Name    
+Signature    
+Date & Time    
+Note: (1) PTW-CSE to be done by issuer and accepter jointly, if required include other cross functional 
+members.                     
+           (2) Area Operator is responsible for all the control measures and the effective implementation by 
+signing this “PTW-CSE”  before start of the activity.     
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 50 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 50 of 79 
+Checklist for Hot Work Procedure Compliance 
+ 
+PTW: HOT WORK PROCEDURE COMPLIANCE  
+Doc. No.   : HSE/SAF/F/06 
+Issue Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  Job 
+Description :  Date & Time :  
+SR. 
+No. CHECKPOINTS 
+STATUS  
+(Yes / No / 
+NA) 
+REMARKS 
+A PRE-WORK INSPECTION & PREPARATION: 
+01 Is the area free of flammable or combustible materials?   
+02 Is firefighting equipment, including fire extinguishers (ABC 9 Kg), 
+readily available, sufficient, and operational near the work location.   
+03 Are the involved equipment (e.g., welding machine, gas cutting set, 
+tools) in good condition, with no damage or defects   
+04 
+Is the LEL meter/multi -gas detector calibrated and functional? The 
+normal LEL value of flammable vapor/ hazardous gases should be zero 
+(Hazardous area) and never exceed 5%. LEL should be check within 2 
+hrs frequency. (In flameproof area) 
+  
+05 Has the gas cylinder checklist been approved by the acceptor, and are 
+the cylinders kept in a trolley   
+06 Are earthing connection tight at electrical extension box, machine, and 
+welding objects?   
+07 Is the mitigation plan for the task available for emergencies and 
+communicated (ensure it is covered in the P-JSA)   
+09 Is the welding machine on/off switch available near the work area to 
+cut off power in case of an emergency?   
+10 Is the welding machine frame grounded?   
+11 Are welding or thermal cutting performing in confined spaces, gas 
+cylinders and welding machines kept outside?   
+B TOOL BOX TALK (TBT): 
+01 Gas lines purged individually before lighting the torch.   
+02 Oxygen valve closed when lighting acetylene (DA Gas).   
+03 The welder to avoid coiling or looping the welding electrode cable 
+around parts of their body?   
+C AREA PREPARATION: 
+01 Hot work area should be free from combustible material at least 25 ft 
+radius distance.   
+02 If the area cannot be free from combustibles, is it covered with fire -
+resistant materials (e.g., fire blanket)?   
+03 Are workplace floors swept clean of combustible debris?   
+
+
+=== PDF PAGE 51 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 51 of 79 
+04 Are gaps or cracks properly sealed where sparks could enter and ignite 
+hidden materials?   
+D DURING HOT WORK: 
+01 Is a continuous fire watch assigned to monitor any signs of sparks or 
+smouldering?   
+02 Is clear access to exits and firefighting equipment maintained?   
+03 Are torches lit by friction lighters or other approved devices only?   
+E POST-WORK PROTOCOL: 
+01 Is the work area inspected and confirmed to be free of any signs of fire 
+or potential ignition sources?   
+02 Are the fire watch in place for at least 30 minutes after completing the 
+hot work?   
+03 Is hot work equipment and materials properly stored?   
+ 
+Authorization  Issuer Accepter Area Operator 
+Name    
+Signature    
+Date & Time    
+Note: (1) PTW-HW to be done by issuer and accepter jointly, if required include other cross functional 
+members.                     
+           (2) Area Operator is responsible for all the control measures and the effective implementation by 
+signing this “PTW-HW” before start of the activity.     
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 52 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 52 of 79 
+Checklist for Line Break-Job Planning Sheet 
+ 
+ 
+PTW: Line Break-Job Planning Sheet   
+Doc. No.   : HSE/SAF/F/26 
+Issue 
+Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  
+Job Description :  
+Date & Time :  
+Job Planning sheet to be filled by shift in Charge before taking up of Line- break activity 
+Identification of Hazards and Clearing method 
+Hazards (Toxic/ 
+flammable/ 
+reactive/corrosive/high 
+pressure / high temp 
+etc.) 
+Clearing Method 
+(Draining / flushing / 
+purging / venting etc.) 
+Special precaution to be 
+taken while clearing 
+PPE to be used (Also 
+mention activities in 
+bracket, during which it 
+is not required) 
+    
+Duties of Standby Person: 
+Contingency Plan / Instructions in case of single isolation device is used: 
+ 
+Authorization  Shift In-Charge Plant HOD 
+Name   
+Signature   
+Date & Time   
+Note: (1) The P&ID / sketch of the system is attached showing points of isolation/blinding, proposed 
+points for clearing and points of lockout. 
+(2) The above plan and information are discussed with all persons involved in the job. 
+ 
+ 
+ 
+ 
+
+
+=== PDF PAGE 53 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 53 of 79 
+Checklist for Rigging Plan 
+ PTW: RIGGING PLAN   
+Doc. No.   : HSE/SAF/F/27 
+Issue 
+Date  : 01.09.2024 
+Rev. No  : 00 
+PTW No. :  
+Job 
+Description :  
+Date & 
+Time :  
+Plant :  
+Location :  
+SR. No. Details 
+01 Equipment Detail (which is to be lifted) 
+A. Name   
+B. Dimension a. Weight: MT 
+ b. Height: Mtr. 
+ c. Length:  Mtr. 
+02 lifting equipment detail (by which job will be lifted) 
+ 
+Types ID No. / 
+Vehicle No 
+Capacity last date of examination 
+by competent person SWL (MT) lifting length 
+(meter) 
+     
+     
+     
+  
+ 
+ 
+At this boom length and radius, as per load chart SWL=   
+_____________MT 
+ 
+Total Weight (Job+ lifting hook+ slings) is to be lifted = 
+______________MT 
+ 
+Percentage of margin = Total Weight X 100 / SWL as per load 
+chart = ____% 
+ 
+It Should be: 
+75% of SWL of Crane Load Chart (When SLI and Wind velocity 
+display not working) 
+85% of SWL of Crane Load Chart (When SLI and Wind velocity 
+display is working) 
+ 
+
+
+=== PDF PAGE 54 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 54 of 79 
+ 
+Designation Range of Load Name Approver 
+Signature 
+Maintenance Engineer  All   
+Maintenance Manager All   
+Maintenance HOD All    
+Note: Additional Approval Shall be taken in case of load more than 15 Ton. 
+Designation Range of Load Name Approver 
+Signature 
+CES / Project head 16 to 30 Ton   
+Engineering Head More than 30 Ton   
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 55 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 55 of 79 
+PTW Format 
+Annexure-V 
+(Permit Format & Safety Precautions) HSE/SAF/02 , Rev-08 
+PERMIT VALIDITY: The validity of permit must be extended if work is allowed to be continued after it has expired. Work Permit No: 
+Section A:           Cold Work            Hot Work                 Confined Space                       Excavation          Work at Height           Line Breaking 
+                             Rigging job            Radiography            Hydraulic/Pneumatic System                    Others ____________ 
+Section B: Job Details                                                                                                                        Work Permit No.: 
+Plant/Unit:   ____________       Area/Location: _________    SAP Notification. ____________ 
+Job Description:  ____________                                                   Equipment Name/ tag No:   ____________                                                      
+                                                  ____________                                               ____________                                           ____________ 
+Job Execution Agency: Own Employees / Contractor                    Executive Department                               Number of Persons at Work:      
+Section C: Nature of Work 
+        Work at Height                       Welding/Gas Cutting          Hot Tapping          Opening Line/Equipment         Excavation          Civil work 
+        Insulation                                 Material Handling                Painting              Work on Electrical System          Fire Network 
+         Mechanical Lockout              Work on Fragile Roofs           Closure of Roads            Hydro-jetting 
+        Work on Inst. Systems           Radiation Sources           Grinding/Drilling/Cutting          Online Sealing          Others ____________ 
+Section D: Tools and Equipment To Be Used 
+        Welding Machine                    Gas Cylinders/ Gas Cutting Set             Man Lift           Non-Sparking Tools          Mobile Crane/Winch 
+        Crane/ Farana/HEMM           Lifting Tools & tackles           Portable Electric Tools           Scaffold                         Ladders         
+        Grinding/Cutting/Drilling Set           Civil Hand Tools           Hydraulic Tools           Pneumatic Tools                     Lifeline 
+          Mechanical Handy Tools                 Electrical Insulated Tools                  Others ____________ 
+Section E: Hazard/Risk Considerations 
+         Fire / Flash                    Fall from Height             Oxygen Deficiency            Chemical/Toxic Gas Exposure              
+        Corrosive Mat.             Hot Surface                     Stored Energy                    Crush/Cut Injury                      Pressurized Equip. 
+        Noise Exposure            Dust Exposure                Radiation Hazard               Caught inside                Electric Shock           Slip/Trip 
+         Strike by                       Crush/cut Injury             Spark                                   Ergonomic                      Awkward Position           Splash                                        
+         Splash                            Skin Burn                         Environment Exposure          On/ Off Site Emergency          Static Charge 
+         Exposure to rotating equipment                        Simultaneously operation           Others ____________ 
+Section F: Job/Equipment Preparation 
+         Mechanical Isolation                                                                                                      Equipment/vessel de-pressurized/drained                                                                                    
+         Equipment/Pipe Blinded                                                                                               Use of 24 Volt Lamp (Flame-Proof)                                                                                                                    
+         Isolation/Blinding Tag No.  ____________                                                                Vehicle Entry Procedure Compliance                                                                                                                               
+
+=== PDF PAGE 56 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 56 of 79 
+         Grounding Electrical Equipment/Welding machine Compliance checklist          Protecting the surrounding area from sparks/fire                                                                                                                                               
+         Rigging Plan                                 Road Closure Required                                           Hot Work Procedure Compliance     
+         Crane/ Farana Certified             Ladder (Type: ____________)                               Drain/Sewer Cover                   Area Barricading                                                                              
+         Height Work Compliance                                                                                               LOTO Compliance  
+         Fire Blanket Booth              Fire Fighting Team Required                                          Lifting Tool/ Sling/ Hook Checked 
+         Confined Space Entry Procedure Compliance                                                            Pre JSA Completed              Rescue Plan 
+         Electrical Tool Checklist No.  ___________________________________           Cylinder Checklist No.  ____________ 
+         Scaffolding clearance By:  ____________ (Sign: ____________)           Atmosphere tested for oxygen, flammable and  toxic gases 
+         Excavation clearance By: Fire: ____________ Electrical: __________ Instrument: __________ IT: ________ Utility: ________     
+         Stand-by Person required/ Fire watch: (Name:  ____________                             Isolation of Other Energy Source 
+         Others (Please specify):  ____________ 
+Section G: PPE and Fire Protection 
+        Fire Extinguishers (Type:  _________  No. ________)          Fire water available/Hose ready          Fire blanket           Face Shield                     
+        Safety Shoes                PVC Gloves                  Cotton Gloves           Gum Boot                Cartridge Gas Mask                    Eye Protection 
+        SCBA                              Dust mask                    Chemical Gloves           Ear Plugs             Ear Muffs                                     Protective suit 
+        Safety Glasses              Splash Goggles            Rubber Gloves             Distress Alarm systems          LEL Meter              Leather Gloves 
+         Turtle Suit for Hydro Jetting                            Others ___________________ 
+Section H: Isolation:                Electrical Energy                                                                                           Other Energy Sources 
+I certify that the machine / equipment is isolated from source of 
+electrical energy by Switching off / fuse removal / LOTO  
+Name________________             Signature____________             
+Date _____/______/_______  At __________ Hrs        
+I certify that the machine / equipment is isolated from other 
+source of energy 
+Name________________             Signature____________             
+Date _____/______/_______  At __________ Hrs        
+Section I: Section I: Gas Test (for Hot Work and Confined Space Entry) 
+TWO-HOURLY GAS TEST, IF REQUIRED, SHALL BE CARRIED OUT BY THE APPROVED GAS TESTER AND RESULTS RECORDED ON REVERSE OF THIS FORM. 
+ATTACH A LIST OF ALL ENTRANTS INTO THE CONFINED SPACE. 
+Permit Valid From ________ Hrs  To _______Hrs       Date ______________  Unless extended as below 
+Permit Extended on Date ________Till ______Hrs              Name _________________        Signature ________________ 
+Section J: Permit Issuer - I certify that all the hazards/risks have 
+been identified/assessed and controlled adequately (refer to JSA 
+No. -- )  
+Name______________  Date ____________  At ______ Hrs   
+Signature___________ 
+Section K: Permit Acceptor - I have read the precautions and 
+safety measures mentioned herein and I agree to abide by the 
+same. The safeguards have been implemented. Tool box talk 
+given to persons working/impacted (refer the list of work 
+executors).  
+Name______________  Date _________  At _______ Hrs   
+Signature___________ 
+
+=== PDF PAGE 57 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 57 of 79 
+Section L: Permit Approver – I have personally inspected and 
+checked all requirements and approve the permit. 
+First Approver Name_____  Date _____  At_____ Hrs   Signature__ 
+Second Approver Name____  Date ___  At___ Hrs   Signature___ 
+Section M: Area Operator - I have been communicated and 
+understood the work to be executed in the area, precautions 
+and safety measures to be taken as mentioned herein.  
+Name______________  Date __________  At _________ Hrs   
+Signature___________ 
+Section N: Permit Closure/Cancellation: 
+         Job Completed & Housekeeping restored 
+ 
+         Job to be Completed.  
+         Please Issue a new Permit 
+         Permit is Cancelled and Closed 
+         Due to ____________________    
+Authority Name Signature Date Time 
+Power restored by     
+Acceptor     
+Area Operator     
+Issuer     
+Tick all appropriate boxes     √ 
+IMPORTANT:      THE PERMIT IS AUTOMATICALLY SUSPENDED IN THE EVENT OF PLANT-WIDE EMERGENCY OR IF THERE ARE 
+CHANGES IN WORK SITE CONDITIONS MAKING IT UNSAFE TO CONTINUE WORK. 
+Tool Box With WORKER LIST 
+ 
+NAME AGENCY Signature NAME AGENCY Signature 
+      
+      
+      
+      
+ 
+PERMIT RENEWAL RECORD 
+ 
+ Date Issuer Accepter Area Operator NDO/SSM 
+(After 22:00 
+Hrs) 
+Approver  
+Name & Signature & Time       
+Name & Signature & Time       
+Name & Signature & Time       
+Name & Signature & Time       
+ 
+ 
+ 
+ 
+ 
+
+=== PDF PAGE 58 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 58 of 79 
+TEMPORARY ELECTRICAL LOTO LIFTING FOR EQUIPMENT TRIAL 
+ 
+ Issuer Name,  Sign & time Accepter Name,  Sign & time Area Operator Name,  Sign & time 
+Date:    
+Date:    
+ 
+GAS TEST RECORD 
+ 
+GAS METER TYPE:         DATE OF LAST CALIBRATION:     
+ 
+AUTHORIZED GAS TESTERS 
+ 
+NAME FUNCTION SIGNATURE 
+   
+   
+ 
+ 
+DATE TIME (hrs) CONCENTRATION OF FLAMMABLE 
+GAS, %LEL 
+GAS TEST 
+LOCATION 
+TESTED BY SIGNATURE 
+      
+ 
+DATE 
+ 
+TIME (hrs) 
+CONCENTRATION OF O2 and TOXIC 
+GAS, PPM 
+ 
+GAS TEST 
+LOCATION 
+ 
+TESTED 
+BY 
+ 
+SIGNATURE 
+O2 CO H2S Other ( e.g., 
+Cl2, H2, CS2) 
+         
+         
+ 
+CONFINED SPACE ENTRANCE RECORD 
+Equipment Tag No: _________Name of Equipment______________ 
+Sr no. Name Time in Signature Time Out Signature 
+1      
+2      
+3      
+4      
+5      
+Note: The permit issuer shall assess the type of confined space and decide the permitted stay time accordingly.  
+ 
+
+=== PDF PAGE 59 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 59 of 79 
+JSA Format 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PDF PAGE 60 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 60 of 79 
+Isolation tags 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PDF PAGE 61 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 61 of 79 
+                                                                  PTW format for Electrical Wok  
+Annexure 
+(Permit Format & Safety Precautions) 
+   PERMIT VALIDITY: The validity of permit must be extended if work is allowed to be continued after it has expired. 
+Section A: TYPE OF PERMIT - ELECTRICAL 
+Section B: Job Details                                                                       Work Permit No: 
+Plant:   ____________       Area/Location: ________________    SAP Notification: ______________ 
+Job Description:  ______________________________________________________________ 
+ Equipment Name/ tag No: __________________ Job Execution Agency: ____________________    
+Executing Department: ______________   Number of Persons at Work:  __________________ 
+Section C: Nature of Work 
+`       Work at Height                   Work near Live supply          Hacksaw cutting         Testing / Inspection  
+       Painting / letter writing           Soldering          Grinding / Drilling           Welding          Cable jointing                 
+   Work on Energized System        Work on De-energized system         Cable laying         Control Wiring                       
+Work on LT Feeder         WORK ON HT Feeder           Motor Repair Work           Other________ 
+Section D: Tools and Equipment To Be Used 
+       Welding Machine          Man Lift                Busbar Bending Tools        Blower            IR tester 
+       Crane/ Farana/HEMM                Lifting Tools & tackles                Scaffold             Ladders  
+         Grinding/Drilling Set               Hydraulic Tools         Mechanical Hand Tools           Electrical Insulated 
+Tools                Others ________ 
+Section E: Hazard/Risk Considerations 
+         Fire / Flash         Fall from Height        Electrical Shock           Hot Surface                Stored Energy 
+       Crush/Cut Injury        Noise Exposure        Dust Exposure       Arc flash                     Slip/Trip                                                     
+          Strike by           Awkward Position               Static Charge                      Others _______________ 
+Section F: Job/Equipment Preparation 
+         Isolation / Switched OFF                Approach Boundary Marked                                                                                    
+         Absence of Voltage checked & terminals Discharged          Escape route clear                                                                                                           
+         Power / Control Fuse removed                                        Power Cable Disconnected 
+         Rigging Plan                                                                         Adequate Ventilation provided 
+         Certified Ladder (Sr. No: _________)                              Area Barricaded / Caution Board  
+
+=== PDF PAGE 62 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 62 of 79 
+         Height Work Compliance                                                   Lifting Tool/ Sling/ Hook Checked           
+         Pre JSA done                                                                         Electrical Portable Tools certified 
+         Insulation Mat / floor Coating Available                         Breaker Racked out 
+         Scaffolding Compliance                                                     Hot Work Compliance                                                                                    
+         Stand-by Person Required: Name:  __________           Others (Please specify):  __________ 
+Section G: PPEs and Fire Protection 
+         Fire Extinguishers (Type:  ___ No. _____)        Electric shock proof  Shoes              Dust mask                      
+         Electrical Insulated Gloves__KV        Ear Plugs        Ear Muffs              safety hand gloves 
+          Protective FR suit _Cal/cm2        Safety Goggles             Eye Protection / Arc flash Face shield                 
+          Non-contact Voltage tester       Multimeter        Discharge Rod       Rescue Rod       Other_____ 
+Section H: Isolation:                Electrical Energy                                                                                            Other Energy Sources 
+I certify that the machine / equipment is isolated 
+from source of electrical energy by Switching off / 
+fuse removal / LOTO  
+(Tag no: ________________________________) 
+Name________________             
+Signature____________             
+Date _____/______/_______ At__________ Hrs  
+I certify that the machine / equipment is isolated 
+from other source of energy (Tag 
+no:__________________________) 
+Name________________             
+Signature____________             
+Date _____/______/_______ At __________ Hrs 
+Permit Valid From ________ Hrs To _______ Hrs       Date ___________ Unless extended as below 
+Permit Extended on Date _____Till ______ Hrs  Name ________        Signature ________________ 
+Section I: Permit Issuer - I certify that all the hazards/risks have been identified/assessed and controlled 
+adequately & Tool box talk given to persons working/impacted (refer the list of work executors). (refer to P-
+JSA No.)  
+Name______________  Date ____________  At ______ Hrs   Signature___________ 
+IMPORTANT: THE PERMIT SHALL BE APPROVED BY APPROVER-I & APPROVER-II ONLY IN CASE OF WORK ON 
+ELECTRICAL SYSTEM ABOVE 500V AC/DC INSIDE ELECTRICAL SAFETY DISCTRICT UNLESS OTHERWISE 
+SPECIFIED. 
+Section J: Permit Approver 1 – I have personally 
+checked & verified all requirements. 
+Name_____ Date ___  At ____Hrs Signature____ 
+Section K: Permit Approver 2 – I have personally 
+checked & verified all requirements. 
+Name______ Date __  At __ Hrs   Signature___ 
+Section L: Plant Process Shift in-charge - I Agree to release the asset / Equipment for the work specified. 
+
+=== PDF PAGE 63 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 63 of 79 
+Name_______________ Date _____________  At ___________ Hrs   Signature________________ 
+Section M: Permit Acceptor (L5, L5s, L6) - I have been communicated and understood the work to be 
+executed in the area, precautions and safety measures mentioned herein and I agree to abide by the same. 
+The safeguards have been implemented.  
+Name___________  Date _____________  At ___________ Hrs   Signature____________________ 
+Section N: Permit Closure/Cancellation: 
+         Job Completed & Housekeeping restored 
+         Job is incomplete.  
+         Please Issue a new Permit 
+         Permit is Cancelled / rejected and Closed 
+         Due to ____________________    
+Authority Name Signature Date Time 
+Acceptor     
+Issuer     
+Power 
+restored by 
+    
+Tick all appropriate boxes         √ 
+IMPORTANT:      THE PERMIT IS AUTOMATICALLY SUSPENDED IN THE EVENT OF PLANT-WIDE EMERGENCY OR IF 
+THERE ARE CHANGES IN WORK SITE CONDITIONS MAKING IT UNSAFE TO CONTINUE WORK. 
+Tool Box with WORKER LIST 
+NAME AGENCY Signature NAME AGENCY Signature 
+      
+      
+      
+      
+ 
+ 
+PERMIT RENEWAL RECORD 
+ 
+ Date Issuer Approver-
+1 
+Approver-
+2 
+Accepter Area 
+Operator 
+Process Shift In-
+charge 
+Valid till 
+Name, Signature 
+& Time 
+        
+Name, Signature 
+& Time 
+        
+ 
+
+=== PDF PAGE 64 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 64 of 79 
+ 
+GAS TEST RECORD 
+ 
+GAS METER TYPE:         DATE OF LAST CALIBRATION:     
+DATE TIME 
+(hrs) 
+%LEL GAS TEST 
+LOCATION 
+TESTED 
+BY 
+SIGNATURE 
+      
+      
+      
+Electrical PTW Proper PPE: 
+ 
+Document Number: GFL/COR/EHSS/2012.00   
+  Head, Face, Eyes, Ears Respiratory Body Feet  Hands 
+Location/ Activity 
+Safety Glasses 
+Welding or cutting Goggles 
+Chemical Splash Goggles 
+Face shield 
+Safety helmet 
+Hearing Protection 
+Half-face (mouth, nose) 
+Full-Face (air purifying via 
+cartridge) 
+Dust Mask 
+Full Body protection (Jacket 
+/apron (rubber, 
+neoprene-suits) 
+Fire –Retardant Clothing 
+8cal/cm2 OR 
+Arc Flash Suit with 
+Hood (LV) 8cal/cm2 
+Arc Flash Suit with Hood 
+(HV) 40cal/cm2 
+Fall protection – Safety 
+harness 
+Gum Boots 
+Safety shoes 
+Di-electric rubber shoes 
+Cut resistance gloves 
+Chemical resistant gloves 
+ 
+High voltage gloves 
+Low voltage gloves(1.1KV) 
+Cotton Gloves (with or W/O 
+PVC Dots 
+Heat resistant gloves 
+LT LOTOTO-ACB ✓     ✓ ✓           ✓         ✓        ✓     
+LT LOTOTO-MCCB/SFU ✓     ✓ ✓           ✓         ✓        ✓     
+LT LOTOTO-DOL/SD Starter ✓     ✓ ✓           ✓         ✓        ✓     
+LT-Power Change Over ✓     ✓ ✓           ✓         ✓         
+✓     
+HT LOTOTO ✓     
+  
+ ✓             ✓       ✓     
+  
+ 
+✓ 
+      
+HT-Power Change Over ✓        ✓             ✓       ✓       
+✓       
+Feeder PM ✓     ✓   ✓                     ✓          ✓   
+Thermography(LV)  ✓     ✓  ✓           ✓         ✓          ✓    
+Current / Voltage measurement 
+(LV)  ✓     ✓  ✓           ✓         ✓        ✓     
+Motor PM ✓       ✓                     ✓          ✓   
+Transformer/Busduct PM ✓       ✓               ✓     ✓          ✓   
+Earthing checking ✓       ✓                     ✓          ✓   
+Transformer/Panel reading ✓       ✓                      ✓           ✓   
+Light checking & repairing ✓       ✓               ✓     ✓           ✓   
+Motor bearing replacement ✓       ✓                      ✓           ✓   
+Relay reset ✓       ✓                      ✓          ✓   
+SMF-Battery maintenance ✓       ✓                      ✓          ✓   
+Ni-Cad Battery Maintenance ✓       ✓                      ✓          ✓   
+
+=== PDF PAGE 65 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 65 of 79 
+ 
+ 
+ 
+ 
+ 
+Motor LLF ✓       ✓ ✓     ✓             ✓          ✓   
+Control Circuit checking ✓        ✓                     ✓          ✓    
+  Head, Face, Eyes, Ears Respiratory Body Feet  Hands 
+Location/ Activity 
+Safety Glasses 
+Welding or cutting Goggles 
+Chemical Splash Goggles  
+  Face shield 
+  Safety helmet 
+  Hearing Protection 
+  Half-face (mouth, nose) 
+Full-Face (air purifying via cartridge) 
+Dust Mask  
+Full Body protection (Jacket /apron 
+(rubber, neoprene-suits)  
+Arc Flash Suit with Hood (LV) 
+Arc Flash Suit with Hood (HV) 
+Fall protection – Safety harness 
+Gum Boots 
+Safety shoes  
+Di-electric rubber shoes 
+Cut resistance gloves 
+Chemical resistant gloves 
+ 
+High voltage gloves 
+Low voltage gloves(1.1KV) 
+Cotton Gloves (with or W/O PVC 
+Dots 
+Heat resistant gloves 
+UPS/DCDB/Battery Charger PM ✓       ✓       ✓             ✓          ✓   
+ACB/MCCB Isolation ✓     ✓ ✓           ✓         ✓        ✓     
+SFU Maintenance (@ Live 
+panel) ✓     ✓ ✓           ✓         ✓        ✓     
+Motor Greasing ✓       ✓                     ✓          ✓   
+Panel Busbar 
+removal/Installation ✓       ✓                     ✓ ✓            
+Heater Maintenance ✓       ✓       ✓       ✓     ✓          ✓   
+AC Maintenance ✓       ✓       ✓       ✓     ✓          ✓   
+Panel Shifting & Erection ✓       ✓                     ✓          ✓   
+Cable Tray Installation ✓       ✓               ✓     ✓          ✓   
+Cable Laying/Dressing Work ✓       ✓               ✓     ✓          ✓   
+Temporary Power Connection ✓       ✓                     ✓          ✓   
+CA/Rectifier Current 
+measurement ✓     ✓ ✓           ✓         ✓        ✓     
+CA/Harmonic filter bank 
+maintenance ✓       ✓               ✓     ✓      ✓       
+CA/Polarization Rectifier 
+Maintenance ✓       ✓           ✓         ✓        ✓     
+CA/ DC Isolator 
+Maintenance ✓       ✓                     ✓          ✓   
+R125 HF /Electrical Job ✓   ✓   ✓     ✓   ✓           ✓   ✓    ✓     
+CPP/66kV Line Isolation ✓       ✓             ✓       ✓      ✓       
+CPP/Isolator or Earth 
+switch operation ✓       ✓             ✓       ✓      ✓       
+CPP/66Kv SF6 CB 
+Operation ✓       ✓             ✓       ✓      ✓       
+CPP/66Kv bay 
+maintenance  ✓       ✓       ✓             ✓          ✓   
+CPP/Generator PM ✓       ✓       ✓             ✓          ✓   
+CPP/ESP Field Discharge ✓       ✓                     ✓      ✓       
+
+=== PDF PAGE 66 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 66 of 79 
+PERMIT MATRIX FORMAT:      Department/Plant: __________ Date___/___/______ 
+  
+Department RESPONSIBILITY 
+COLD 
+WORK 
+PERMIT 
+HOT WORK 
+PERMIT/ 
+CONFINED 
+SPACE 
+PERMIT/ WORK AT 
+HIGHT PERMIT 
+  
+RADIOGRAPHY EXCAVATION LINE 
+BREAKING 
+PRODUCTION ISSUER 
+          
+          
+          
+MECHANICAL ACCEPTOR 
+          
+          
+          
+ELECTRICAL ACCEPTOR 
+          
+          
+          
+INSTRUMENT ACCEPTOR 
+          
+          
+          
+CIVIL ACCEPTOR           
+          
+SAFETY DISTRIC 
+OWNER 
+Permit Approver I           
+Permit Approver II            
+Gas testers 
+            
+            
+            
+HSEF Head Signature: _________________      Name: _____________________   Date: ____/______/______ 
+HOD Signature (For issuer, acceptor, gas tester): __________     Name: _____________   Date: __/__/____ 
+Site Head (Only for Approver I & II Sign): _______________Date_______/________/_____ 
+  
+       
+PLANT NAME___________________________TRAINING RECORD 
+FUNCTION NAME TRAINING DATE RETRAINING REQUIREDE DATE 
+ISSUER 
+      
+      
+      
+ACCEPTOR 
+      
+      
+      
+Gas testers 
+  
+      
+      
+      
+       
+HOD Signature __________     Name: __________________   Date: _______/_______/________ 
+ 
+
+=== PDF PAGE 67 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 67 of 79 
+Emergency rescue plan for Confined space 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PDF PAGE 68 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 68 of 79 
+List of all routine and non-routine activities 
+ 
+ 
+Signature of HOD: -  
+Safety district map Dahej Site 
+
+
+=== PDF PAGE 69 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 69 of 79 
+ 
+Procedure for Safety District Owner  
+
+
+=== PDF PAGE 70 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 70 of 79 
+ 
+
+
+=== PDF PAGE 71 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 71 of 79 
+ 
+
+
+=== PDF PAGE 72 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 72 of 79 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PDF PAGE 73 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 73 of 79 
+14. Frequently asked Question and Answer: -  
+1. What is the primary purpose of the Permit to Work (PTW) system? 
+a) To ensure work is completed quickly 
+b) To align with corporate standards and statutory requirements 
+c) To reduce paperwork 
+d) To increase production efficiency 
+2. Who is responsible for writing the permit and JSA in their safety district? 
+a) Permit Acceptor + Permit Issuer 
+b) Permit Holder+ Unit Head 
+c) Permit Issuer+ Approver 
+d) Unit Head + Approver 
+3. What must be confirmed by the Permit Issuer before authorizing work to proceed? 
+a) Availability of tools 
+b) Correct identification of hazards and adequacy of controls 
+c) Number of workers 
+d) Duration of the work 
+4. Which document must be prepared by the team before completing the PTW? 
+a) Safety Data Sheet (SDS) 
+b) Job Safety Analysis (JSA) 
+c) Risk rating 
+d) Standard Operating Procedure (SOP) 
+5. What is the validity period for a Cold Work Permit? 
+a) 24 hours 
+b) 7 days 
+c) 8 hours or shift end, whichever is earlier 
+d) 1 month 
+6. What must be done if the work conditions change during the course of an activity under permit? 
+a) Continue working as planned 
+b) Refer back to the Permit Issuer 
+c) Inform the Unit Head 
+d) Stop work immediately 
+7. What is required for any maintenance, installation, and repair work on electrical equipment? 
+a) Hot Work Permit 
+b) Cold Work Permit 
+c) Electrical Work Permit 
+d) Confined Space Entry Permit 
+8. Who is responsible for carrying out gas tests before and during jobs? 
+a) Permit Holder 
+
+=== PDF PAGE 74 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 74 of 79 
+b) Permit Acceptor 
+c) Gas Tester 
+d) Area Operator 
+9. What must be done before starting hot work in a hazardous area? 
+a) Conduct a toolbox talk 
+b) Ensure the area is free from hydrocarbon 
+c) Conduct a gas test using a calibrated gas test meter 
+d) Inform the Unit Head 
+10. What is the role of a Fire Watch/Sta during hot work? 
+a) To oversee any probability of fire and ensure safety for 30 minutes after job completion 
+b) To issue permits 
+c) To conduct gas tests 
+d) To approve the permit 
+11. What must be done if a permit needs to be extended beyond its initial validity? 
+a) Issue a new permit 
+b) Revalidate and sign by the next shift engineer 
+c) Inform the Unit Head 
+d) Continue working without revalidation 
+12. What is the minimum depth for which an excavation permit is required? 
+a) 10 cm 
+b) 30 cm 
+c) 50 cm 
+d) 1 meter 
+13. Who must be informed if there is an emergency in the area during permitted work? 
+a) Permit Holder 
+b) Permit Issuer 
+c) Area Operator 
+d) Unit Head 
+14. What is the purpose of a Job Safety Analysis (JSA)? 
+a) To identify potential hazards and suggest control measures 
+b) To increase production efficiency 
+c) To reduce paperwork 
+d) To train new employees 
+15. What must be done if a permit is lost? 
+a) Issue a new permit 
+b) Use a duplicate copy from the permit issuer's copy 
+c) Inform the Unit Head 
+d) Continue working without a permit 
+
+=== PDF PAGE 75 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 75 of 79 
+16. Who is responsible for ensuring that the work location has all necessary safeguards available? 
+a) Permit Holder 
+b) Permit Acceptor 
+c) Area Operator 
+d) Unit Head 
+17. What must be done before entering a confined space? 
+a) Conduct a toolbox talk 
+b) Ensure the area is free from hydrocarbon 
+c) Conduct a gas test and ensure the space is safe 
+d) Inform the Unit Head 
+18. What is the role of the Permit Acceptor? 
+a) To issue permits 
+b) To execute the work in full compliance with the permit requirements 
+c) To conduct gas tests 
+d) To approve the permit 
+19. What must be done if there is any abnormality found during the work? 
+a) Continue working as planned 
+b) Stop work immediately and inform to the permit issuer 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+20. What is the role of the Permit Holder? 
+a) To issue permits 
+b) To execute the work in full compliance with the permit requirements 
+c) To conduct gas tests 
+d) To approve the permit 
+21. What is the role of the Area Operator in the PTW system? 
+a) Issuing permits 
+b) Ensuring the work location has all necessary safeguards 
+c) Conducting gas tests 
+d) Approving permits 
+22. What must be done if the Permit Issuer delegates their authority during a period of absence? 
+a) Inform the Unit Head 
+b) Notify the custodian 
+c) Issue a new permit 
+d) Continue working without delegation 
+23. What is the purpose of a toolbox talk? 
+a) To increase production efficiency 
+b) To reduce paperwork 
+
+=== PDF PAGE 76 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 76 of 79 
+c) To ensure all team members understand the hazards and controls 
+d) To train new employees 
+24. Who is responsible for signing and accepting the permit? 
+a) Permit Issuer 
+b) Permit Acceptor 
+c) Permit Holder 
+d) Area Operator 
+25. What must be done if there is a potential release of flammable gas or vapor in the vicinity of hot 
+work? 
+a) Stop working 
+b) Monitor the atmosphere using continuous gas monitors 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+26. What is the minimum oxygen concentration required for entry into a confined space? 
+a) 18% 
+b) 19.5% 
+c) 20% 
+d) 21% 
+27. What must be done before starting any work involving the opening-up of equipment? 
+a) Conduct a toolbox talk 
+b) First Follow the LOTO Procedure 
+c) Inform the Unit Head 
+d) Conduct a gas test 
+28. What is the role of the Authorized Toxic Gas/Oxygen Level Tester? 
+a) Issuing permits 
+b) Conducting gas tests and ensuring safety 
+c) Approving permits 
+d) Executing the work 
+29. What must be done if a valve is found to be passing during isolation? 
+a) Continue working as planned 
+b) Adopt appropriate measures such as tale blinding/additional valves 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+30. What is the purpose of the Permit Matrix? 
+a) To list authorized persons for issuing, accepting, and approving permits 
+b) To increase production efficiency 
+c) To reduce paperwork 
+d) To train new employees 
+
+=== PDF PAGE 77 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 77 of 79 
+31. What must be done if the work site is not safe for the work to proceed? 
+a) Continue working as planned 
+b) Stop work immediately and inform the Permit Issuer 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+32. What is the role of the Permit Approver? 
+a) Issuing permits 
+b) Ensuring hazards are evaluated and controls are provided 
+c) Conducting gas tests 
+d) Executing the work 
+33. What must be done if there is a change in weather conditions during permitted work? 
+a) Continue working as planned 
+b) Refer back to the Permit Issuer 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+34. What must be done before entering an excavation of depth more than 1.2 meters? 
+a) Conduct a toolbox talk 
+b) Ensure it is treated as a confined space and obtain a permit 
+c) Inform the Unit Head 
+d) Conduct a gas test 
+35. What must be done if the specified equipment or tools are not available during the course of an 
+activity under permit? 
+a) Continue working as planned 
+b) Refer back to the Permit Issuer 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+36. What must be done if there is an emergency in the nearby area during permitted work? 
+a) Continue working as planned 
+b) Stop work and refer back to the Permit Issuer 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+37. What must be done if there is a change in the type and nature of work during permitted work? 
+a) Continue working as planned 
+b) Refer back to the Permit Issuer 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+38. What is required for any work involving the use of mobile X-ray/radiography equipment? 
+a) Cold Work Permit 
+
+=== PDF PAGE 78 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 78 of 79 
+b) Hot Work Permit 
+c) Electrical Work Permit 
+d) Confined Space Entry Permit 
+39. What must be done if there is a potential for gas generation due to the nature of work being 
+performed inside a confined space? 
+a) Conduct a toolbox talk 
+b) Carry out regular gas tests 
+c) Inform the Unit Head 
+d) Conduct a gas test 
+40. What must be done if there is a potential for flammable gas or vapor emission within 15 meters 
+of the work site? 
+a) Continue working as planned 
+b) Render the source safe by sealing 
+c) Inform the Unit Head 
+d) Conduct a toolbox talk 
+41. What must be done if there is a potential for hot material escaping during work? 
+a) Allow the material to cool before draining 
+42. What to do if any plant wants to deviate PTW standard GFL Dahej site procedure for doing any 
+job. 
+a) Fill the deviation form given in PTW standard and take approval from Unit head. 
+43. Where we can find soft copy of all the standard? 
+a) LINK:- https://gflteams.sharepoint.com/sites/GFL-
+HSE/Shared%20Documents/Forms/AllItems.aspx 
+44. When to fill the checklist in PTW. (PTW for Height work, hot work, confined space etc..) 
+a) In PTW format “Word compliance” required additional checklist.  
+45. What is the format number of PTW? 
+a) HSE/SAF/02 
+46. What is the format number of JSA? 
+a) HSE/SAF/F/05 
+47. How to ensure employee has attain PTW standard training? 
+a) Training data available with HR department.  
+48. SRP full form? 
+a) Standard rules and procedure.  
+49. How to ensure medical checkup record  
+a) Record available with HSE department.  
+50. Hot work permit approver during C shift. 
+a) Approver II , in absence of Approver II NDO will sign after getting request mail from 
+Approver II. 
+
+=== PDF PAGE 79 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 79 of 79 
+Answer Key: -  
+Que.No Answer Que.No Answer Que.No Answer Que.No Answer 
+1 b 11 b 21 b 31 b 
+2 a, c 12 b 22 b 32 b 
+3 c 13 b 23 c 33 b 
+4 b 14 a 24 b 34 b 
+5 c 15 b 25 a 35 b 
+6 b 16 c 26 b 36 b 
+7 c 17 c 27 b 37 b 
+8 c 18 b 28 b 38 b 
+9 c 19 b 29 b 39 b 
+10 a 20 b 30 a 40 b 
+ 
+ 

@@ -1,0 +1,46 @@
+7 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 7 of 79 
+Excavation Permit: 
+Means digging, road cutting, removing soil, chipping, grading, any excavation work which involves 
+excavation of ground 1 Ft or more deep either using mechanical equipment or manually, site 
+preparation.  
+Line Breaking: 
+Intentional opening of a pipe, line, or duct that contains or has contained material capable of causing 
+injury It requires that all members of a line breaking team understand the hazards related to the 
+material and equipment involved. 
+Hydraulic & Pneumatic System Work: 
+Any machine & equipment where hydraulic energy, like hydraulic jaw, hydraulic doors, chambers, 
+cutters, hammers, pusher and lifting hydraulic tools where pneumatic energy is stored & used for 
+operating, functioning of the machine, Many hydraulic & pneumatic operated equipment working 
+require a full hazard analysis during maintenance & repair as store hydraulic/pneumatic energy of the 
+equipment having high potential hazard for accident if release suddenly, so release the hydraulic 
+pressure or pneumatic pressure of related in an operating system prior to removing or adjusting 
+components. The hot fluid in the system is under extreme pressure. If a worker is exposed to hydraulic 
+fluid while removing or adjusting components, he or she may sustain burns, bruises, cuts, abrasions, 
+or injection of fluid into the skin. Do not rely solely on the hydraulic lift if you must work on hydraulic 
+components with the system raised. Set the working unit on blocks as a precautionary measure. 
+Radiography: 
+Industrial radiography uses radiation to assess the integrity of structure. Industrial Radiography 
+Permits are issued to each service provider for a defined period of time as needed by the service 
+provider. 
+Electrical Isolation: 
+Means positive isolation of equipment connected to an electrical power system for the purpose of 
+maintenance and installation.   
+Blanket Permits: 
+A single PTW given for multiple jobs at different location or same job at multiple location. Blanket 
+permit strictly prohibited. For e.g 1) A single permit is given for PM of Pump A at X location and Pump 
+B at Y location.  
+ 
+

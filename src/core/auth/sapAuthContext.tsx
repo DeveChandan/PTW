@@ -25,9 +25,12 @@ export interface SapUser {
 
 export type ModuleId = 
   | 'permit-create' 
-  | 'permit-details' 
+  | 'permit-details'
+  | 'create-isolation'
+  | 'display-isolation' 
   | 'permit-approver' 
   | 'permit-issuer' 
+  | 'permit-area-owner'
   | 'permit-holder' 
   | 'gas-tester' 
   | 'isolation' 
@@ -45,7 +48,7 @@ export interface ModuleDefinition {
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'permit-create',
-    title: 'Permit Create',
+    title: 'Permit Create / Permit Issuer',
     subtitle: 'Hazard JSA, PPE Matrix & Work Scope Creation',
     icon: 'note_add',
     requiredRoles: ['ZPTW_REQUESTER', 'ZPTW_ADMIN'],
@@ -53,11 +56,27 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
   {
     id: 'permit-details',
-    title: 'Permit Details',
+    title: 'Permit Display',
     subtitle: 'Permit Sheet, P&ID Schematic & Real-time Status',
     icon: 'description',
     requiredRoles: ['ZPTW_REQUESTER', 'ZPTW_HOLDER', 'ZPTW_APPROVER', 'ZPTW_ISSUER', 'ZPTW_GAS_TESTER', 'ZPTW_ISOLATOR', 'ZPTW_ADMIN'],
     badge: 'Overview'
+  },
+   {
+    id: 'create-isolation',
+    title: 'Isolation Create',
+    subtitle: 'Zero-Energy Breaker, Valve Lock & Blind Flange Registry',
+    icon: 'lock_reset',
+    requiredRoles: ['ZPTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'ZPTW_ADMIN'],
+    badge: 'Isolation'
+  },
+   {
+    id: 'display-isolation',
+    title: 'Isolation Display',
+    subtitle: 'Zero-Energy Breaker, Valve Lock & Blind Flange Registry',
+    icon: 'lock_reset',
+    requiredRoles: ['ZPTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'ZPTW_ADMIN'],
+    badge: 'Isolation'
   },
   {
     id: 'permit-approver',
@@ -69,11 +88,19 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
   {
     id: 'permit-issuer',
-    title: 'Permit Issuer',
+    title: 'Permit Acceptor',
     subtitle: 'Toolbox Briefing, Site Handover & Field Issuance',
     icon: 'verified',
     requiredRoles: ['ZPTW_ISSUER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ADMIN'],
     badge: 'Issuer'
+  },
+   {
+    id: 'permit-area-owner',
+    title: 'Permit Area Operator',
+    subtitle: 'On-Site Worker Ledger, Suspension & Site Restoration',
+    icon: 'engineering',
+    requiredRoles: ['ZPTW_AREA_OWNER', 'ZPTW_REQUESTER', 'ZPTW_ADMIN'],
+    badge: 'Area Owner'
   },
   {
     id: 'permit-holder',
@@ -92,14 +119,6 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     badge: 'Gas Tester'
   },
   {
-    id: 'isolation',
-    title: 'LOTO Isolation',
-    subtitle: 'Zero-Energy Breaker, Valve Lock & Blind Flange Registry',
-    icon: 'lock_reset',
-    requiredRoles: ['ZPTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'ZPTW_ADMIN'],
-    badge: 'Isolation'
-  },
-  {
     id: 'admin',
     title: 'PTW Admin',
     subtitle: 'SAP Role Mappings, Plant Master Data & Global Audits',
@@ -115,7 +134,6 @@ export interface LoginCredentials {
   client?: string;
   language?: string;
   rememberUser?: boolean;
-  mockRoles?: string[];
 }
 
 export interface StoredUserSession {
@@ -123,10 +141,9 @@ export interface StoredUserSession {
   timestamp: number;
   client: string;
   language: string;
-  authHeader?: string;
 }
 
-export const SESSION_STORAGE_KEY = 'gfl_ptw_user_session_v1';
+export const SESSION_STORAGE_KEY = 'gfl_ptw_user_session_v2';
 export const REMEMBERED_USER_KEY = 'gfl_ptw_remembered_userid';
 export const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes Fiori idle timeout
 
@@ -176,8 +193,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activeModule, setActiveModule] = useState<ModuleId>('permit-create');
 
   const computeUnlockedModules = (roles: string[]): ModuleId[] => {
-    // If role includes Z_MOBILE_PI_SHEET (test bypass role) or ZPTW_ADMIN, unlock ALL 8 modules!
-    if (roles.includes('Z_MOBILE_PI_SHEET') || roles.includes('ZPTW_ADMIN')) {
+    // SAP-returned admin and the authorized testing role unlock every module.
+    if (roles.includes('ZPTW_ADMIN') || roles.includes('Z_MOBILE_PI_SHEET')) {
       return MODULE_REGISTRY.map((m) => m.id);
     }
     return MODULE_REGISTRY.filter((mod) =>
@@ -199,10 +216,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         user: loggedInUser,
         timestamp: Date.now(),
         client,
-        language: lang,
-        authHeader: credentials?.password
-          ? btoa(`${credentials.userId.trim().toUpperCase()}:${credentials.password}`)
-          : undefined
+        language: lang
       };
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
 
@@ -223,6 +237,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     const restoreSession = async () => {
       try {
+        sessionStorage.removeItem('gfl_ptw_user_session_v1');
         // Priority A: If hosted inside SAP Fiori Launchpad (FLP Container Shell)
         const flpContainerUser = window.sap?.ushell?.Container?.getUser?.();
         if (flpContainerUser) {
@@ -243,25 +258,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const isIdleExpired = now - parsedSession.timestamp > SESSION_IDLE_TIMEOUT_MS;
 
           if (!isIdleExpired && parsedSession.user) {
-            setUser(parsedSession.user);
-            setIsAuthenticated(true);
-            if (parsedSession.user.unlockedModules?.length > 0) {
-              setActiveModule(parsedSession.user.unlockedModules[0]);
-            }
-
-            if (parsedSession.authHeader) {
-              try {
-                const decoded = atob(parsedSession.authHeader);
-                const [storedUser, storedPass] = decoded.split(':');
-                odataClient.setCredentials(storedUser, storedPass);
-              } catch {
-                // Ignore decoding error
-              }
-            }
-
-            parsedSession.timestamp = Date.now();
-            sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsedSession));
-            console.info(`[SapAuth] Restored active session for SAP User: ${parsedSession.user.id}`);
+            // Revalidate against SAP; browser storage is not proof of authentication.
+            await login({ userId: parsedSession.user.id, client: parsedSession.client, language: parsedSession.language });
           } else if (isIdleExpired) {
             sessionStorage.removeItem(SESSION_STORAGE_KEY);
             setError('Your SAP session has timed out due to inactivity. Please log on again.');
@@ -341,6 +339,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } catch {
         // ignore
       }
+      authApi.clearSession();
       setUser(null);
       setIsAuthenticated(false);
       setError('Your SAP session was terminated by the server. Please log on again.');
@@ -362,171 +361,37 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
    * Login handler that queries SAP OData V4 userinfo endpoint
    */
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
-
+    setLoading(true); setError(null);
     const targetId = credentials.userId.trim().toUpperCase();
-    const client = credentials.client || '200';
+    const client = credentials.client || import.meta.env.VITE_SAP_CLIENT || '200';
     const lang = credentials.language || 'EN';
-
-    if (!targetId) {
-      setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
-      setLoading(false);
-      return false;
-    }
-
     try {
-      // 0. Instant Test Role Quick Switch (if mockRoles provided)
-      if (credentials.mockRoles && credentials.mockRoles.length > 0) {
-        const roles = credentials.mockRoles;
-        const unlocked = computeUnlockedModules(roles);
-        const loggedInUser: SapUser = {
-          id: targetId,
-          firstName: targetId === 'Z_MOBILE_PI_SHEET' ? 'Mobile' : targetId,
-          lastName: targetId === 'Z_MOBILE_PI_SHEET' ? 'PI Sheet' : roles[0],
-          fullName: targetId === 'Z_MOBILE_PI_SHEET' ? 'Test PI Sheet User (All Modules)' : `${targetId} (${roles[0]})`,
-          email: `${targetId.toLowerCase()}@gfl.co.in`,
-          roles,
-          plant: '1000',
-          client,
-          language: lang,
-          isFlpShell: false,
-          unlockedModules: unlocked
-        };
-
-        setUser(loggedInUser);
-        setIsAuthenticated(true);
-        setActiveModule(unlocked[0]);
-        setLoading(false);
-        persistSession(loggedInUser, client, lang, credentials);
-        return true;
-      }
-
-      // Set basic auth credentials if password provided
+      if (!targetId) throw new Error('Enter your SAP user ID.');
+      odataClient.clearCredentials();
+      odataClient.setClient(client);
       odataClient.setCredentials(targetId, credentials.password);
-
-      // Query live userinfo from modular SAP OData V4 authApi
-      let liveSuccess = false;
-      let records: SapUserInfoRecord[] = [];
-
-      try {
-        records = await authApi.fetchUserInfo(targetId, client);
-        liveSuccess = true;
-      } catch (liveErr) {
-        console.warn('[SapAuth] Live OData call returned error or offline:', liveErr);
-      }
-
-      // If live call returned data
-      if (liveSuccess) {
-        if (records.length === 0) {
-          // User not found in SAP
-          setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
-          setIsAuthenticated(false);
-          setUser(null);
-          setLoading(false);
-          return false;
-        }
-
-        const roles = Array.from(new Set(records.map((r) => r.Role).filter(Boolean)));
-        const unlocked = computeUnlockedModules(roles);
-
-        if (unlocked.length === 0) {
-          // User exists but has no valid PTW roles
-          setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
-          setIsAuthenticated(false);
-          setUser(null);
-          setLoading(false);
-          return false;
-        }
-
-        const firstRecord = records[0];
-        const loggedInUser: SapUser = {
-          id: firstRecord.UserId,
-          firstName: firstRecord.FirstName || '1',
-          lastName: firstRecord.LastName || firstRecord.UserId,
-          fullName: `${firstRecord.FirstName || '1'} ${firstRecord.LastName || firstRecord.UserId}`.trim(),
-          email: firstRecord.Email || `${targetId.toLowerCase()}@gfl.co.in`,
-          roles,
-          plant: '1000',
-          client,
-          language: lang,
-          isFlpShell: false,
-          unlockedModules: unlocked
-        };
-
-        setUser(loggedInUser);
-        setIsAuthenticated(true);
-        setActiveModule(unlocked[0]);
-        setLoading(false);
-        persistSession(loggedInUser, client, lang, credentials);
-        return true;
-      }
-
-      // Local / Offline fallback ONLY for verified SAP test user VERTIF-V
-      if (targetId === 'VERTIF-V') {
-        const roles = ['ZPTW_REQUESTER'];
-        const unlocked = computeUnlockedModules(roles);
-        const loggedInUser: SapUser = {
-          id: 'VERTIF-V',
-          firstName: '1',
-          lastName: 'VERTIF-V',
-          fullName: '1 VERTIF-V',
-          email: 'testuser2@gfl.co.in',
-          roles,
-          plant: '1000',
-          client,
-          language: lang,
-          isFlpShell: false,
-          unlockedModules: unlocked
-        };
-
-        setUser(loggedInUser);
-        setIsAuthenticated(true);
-        setActiveModule(unlocked[0]);
-        setLoading(false);
-        persistSession(loggedInUser, client, lang, credentials);
-        return true;
-      }
-
-      // Local / Offline fallback for test bypass role Z_MOBILE_PI_SHEET
-      if (targetId === 'Z_MOBILE_PI_SHEET' || targetId.includes('PI_SHEET')) {
-        const roles = ['Z_MOBILE_PI_SHEET'];
-        const unlocked = computeUnlockedModules(roles);
-        const loggedInUser: SapUser = {
-          id: targetId,
-          firstName: 'Mobile',
-          lastName: 'PI Sheet',
-          fullName: 'Test PI Sheet User',
-          email: `${targetId.toLowerCase()}@gfl.co.in`,
-          roles,
-          plant: '1000',
-          client,
-          language: lang,
-          isFlpShell: false,
-          unlockedModules: unlocked
-        };
-
-        setUser(loggedInUser);
-        setIsAuthenticated(true);
-        setActiveModule(unlocked[0]);
-        setLoading(false);
-        persistSession(loggedInUser, client, lang, credentials);
-        return true;
-      }
-
-      // Any other user not found or without role
-      setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
-      setIsAuthenticated(false);
-      setUser(null);
-      setLoading(false);
+      const records = await authApi.fetchUserInfo(targetId, client);
+      if (!records.length) throw new Error('SAP returned no PTW profile for this user.');
+      const roles = Array.from(new Set(records.map(record => record.Role.trim()).filter(Boolean)));
+      const unlocked = computeUnlockedModules(roles);
+      if (!unlocked.length) throw new Error('This SAP user has no assigned PTW authorization.');
+      const profile = records[0];
+      const loggedInUser: SapUser = {
+        id: profile.UserId, firstName: profile.FirstName || '', lastName: profile.LastName || '',
+        fullName: [profile.FirstName, profile.LastName].filter(Boolean).join(' ') || profile.UserId,
+        email: profile.Email || '', roles, plant: '', client, language: lang,
+        isFlpShell: Boolean(window.sap?.ushell?.Container), unlockedModules: unlocked,
+      };
+      setUser(loggedInUser); setIsAuthenticated(true); setActiveModule(unlocked[0]);
+      persistSession(loggedInUser, client, lang, credentials);
+      return true;
+    } catch (err) {
+      authApi.clearSession();
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      setUser(null); setIsAuthenticated(false);
+      setError(err instanceof Error ? err.message : 'SAP sign-in failed.');
       return false;
-    } catch (err: any) {
-      setError('YOUR NOT AUTHORIGE USE PERMIT TO WORK GFL APP');
-      setIsAuthenticated(false);
-      setUser(null);
-      setLoading(false);
-      return false;
-    }
+    } finally { setLoading(false); }
   };
 
   /**
@@ -584,7 +449,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         logout,
         switchUser,
         refreshUser: async () => {
-          await login({ userId: user?.id || 'VERTIF-V' });
+          if (user) await login({ userId: user.id, client: user.client, language: user.language });
         },
         getRememberedUserId
       }}

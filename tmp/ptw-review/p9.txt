@@ -1,0 +1,47 @@
+9 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 9 of 79 
+The responsibilities of this role are: 
+In case of confined space/Vessel entry permit extended to C shift or on non-working day, the permit 
+shall be approved by Approver-III after informing Dy UH/Unit head. 
+On w/off, Holiday or non-availability L-3, He can approve all the permit of plant/area/equipment 
+which are under his jurisdiction as approver II & Approver III. 
+NOTE: Jobs requiring Approver-III is discouraged. Hence such jobs to be avoided unless it is extremely 
+urgent. 
+Permit Matrix: 
+A list of duly authorized persons who will perform the duties of issuer, acceptor, gas tester, and 
+approvers (Matrix format as per annexure). 
+Fire Watch: 
+A fire watch is a person who will oversee any probability of fire due to hot surfaces or spillage of 
+sparks during the hot work and for 30 minutes after job completion. He/ She could be the contractor 
+supervision and may work as fire watch for more than one job in his vicinity.  He/ She should have 
+basic knowledge of operating fire extinguisher and able to communicate clearly. 
+Standby Person: 
+A Standby Person must be always available at the entry during confined space work. His name must 
+be mention in the permit. He/ She should able to: 
+✓ Communicate clearly. 
+✓ Control the exit and entry of person and keeping the record. 
+✓ Raise a call for help in case of any distress call/ raised by persons working inside.  
+✓ Alert and call for evacuation the people inside in case of outside emergency. 
+ 
+Gas Tester: 
+A designated person who has received training for the operation of gas testing machines/instrument 
+and procedure of gas testing.  
+He/ She is responsible for: 
+✓ Carrying out gas testing before the starting and during the jobs. Keep record of the gas testing data 
+on PTW.  
+✓ A gas Tester carries out Gas test for oxygen content, LEL and toxic content. 
+✓ LEL concentration within 5.0 m radius of the work location for welding jobs/ hot work. 
+ 
+

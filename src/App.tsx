@@ -4,6 +4,7 @@ import { SapLoginPage } from './shared/components/SapLoginPage';
 import { StitchHeader } from './shared/components/StitchHeader';
 import { ModuleLaunchpad } from './features/dashboard/ModuleLaunchpad';
 import { ComingSoonModule } from './shared/components/ComingSoonModule';
+import { PermitProcedureWorkspace } from './features/permits/PermitProcedureWorkspace';
 import { PermitCreateModule } from './features/permits/PermitCreateModule';
 
 export const App: React.FC = () => {
@@ -84,6 +85,8 @@ export const App: React.FC = () => {
             user={user}
             onBack={() => setSelectedModule(null)}
           />
+        ) : selectedModule !== 'admin' ? (
+          <PermitProcedureWorkspace key={selectedModule} module={selectedModule} user={user} onBack={() => setSelectedModule(null)} />
         ) : (
           /* Active Unlocked Module Workspace Fallback */
           activeModuleDef && (

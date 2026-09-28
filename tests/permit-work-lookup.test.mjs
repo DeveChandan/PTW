@@ -3,73 +3,140 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { build } from 'esbuild';
 
-// Bundle the TypeScript API with the project's existing tooling; no test dependency required.
 const bundled = await build({
-  stdin: {
-    contents: `export * from './src/core/api/modules/permitWorkLookup.api'; export { odataClient } from './src/core/api/odataClient';`,
-    resolveDir: process.cwd(), loader: 'ts',
-  },
-  bundle: true, write: false, platform: 'node', format: 'cjs',
-  define: { 'import.meta.env': '{}' },
+  stdin: { contents: `export { authApi } from './src/core/api/modules/auth.api'; export * from './src/core/api/modules/permitWorkLookup.api'; export * from './src/core/api/modules/permitCreate.validation'; export * from './src/core/api/modules/permitCreate.api'; export { odataClient } from './src/core/api/odataClient';`, resolveDir: process.cwd(), loader: 'ts' },
+  bundle: true, write: false, platform: 'node', format: 'cjs', define: { 'import.meta.env': '{}' },
 });
 const compiled = { exports: {} };
 new Function('require', 'module', 'exports', bundled.outputFiles[0].text)(createRequire(import.meta.url), compiled, compiled.exports);
-const { buildWorkFilter, validateWorkSearch, referenceId, permitWorkLookupApi, odataClient } = compiled.exports;
-const base = { source: 'order', fromDate: '2026-09-01', toDate: '2026-09-24', orderType: '' };
+const { authApi, preparePermitCreate, permitCreateApi, PermitCreateUnconfirmedError, buildWorkFilter, validateWorkSearch, availableSources, availableOrderTypes, referenceKey, toPermitReferenceFields, permitWorkLookupApi, odataClient } = compiled.exports;
+const base = { category: 'Preventive', source: 'order', fromDate: '2026-09-01', toDate: '2026-09-25', orderType: '' };
+const fixture = {
+  ReferenceId: '000040001234', ReferenceSource: 'ORDER', WorkCategory: 'PREVENTIVE', OrderNotifType: 'PM01',
+  JobDescription: 'Inspect pump', WorkDate: '2026-09-25', Plant: '1000', EquipmentTag: '000000000010001234',
+  FunctionalLocation: 'PLANT-AREA-001', PlannerGroup: '', Priority: '1', SystemStatus: '',
+};
 
-test('rejects missing, invalid and reversed dates; permits an inclusive single day', () => {
-  for (const change of [{ fromDate: '' }, { fromDate: '2026-02-30' }, { fromDate: '2026-09-25' }, { toDate: 'bad' }]) {
-    assert.ok(validateWorkSearch({ ...base, ...change }));
+test('userinfo serializes sap-client once after merging Axios defaults', async () => {
+  const instance = odataClient.instance;
+  const adapter = instance.defaults.adapter;
+  const savedParams = instance.defaults.params;
+  instance.defaults.params = { 'sap-client': '200' };
+  const urls = [];
+  instance.defaults.adapter = async config => {
+    urls.push(new URL(instance.getUri(config), 'http://127.0.0.1:5173'));
+    return { config, status: 200, statusText: 'OK', headers: { 'content-type': 'application/json' }, data: { value: [] } };
+  };
+  try {
+    await authApi.fetchUserInfo('VERTIF-V', '200');
+    await authApi.fetchUserInfo(" o'neil ", '300');
+    assert.deepEqual(urls[0].searchParams.getAll('sap-client'), ['200']);
+    assert.deepEqual(urls[0].searchParams.getAll('$filter'), ["UserId eq 'VERTIF-V'"]);
+    assert.deepEqual(urls[1].searchParams.getAll('sap-client'), ['300']);
+    assert.deepEqual(urls[1].searchParams.getAll('$filter'), ["UserId eq 'O''NEIL'"]);
+    assert.ok(urls.every(url => url.pathname.endsWith('/userinfo')));
+  } finally {
+    instance.defaults.adapter = adapter;
+    instance.defaults.params = savedParams;
   }
+});
+
+test('validates real calendar dates and inclusive same-day ranges', () => {
+  for (const change of [{ fromDate: '' }, { fromDate: '2026-02-30' }, { fromDate: '2026-09-26' }, { toDate: 'bad' }]) assert.ok(validateWorkSearch({ ...base, ...change }));
   assert.equal(validateWorkSearch({ ...base, fromDate: base.toDate }), null);
 });
 
-test('order lookup uses the full allowlist and inclusive date bounds', () => {
-  const filter = buildWorkFilter(base, 'WorkDate');
-  assert.match(filter, /WorkDate ge 2026-09-01 and WorkDate le 2026-09-24/);
-  for (const type of ['PM01', 'PM03', 'PM05', 'PM06', 'PM07', 'PM08']) assert.ok(filter.includes(`Auart eq '${type}'`));
-  assert.ok(!filter.includes('PM02'));
-  assert.ok(filter.includes('IsShutdown eq false'));
+test('all CDS branches filter by category, source, type and inclusive WorkDate', () => {
+  const branches = [
+    ['Corrective', 'notification', 'NOTIFICATION', ['M2']], ['Corrective', 'order', 'ORDER', ['PM06']],
+    ['Preventive', 'order', 'ORDER', ['PM01']], ['Shutdown', 'shutdown', 'ORDER', ['PM03']],
+    ['Inspection', 'order', 'ORDER', ['PM05']], ['Other', 'order', 'ORDER', ['PM07', 'PM08']],
+  ];
+  for (const [category, source, sapSource, types] of branches) {
+    const filter = buildWorkFilter({ ...base, category, source });
+    assert.ok(filter.includes(`WorkCategory eq '${category.toUpperCase()}'`));
+    assert.ok(filter.includes(`ReferenceSource eq '${sapSource}'`));
+    assert.ok(filter.includes('WorkDate ge 2026-09-01 and WorkDate le 2026-09-25'));
+    for (const type of types) assert.ok(filter.includes(`OrderNotifType eq '${type}'`));
+    assert.doesNotMatch(filter, /\b(Qmart|Auart|IsShutdown|Qmnum|Aufnr)\b/);
+    assert.deepEqual([...filter.matchAll(/OrderNotifType eq '([^']+)'/g)].map(match => match[1]), types);
+  }
 });
 
-test('selected order type narrows results and rejects arbitrary filter input', () => {
-  assert.match(buildWorkFilter({ ...base, orderType: 'PM05' }, 'WorkDate'), /\(Auart eq 'PM05'\)/);
-  assert.throws(() => buildWorkFilter({ ...base, orderType: "PM01' or true" }, 'WorkDate'));
-  assert.throws(() => buildWorkFilter(base, 'WorkDate or true'));
+test('prevents contradictory category/source/type combinations and injection', () => {
+  for (const change of [{ category: 'Predictive' }, { category: 'unknown' }, { source: 'notification' }, { source: 'shutdown' }, { orderType: 'PM06' }, { orderType: "PM01' or true" }]) {
+    assert.throws(() => buildWorkFilter({ ...base, ...change }));
+  }
+  assert.ok(buildWorkFilter({ ...base, category: 'Other', orderType: 'PM08' }).includes("(OrderNotifType eq 'PM08')"));
+  assert.throws(() => buildWorkFilter({ ...base, category: 'Corrective', source: 'notification', orderType: 'PM06' }));
 });
 
-test('notification and shutdown sources send distinct backend conditions', () => {
-  const notifications = buildWorkFilter({ ...base, source: 'notification' }, 'WorkDate');
-  assert.ok(notifications.includes("Qmart eq 'M2'"));
-  assert.ok(notifications.includes("Auart eq 'PM02'"));
-  assert.ok(notifications.includes("Qmnum ne ''"));
-  const shutdown = buildWorkFilter({ ...base, source: 'shutdown' }, 'WorkDate', 'IsShutdown eq true');
-  assert.ok(shutdown.includes('(IsShutdown eq true)'));
-  assert.ok(!shutdown.includes('Auart'));
-  assert.throws(() => buildWorkFilter({ ...base, source: 'shutdown' }, 'WorkDate'));
+test('UI choices reflect the CDS and do not invent a Predictive mapping', () => {
+  assert.deepEqual(availableSources('Corrective'), ['notification', 'order']);
+  assert.deepEqual(availableSources('Shutdown'), ['shutdown']);
+  assert.deepEqual(availableSources('Predictive'), []);
+  assert.deepEqual(availableOrderTypes('Other'), ['PM07', 'PM08']);
+  assert.deepEqual(availableOrderTypes('Inspection'), ['PM05']);
 });
 
-test('PMIntegration request carries filters, selected client and cancellation signal', async () => {
+test('composite keys distinguish order and notification with the same reference ID', () => {
+  assert.notEqual(referenceKey(fixture), referenceKey({ ...fixture, ReferenceSource: 'NOTIFICATION' }));
+});
+
+test('maps order fields and clears notification linkage without losing leading zeroes', () => {
+  const result = toPermitReferenceFields(fixture);
+  assert.equal(result.Aufnr, '000040001234');
+  assert.equal(result.Auart, 'PM01');
+  assert.equal(result.Qmnum, '');
+  assert.equal(result.Qmart, '');
+  assert.equal(result.Qmtxt, '');
+  assert.equal(result.Qmdat, null);
+  assert.equal(result.PmBasicStartD, '2026-09-25');
+  assert.equal(result.Equnr, fixture.EquipmentTag);
+  assert.equal(result.Tplnr, fixture.FunctionalLocation);
+  assert.equal(result.Werks, fixture.Plant);
+  assert.equal(result.JobDesc, fixture.JobDescription);
+});
+
+test('maps M2 notification and clears order type instead of fabricating a PM02 link', () => {
+  const result = toPermitReferenceFields({ ...fixture, ReferenceSource: 'NOTIFICATION', OrderNotifType: 'M2', WorkCategory: 'CORRECTIVE' });
+  assert.equal(result.Qmnum, fixture.ReferenceId);
+  assert.equal(result.Qmart, 'M2');
+  assert.equal(result.Qmtxt, fixture.JobDescription);
+  assert.equal(result.Qmdat, fixture.WorkDate);
+  assert.equal(result.Aufnr, '');
+  assert.equal(result.Auart, '');
+  assert.equal(result.PmBasicStartD, null);
+});
+
+test('PM03 shutdown remains an ORDER when filling the permit', () => {
+  const result = toPermitReferenceFields({ ...fixture, WorkCategory: 'SHUTDOWN', OrderNotifType: 'PM03' });
+  assert.equal(result.Aufnr, fixture.ReferenceId);
+  assert.equal(result.Auart, 'PM03');
+  assert.equal(result.Qmnum, '');
+});
+
+test('PMIntegration request carries filter, selected client and abort signal; parses ABAP padding', async () => {
   const original = odataClient.get;
   const controller = new AbortController();
-  const fixture = { PermitNo: 'PTW000001', Status: 'DUMM', Qmnum: '10000123', Aufnr: '40001234', Auart: 'PM01', Tplnr: 'PLANT-AREA-001', Equnr: '10001234', Werks: '1000', Arbpl: 'MECH-001' };
   odataClient.get = async (entity, config) => {
     assert.equal(entity, 'PMIntegration');
     assert.equal(config.params['sap-client'], '300');
     assert.equal(config.signal, controller.signal);
-    assert.equal(config.params.$filter, buildWorkFilter(base, 'WorkDate'));
-    return { data: { value: [fixture] } };
+    assert.equal(config.params.$filter, buildWorkFilter(base));
+    return { data: { value: [{ ...fixture, ReferenceSource: 'ORDER       ' }] } };
   };
   try { assert.deepEqual(await permitWorkLookupApi.search(base, controller.signal, '300'), [fixture]); }
   finally { odataClient.get = original; }
 });
 
-test('backend errors, malformed results and incomplete pages never become sample success', async () => {
+test('backend errors, legacy response shapes and incomplete pages do not become successful records', async () => {
   const original = odataClient.get;
   try {
     odataClient.get = async () => { throw new Error('SAP unavailable'); };
     await assert.rejects(permitWorkLookupApi.search(base), /SAP unavailable/);
-    for (const data of [{}, { value: [{}] }, { value: [null] }, { value: [{ Aufnr: 123 }] }]) {
+    for (const data of [{}, { value: [{}] }, { value: [null] }, { value: [{ Aufnr: '40001234' }] },
+      { value: [{ ...fixture, ReferenceSource: 'SHUTDOWN' }] }, { value: [{ ...fixture, WorkDate: '2026-02-30' }] }]) {
       odataClient.get = async () => ({ data });
       await assert.rejects(permitWorkLookupApi.search(base), /unexpected/);
     }
@@ -77,13 +144,97 @@ test('backend errors, malformed results and incomplete pages never become sample
     await assert.rejects(permitWorkLookupApi.search(base), /Narrow the date range/);
     odataClient.get = async () => ({ data: { value: [] } });
     assert.deepEqual(await permitWorkLookupApi.search(base), []);
+    odataClient.get = async () => ({ data: { value: [{ ...fixture, WorkDate: null }] } });
+    assert.equal((await permitWorkLookupApi.search(base))[0].WorkDate, null);
   } finally { odataClient.get = original; }
 });
 
-test('reference IDs follow the source and support the supplied shutdown response shape', () => {
-  const row = { PermitNo: 'P1', Qmnum: 'N1', Aufnr: 'O1' };
-  assert.equal(referenceId('notification', row), 'N1');
-  assert.equal(referenceId('order', row), 'O1');
-  assert.equal(referenceId('shutdown', row), 'O1');
-  assert.equal(referenceId('shutdown', { PermitNo: 'P1' }), 'P1');
+function validPermit() {
+  return {
+    Permit_No: 'DO-NOT-SEND', FormRev: '1', PermitType: 'COLD', Aufnr: '000040001234', Qmnum: '', Auart: 'PM01',
+    Werks: '1000', JobDesc: 'Pump maintenance', SupvName: 'Site supervisor', PersonsQty: 1,
+    ValidFromD: '2099-01-01', ValidFromT: '08:00', ValidToD: '2099-01-01', ValidToT: '18:00',
+    Status: 'ISSD', Ernam: 'CLIENT', LastChangedAt: null,
+    _Worker: [{ PermitNo: 'DO-NOT-SEND', ItemNo: '7', WorkerName: 'Actual worker', WorkerTypeCode: 'EMP', EmpId: 'E100', PhoneNo: '', Shift: 'GENERAL' }],
+    _HazardControl: [{ PermitNo: 'DO-NOT-SEND', ItemNo: '3', HazardCode: 'MECH', HazardDesc: 'Moving equipment', ControlCode: 'ISOL', ControlDesc: 'Isolate equipment', RiskLevel: 'HIGH', ControlStatus: 'OPEN' }],
+    _GasTest: [{ TesterSigned: 'Y' }], _Approval: [{}], _AuditLog: [{}], _Attachment: [{}], _ShiftRenewal: [{}],
+  };
+}
+
+test('create body uses server numbering and excludes unsupported and manufactured lifecycle records', () => {
+  const body = preparePermitCreate(validPermit());
+  for (const key of ['Permit_No', 'FormRev', 'Ernam', 'LastChangedAt', '_GasTest', '_Approval', '_AuditLog', '_Attachment', '_ShiftRenewal']) assert.ok(!(key in body), key);
+  assert.equal(body.Status, 'CRTD');
+  assert.equal(body.ValidFromT, '08:00:00');
+  assert.equal(body.ValidToT, '18:00:00');
+  assert.ok(!('PermitNo' in body._Worker[0]));
+  assert.equal(body._Worker[0].ItemNo, '1');
+  assert.equal(body._HazardControl[0].ItemNo, '1');
+});
+
+test('create validation rejects missing real work, crew, controls, expired or reversed validity and overlong fields', () => {
+  for (const change of [
+    { Aufnr: '', Qmnum: '' }, { PermitType: '' }, { SupvName: '' }, { _Worker: [] }, { PersonsQty: 2 },
+    { _HazardControl: [] }, { ValidToT: '07:00' }, { ValidFromD: '2000-01-01', ValidToD: '2000-01-02' },
+    { Tplnr: 'X'.repeat(31) }, { JobDesc: 'X'.repeat(256) }, { PersonsQty: -1 },
+  ]) assert.throws(() => preparePermitCreate({ ...validPermit(), ...change }));
+});
+
+test('real create endpoint posts sanitized data once and returns only the SAP permit number', async () => {
+  const original = odataClient.post;
+  let count = 0;
+  odataClient.post = async (entity, body, config) => {
+    count++;
+    assert.equal(entity, 'PermitInfo');
+    assert.ok(!body.Permit_No);
+    assert.equal(config.headers.Prefer, 'return=representation');
+    return { data: { Permit_No: 'PTW0098765', Status: 'CRTD' } };
+  };
+  try {
+    const result = await permitCreateApi.createPermitDeepInsert(validPermit());
+    assert.equal(result.Permit_No, 'PTW0098765');
+    assert.equal(count, 1);
+  } finally { odataClient.post = original; }
+});
+
+test('failed or ambiguous creates never return a simulated permit or retry automatically', async () => {
+  const original = odataClient.post;
+  try {
+    let count = 0;
+    odataClient.post = async () => { count++; throw Object.assign(new Error('SAP validation rejected request'), { response: { status: 400 } }); };
+    await assert.rejects(permitCreateApi.createPermitDeepInsert(validPermit()), /SAP validation/);
+    assert.equal(count, 1);
+    odataClient.post = async () => { throw new Error('timeout'); };
+    await assert.rejects(permitCreateApi.createPermitDeepInsert(validPermit()), PermitCreateUnconfirmedError);
+    odataClient.post = async () => ({ data: {} });
+    await assert.rejects(permitCreateApi.createPermitDeepInsert(validPermit()), PermitCreateUnconfirmedError);
+    odataClient.post = async () => ({ data: { Permit_No: 'P1', SAP__Messages: [{ numericSeverity: 4, message: 'Rejected' }] } });
+    await assert.rejects(permitCreateApi.createPermitDeepInsert(validPermit()), /Rejected/);
+  } finally { odataClient.post = original; }
+});
+
+test('SAP login HTML is rejected even when HTTP status is 200', async () => {
+  const instance = odataClient.instance;
+  const adapter = instance.defaults.adapter;
+  let expired = false;
+  odataClient.onSessionExpired(() => { expired = true; });
+  instance.defaults.adapter = async config => ({ config, status: 200, statusText: 'OK', headers: { 'content-type': 'text/html', 'sap-authenticated': 'pending' }, data: '<html>Log on</html>' });
+  try {
+    await assert.rejects(odataClient.get('PMIntegration'), /requires sign-in/);
+    assert.equal(expired, true);
+  } finally { instance.defaults.adapter = adapter; odataClient.onSessionExpired(() => {}); }
+});
+
+test('missing CSRF token blocks writes before a POST is sent', async () => {
+  const instance = odataClient.instance;
+  const adapter = instance.defaults.adapter;
+  const tokenFetch = odataClient.fetchCsrfToken;
+  odataClient.clearCredentials();
+  let posts = 0;
+  odataClient.fetchCsrfToken = async () => null;
+  instance.defaults.adapter = async config => { posts++; return { config, status: 201, headers: {}, data: {} }; };
+  try {
+    await assert.rejects(odataClient.post('PermitInfo', {}), error => error.beforeSend === true);
+    assert.equal(posts, 0);
+  } finally { instance.defaults.adapter = adapter; odataClient.fetchCsrfToken = tokenFetch; }
 });

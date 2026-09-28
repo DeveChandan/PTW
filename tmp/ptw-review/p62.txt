@@ -1,0 +1,55 @@
+62 ===
+ 
+ 
+ 
+ 
+GUJARAT FLUOROCHEMICALS LIMITED 
+Dahej Site 
+ 
+ 
+Title: Site Procedure for Permit to Work (PTW) 
+Document Number:    HSE/SAF/P/01 
+Issue Date      : 01.11.2023                 
+Revision Date: 01.04.2026 Rev No :03      
+Page No          : Page 62 of 79 
+         Height Work Compliance                                                   Lifting Tool/ Sling/ Hook Checked           
+         Pre JSA done                                                                         Electrical Portable Tools certified 
+         Insulation Mat / floor Coating Available                         Breaker Racked out 
+         Scaffolding Compliance                                                     Hot Work Compliance                                                                                    
+         Stand-by Person Required: Name:  __________           Others (Please specify):  __________ 
+Section G: PPEs and Fire Protection 
+         Fire Extinguishers (Type:  ___ No. _____)        Electric shock proof  Shoes              Dust mask                      
+         Electrical Insulated Gloves__KV        Ear Plugs        Ear Muffs              safety hand gloves 
+          Protective FR suit _Cal/cm2        Safety Goggles             Eye Protection / Arc flash Face shield                 
+          Non-contact Voltage tester       Multimeter        Discharge Rod       Rescue Rod       Other_____ 
+Section H: Isolation:                Electrical Energy                                                                                            Other Energy Sources 
+I certify that the machine / equipment is isolated 
+from source of electrical energy by Switching off / 
+fuse removal / LOTO  
+(Tag no: ________________________________) 
+Name________________             
+Signature____________             
+Date _____/______/_______ At__________ Hrs  
+I certify that the machine / equipment is isolated 
+from other source of energy (Tag 
+no:__________________________) 
+Name________________             
+Signature____________             
+Date _____/______/_______ At __________ Hrs 
+Permit Valid From ________ Hrs To _______ Hrs       Date ___________ Unless extended as below 
+Permit Extended on Date _____Till ______ Hrs  Name ________        Signature ________________ 
+Section I: Permit Issuer - I certify that all the hazards/risks have been identified/assessed and controlled 
+adequately & Tool box talk given to persons working/impacted (refer the list of work executors). (refer to P-
+JSA No.)  
+Name______________  Date ____________  At ______ Hrs   Signature___________ 
+IMPORTANT: THE PERMIT SHALL BE APPROVED BY APPROVER-I & APPROVER-II ONLY IN CASE OF WORK ON 
+ELECTRICAL SYSTEM ABOVE 500V AC/DC INSIDE ELECTRICAL SAFETY DISCTRICT UNLESS OTHERWISE 
+SPECIFIED. 
+Section J: Permit Approver 1 – I have personally 
+checked & verified all requirements. 
+Name_____ Date ___  At ____Hrs Signature____ 
+Section K: Permit Approver 2 – I have personally 
+checked & verified all requirements. 
+Name______ Date __  At __ Hrs   Signature___ 
+Section L: Plant Process Shift in-charge - I Agree to release the asset / Equipment for the work specified. 
+
