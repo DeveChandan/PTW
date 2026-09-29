@@ -6,6 +6,7 @@ import { ModuleLaunchpad } from './features/dashboard/ModuleLaunchpad';
 import { ComingSoonModule } from './shared/components/ComingSoonModule';
 import { PermitProcedureWorkspace } from './features/permits/PermitProcedureWorkspace';
 import { PermitCreateModule } from './features/permits/PermitCreateModule';
+import { ReportModule } from './features/dashboard/ReportModule';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isModuleUnlocked, user, loading, isSessionRestoring } = useSapAuth();
@@ -85,6 +86,14 @@ export const App: React.FC = () => {
             user={user}
             onBack={() => setSelectedModule(null)}
           />
+        ) : selectedModule === 'report' ? (
+          activeModuleDef && (
+            <ReportModule
+              module={activeModuleDef}
+              user={user}
+              onBack={() => setSelectedModule(null)}
+            />
+          )
         ) : selectedModule !== 'admin' ? (
           <PermitProcedureWorkspace key={selectedModule} module={selectedModule} user={user} onBack={() => setSelectedModule(null)} />
         ) : (

@@ -34,6 +34,7 @@ export type ModuleId =
   | 'permit-holder' 
   | 'gas-tester' 
   | 'isolation' 
+  | 'report'
   | 'admin';
 
 export interface ModuleDefinition {
@@ -117,6 +118,14 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     icon: 'air',
     requiredRoles: ['ZPTW_GAS_TESTER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ADMIN'],
     badge: 'Gas Tester'
+  },
+  {
+    id: 'report',
+    title: 'Report',
+    subtitle: 'Permit Registers, LOTO Logs & Safety Compliance Analytics',
+    icon: 'bar_chart',
+    requiredRoles: ['ZPTW_REQUESTER', 'ZPTW_HOLDER', 'ZPTW_APPROVER', 'ZPTW_ISSUER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'ZPTW_GAS_TESTER', 'ZPTW_ADMIN'],
+    badge: 'Reports'
   },
   {
     id: 'admin',
