@@ -24,6 +24,7 @@ export const ODATA_ENTITIES = {
 
   // Authentication & System
   USER_INFO: 'userinfo',
+  CONFIG: 'Config',
 
   // Backward compatibility aliases
   HAZARDS: 'HazardControl',

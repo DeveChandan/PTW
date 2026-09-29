@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SapUser } from '../../core/auth/sapAuthContext';
 import {
   PermitDeepInsertPayload,
@@ -19,6 +19,9 @@ import { SiteProcedureStep, ProcedureGuidance } from './SiteProcedureStep';
 import { emptySitePlan, PERMIT_CATEGORIES, sitePlanRows } from '../../core/ptw/siteProcedure';
 import { PermitWorkSelectionStep } from './PermitWorkSelectionStep';
 import { WorkSelection, referenceId, toPermitReferenceFields } from '../../core/api/modules/permitWorkLookup.api';
+import { configApi } from '../../core/api';
+import { SapConfigRecord } from '../../core/types/config.types';
+import { PpeValueHelpDialog } from '../../shared/components/PpeValueHelpDialog';
 
 interface PermitCreateModuleProps {
   user: SapUser | null;
@@ -123,6 +126,23 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [newIsoPoint, setNewIsoPoint] = useState('');
   const [newIsoType, setNewIsoType] = useState('FLOCK');
   const [newIsoLockTag, setNewIsoLockTag] = useState('');
+
+  // SAP Live Config State (Dropdowns & F4 Value Help)
+  const [shiftOptions, setShiftOptions] = useState<SapConfigRecord[]>([]);
+  const [ppeCatalog, setPpeCatalog] = useState<SapConfigRecord[]>([]);
+  const [workerTypeOptions, setWorkerTypeOptions] = useState<SapConfigRecord[]>([]);
+  const [isPpeHelpOpen, setIsPpeHelpOpen] = useState(false);
+
+  useEffect(() => {
+    configApi.fetchShiftConfig().then((data) => {
+      setShiftOptions(data);
+      if (data.length > 0) {
+        setShift((prev) => (prev === 'GENERAL' || !prev ? data[0].Config_Code : prev));
+      }
+    });
+    configApi.fetchPpeConfig().then(setPpeCatalog);
+    configApi.fetchWorkerTypeConfig().then(setWorkerTypeOptions);
+  }, []);
 
   // 3. Overall Readiness Completion Percentage
   const baseCompletionPercentage = useMemo(() => {
@@ -666,7 +686,30 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="text-sm">Execution agency<select value={execAgency} onChange={e => setExecAgency(e.target.value)} className="block w-full border rounded p-2"><option value="CONT">Contractor</option><option value="EMP">Company employees</option></select></label>
                 <label className="text-sm">Execution department *<input required aria-required="true" placeholder="Enter the executing department" value={execDept} onChange={e => setExecDept(e.target.value)} maxLength={40} className="block w-full border rounded p-2" /></label>
-                <label className="text-sm">Shift<input value={shift} onChange={e => setShift(e.target.value)} maxLength={10} className="block w-full border rounded p-2" /></label>
+                <label className="text-sm">
+                  Shift *
+                  <select
+                    value={shift}
+                    onChange={e => setShift(e.target.value)}
+                    className="block w-full border border-slate-300 rounded-lg p-2 text-xs bg-white font-mono"
+                  >
+                    {(shiftOptions.length > 0
+                      ? shiftOptions
+                      : [
+                          { Config_Code: 'A', Config_Desc: 'SHIFT A' },
+                          { Config_Code: 'B', Config_Desc: 'SHIFT B' },
+                          { Config_Code: 'C', Config_Desc: 'SHIFT C' },
+                          { Config_Code: 'EXTENDED DAY', Config_Desc: 'EXTENDED DAY' },
+                          { Config_Code: 'EXTENDED NIGHT', Config_Desc: 'EXTENDED NIGHT' },
+                          { Config_Code: 'G', Config_Desc: 'SHIFT GENERAL' },
+                        ]
+                    ).map((s) => (
+                      <option key={s.Config_Code} value={s.Config_Code}>
+                        {s.Config_Code} — {s.Config_Desc}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
               <label className="block text-sm">Requester comments<textarea value={creatorComment} onChange={e => setCreatorComment(e.target.value)} maxLength={255} className="block w-full border rounded p-2" /></label>
               {/* Permit Type Radio Bar */}
@@ -1062,8 +1105,17 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       onChange={(e) => setNewWorkerType(e.target.value as any)}
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs"
                     >
-                      <option value="EMP">Employee (EMP)</option>
-                      <option value="CONT">Contractor (CONT)</option>
+                      {(workerTypeOptions.length > 0
+                        ? workerTypeOptions
+                        : [
+                            { Config_Code: 'EMP', Config_Desc: 'EMPLOYEE' },
+                            { Config_Code: 'CONT', Config_Desc: 'CONTRACTOR' },
+                          ]
+                      ).map((wt) => (
+                        <option key={wt.Config_Code} value={wt.Config_Code}>
+                          {wt.Config_Desc} ({wt.Config_Code})
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -1124,14 +1176,117 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           {/* TAB 3: PPE & Safety Checklist */}
           {activeTab === 'ppe' && (
             <div className="space-y-6">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <label className="text-sm">PPE code<input value={newPpeCode} onChange={e => setNewPpeCode(e.target.value)} className="block w-full border rounded p-2" /></label>
-                <label className="text-sm">PPE description<input value={newPpeDescription} onChange={e => setNewPpeDescription(e.target.value)} className="block w-full border rounded p-2" /></label>
-                <button type="button" className="rounded border p-2 text-[#006398]" onClick={() => {
-                  if (!newPpeCode.trim() || !newPpeDescription.trim()) return;
-                  setPpeItems(prev => [...prev, { PermitNo: '', ItemNo: String(prev.length + 1), PpeCode: newPpeCode.trim(), PpeDesc: newPpeDescription.trim(), IsRequired: 'Y', IsAvailable: 'N', IsIssued: 'N', CheckedBy: '', CheckedAt: null, Remarks: '' }]);
-                  setNewPpeCode(''); setNewPpeDescription('');
-                }}>Add PPE requirement</button>
+              {/* Add PPE with SAP F4 Value Help & Dropdown */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[#006398] text-[18px]">shield</span>
+                    <span>Add Personal Protective Equipment (SAP Config)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsPpeHelpOpen(true)}
+                    className="px-3 py-1.5 bg-[#006398] hover:bg-[#004f7a] text-white rounded-lg font-mono font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                    title="Open SAP PPE Catalog Value Help Modal"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">search</span>
+                    <span>F4 Value Help</span>
+                  </button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-12 items-end">
+                  {/* Quick Select Dropdown */}
+                  <div className="sm:col-span-5">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Quick Dropdown
+                    </label>
+                    <select
+                      value={newPpeCode}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        setNewPpeCode(code);
+                        const matched = ppeCatalog.find(p => p.Config_Code === code);
+                        if (matched) setNewPpeDescription(matched.Config_Desc);
+                      }}
+                      className="block w-full border border-slate-300 rounded-lg p-2 text-xs bg-white font-mono truncate"
+                    >
+                      <option value="">-- Select from 28 PPEs --</option>
+                      {ppeCatalog.map((p) => (
+                        <option key={p.Config_Code} value={p.Config_Code}>
+                          [{p.Parent_Code || 'GEN'}] {p.Config_Code} - {p.Config_Desc}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* PPE Code */}
+                  <div className="sm:col-span-3">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      PPE Code *
+                    </label>
+                    <div className="relative">
+                      <input
+                        value={newPpeCode}
+                        onChange={(e) => setNewPpeCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. SAFHELM"
+                        maxLength={10}
+                        className="block w-full border border-slate-300 rounded-lg p-2 pr-8 text-xs font-mono uppercase bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsPpeHelpOpen(true)}
+                        className="absolute right-2 top-2 text-slate-400 hover:text-[#006398]"
+                        title="F4 Search Help"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">search</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* PPE Description */}
+                  <div className="sm:col-span-3">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Description *
+                    </label>
+                    <input
+                      value={newPpeDescription}
+                      onChange={(e) => setNewPpeDescription(e.target.value)}
+                      placeholder="e.g. SAFETY HELMET"
+                      className="block w-full border border-slate-300 rounded-lg p-2 text-xs bg-white"
+                    />
+                  </div>
+
+                  {/* Add Button */}
+                  <div className="sm:col-span-1">
+                    <button
+                      type="button"
+                      className="w-full rounded-lg bg-[#006398] hover:bg-[#004f7a] p-2 text-xs font-mono font-bold text-white transition-colors flex items-center justify-center gap-1"
+                      onClick={() => {
+                        if (!newPpeCode.trim() || !newPpeDescription.trim()) return;
+                        setPpeItems(prev => [
+                          ...prev,
+                          {
+                            PermitNo: '',
+                            ItemNo: String(prev.length + 1),
+                            PpeCode: newPpeCode.trim(),
+                            PpeDesc: newPpeDescription.trim(),
+                            IsRequired: 'Y',
+                            IsAvailable: 'N',
+                            IsIssued: 'N',
+                            CheckedBy: '',
+                            CheckedAt: null,
+                            Remarks: ''
+                          }
+                        ]);
+                        setNewPpeCode('');
+                        setNewPpeDescription('');
+                      }}
+                      title="Add PPE Requirement"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">add</span>
+                    </button>
+                  </div>
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="text-sm">Safety check code<input maxLength={4} value={newSafetyCode} onChange={e => setNewSafetyCode(e.target.value)} className="block w-full border rounded p-2" /></label>
@@ -1774,6 +1929,36 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           </div>
         </div>
       </div>
+
+      {/* SAP F4 Value Help Dialog for PPE */}
+      <PpeValueHelpDialog
+        isOpen={isPpeHelpOpen}
+        onClose={() => setIsPpeHelpOpen(false)}
+        onSelect={(code, desc) => {
+          setNewPpeCode(code);
+          setNewPpeDescription(desc);
+        }}
+        onSelectMultiple={(items) => {
+          setPpeItems((prev) => {
+            const existingCodes = new Set(prev.map((p) => p.PpeCode));
+            const newRecords: PPERecord[] = items
+              .filter((item) => !existingCodes.has(item.code))
+              .map((item, idx) => ({
+                PermitNo: '',
+                ItemNo: String(prev.length + idx + 1),
+                PpeCode: item.code,
+                PpeDesc: item.description,
+                IsRequired: 'Y',
+                IsAvailable: 'N',
+                IsIssued: 'N',
+                CheckedBy: '',
+                CheckedAt: null,
+                Remarks: ''
+              }));
+            return [...prev, ...newRecords];
+          });
+        }}
+      />
     </div>
   );
 };

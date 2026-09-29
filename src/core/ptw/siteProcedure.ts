@@ -2,18 +2,21 @@ import type { PermitDeepInsertPayload, SafetyRecord } from '../types/ptw.types';
 
 export const PROCEDURE = { id: 'HSE/SAF/P/01', revision: '03', date: '2026-04-01', form: 'HSE/SAF/02 Rev-08' };
 export const PERMIT_CATEGORIES = [
-  { code: 'COLD', label: 'Cold work', icon: 'ac_unit', desc: 'Maintenance and non-hot work' },
-  { code: 'HOT', label: 'Hot work', icon: 'local_fire_department', desc: 'Welding, cutting and ignition sources' },
-  { code: 'CONF', label: 'Confined space', icon: 'door_sliding', desc: 'Vessel, tank and restricted entry' },
-  { code: 'EXCV', label: 'Excavation', icon: 'construction', desc: 'Underground services and entry clearance' },
-  { code: 'HGHT', label: 'Work at height', icon: 'height', desc: 'At and above 1.8 m; assess protection' },
-  { code: 'LINE', label: 'Line breaking', icon: 'plumbing', desc: 'Opening hazardous lines or equipment' },
-  { code: 'RIGG', label: 'Rigging', icon: 'forklift', desc: 'Approved lifting and rigging plan' },
-  { code: 'RAD', label: 'Radiography', icon: 'warning', desc: 'Radiation controls and supporting permits' },
-  { code: 'HYPN', label: 'Hydraulic / pneumatic', icon: 'compress', desc: 'Stored energy and mechanical restraint' },
-  { code: 'ELEC', label: 'Electrical', icon: 'bolt', desc: 'Separate electrical work requirements' },
-  { code: 'OTHER', label: 'Other work', icon: 'more_horiz', desc: 'Describe scope and required controls' },
+  { code: 'COLD', sapCode: 'COLD', label: 'Cold work', icon: 'ac_unit', desc: 'Maintenance and non-hot work' },
+  { code: 'HOT', sapCode: 'HOT', label: 'Hot work', icon: 'local_fire_department', desc: 'Welding, cutting and ignition sources' },
+  { code: 'CONF', sapCode: 'CSE', label: 'Confined space', icon: 'door_sliding', desc: 'Vessel, tank and restricted entry' },
+  { code: 'EXCV', sapCode: 'EXCV', label: 'Excavation', icon: 'construction', desc: 'Underground services and entry clearance' },
+  { code: 'HGHT', sapCode: 'W@H', label: 'Work at height', icon: 'height', desc: 'At and above 1.8 m; assess protection' },
+  { code: 'LINE', sapCode: 'LBRK', label: 'Line breaking', icon: 'plumbing', desc: 'Opening hazardous lines or equipment' },
+  { code: 'RIGG', sapCode: 'RIG', label: 'Rigging', icon: 'forklift', desc: 'Approved lifting and rigging plan' },
+  { code: 'RAD', sapCode: 'RAD', label: 'Radiography', icon: 'warning', desc: 'Radiation controls and supporting permits' },
+  { code: 'HYPN', sapCode: 'HYD_PNEU', label: 'Hydraulic / pneumatic', icon: 'compress', desc: 'Stored energy and mechanical restraint' },
+  { code: 'ELEC', sapCode: 'ELEC', label: 'Electrical', icon: 'bolt', desc: 'Separate electrical work requirements' },
+  { code: 'OTHER', sapCode: 'OTHER', label: 'Other work', icon: 'more_horiz', desc: 'Describe scope and required controls' },
 ] as const;
+
+export const isSupportedCategory = (type: string): boolean =>
+  PERMIT_CATEGORIES.some(category => category.code === type || category.sapCode === type);
 
 export const NATURE_OF_WORK = ['Welding / gas cutting', 'Hot tapping', 'Opening line / equipment', 'Excavation', 'Civil work', 'Insulation', 'Material handling', 'Painting', 'Electrical systems', 'Fire network', 'Mechanical lockout', 'Fragile roof', 'Road closure', 'Hydro-jetting', 'Instrumentation', 'Radiation sources', 'Grinding / drilling / cutting', 'Online sealing', 'Other'];
 export const TOOLS = ['Welding machine', 'Gas cylinders / cutting set', 'Man lift', 'Non-sparking tools', 'Mobile crane / winch', 'Crane / Farana / HEMM', 'Lifting tools and tackles', 'Portable electric tools', 'Scaffold', 'Ladders', 'Grinding / cutting / drilling set', 'Civil hand tools', 'Hydraulic tools', 'Pneumatic tools', 'Lifeline', 'Mechanical hand tools', 'Electrical insulated tools', 'Other'];
@@ -31,23 +34,23 @@ export const PREPARATIONS: Preparation[] = [
   { code: 'FH01', label: 'Hot-work compliance checklist and spark protection', applies: ['HOT'], page: 22 },
   { code: 'FH02', label: 'Fire extinguisher / hose / fire blanket provisions', applies: ['HOT'], page: 56 },
   { code: 'FH03', label: 'Named fire watch and 30-minute post-work watch', applies: ['HOT'], page: 9 },
-  { code: 'FC01', label: 'Confined-space checklist and isolation drawing', applies: ['CONF'], page: 23 },
-  { code: 'FC02', label: 'Named standby, communication and entry / exit register', applies: ['CONF'], page: 24 },
-  { code: 'FC03', label: 'Rescue arrangements and applicable rescue plan', applies: ['CONF'], page: 24 },
-  { code: 'FC04', label: 'Medical fitness checked within six months', applies: ['CONF', 'HGHT'], page: 24 },
-  { code: 'FC05', label: '24 V flameproof lighting and electrical protection', applies: ['CONF'], page: 23 },
-  { code: 'FW01', label: 'Height-work checklist, scaffold / ladder inspection', applies: ['HGHT'], page: 21 },
-  { code: 'FW02', label: 'Fall protection and fragile-surface controls', applies: ['HGHT'], page: 21 },
+  { code: 'FC01', label: 'Confined-space checklist and isolation drawing', applies: ['CONF', 'CSE'], page: 23 },
+  { code: 'FC02', label: 'Named standby, communication and entry / exit register', applies: ['CONF', 'CSE'], page: 24 },
+  { code: 'FC03', label: 'Rescue arrangements and applicable rescue plan', applies: ['CONF', 'CSE'], page: 24 },
+  { code: 'FC04', label: 'Medical fitness checked within six months', applies: ['CONF', 'CSE', 'HGHT', 'W@H'], page: 24 },
+  { code: 'FC05', label: '24 V flameproof lighting and electrical protection', applies: ['CONF', 'CSE'], page: 23 },
+  { code: 'FW01', label: 'Height-work checklist, scaffold / ladder inspection', applies: ['HGHT', 'W@H'], page: 21 },
+  { code: 'FW02', label: 'Fall protection and fragile-surface controls', applies: ['HGHT', 'W@H'], page: 21 },
   { code: 'FX01', label: 'Underground utility departmental clearances', applies: ['EXCV'], page: 29 },
   { code: 'FX02', label: 'Depth, excavation method and confined-space need assessed', applies: ['EXCV'], page: 29 },
-  { code: 'FL01', label: 'Line-break planning sheet and chemical hazards', applies: ['LINE'], page: 27 },
-  { code: 'FL02', label: 'First break witnessed by operator / process engineer', applies: ['LINE'], page: 27 },
-  { code: 'FR01', label: 'Rigging plan and load-dependent approval references', applies: ['RIGG'], page: 31 },
-  { code: 'FR02', label: 'Crane, slings, hooks and lifting equipment certification', applies: ['RIGG'], page: 31 },
+  { code: 'FL01', label: 'Line-break planning sheet and chemical hazards', applies: ['LINE', 'LBRK'], page: 27 },
+  { code: 'FL02', label: 'First break witnessed by operator / process engineer', applies: ['LINE', 'LBRK'], page: 27 },
+  { code: 'FR01', label: 'Rigging plan and load-dependent approval references', applies: ['RIGG', 'RIG'], page: 31 },
+  { code: 'FR02', label: 'Crane, slings, hooks and lifting equipment certification', applies: ['RIGG', 'RIG'], page: 31 },
   { code: 'FD01', label: 'Radiation permit, hot-work permit and area notification', applies: ['RAD'], page: 30 },
   { code: 'FD02', label: 'Dosimeter, TLD badge, survey meter and exclusion zone', applies: ['RAD'], page: 30 },
   { code: 'FE01', label: 'Electrical work checklist and district countersignature', applies: ['ELEC'], page: 19 },
-  { code: 'FP01', label: 'Hydraulic / pneumatic pressure released and parts supported', applies: ['HYPN'], page: 32 },
+  { code: 'FP01', label: 'Hydraulic / pneumatic pressure released and parts supported', applies: ['HYPN', 'HYD_PNEU'], page: 32 },
 ];
 export const PLAN_FIELDS = [
   { code: 'JSA1', label: 'Signed JSA document reference', required: true, reference: true },
@@ -96,12 +99,12 @@ export function approvalGuidance(types: string[], time: string): string[] {
   return types.map(type => {
     const name = PERMIT_CATEGORIES.find(item => item.code === type)?.label || type;
     if (type === 'COLD') return `${name}: no Approver I/II signature in p.18; issuer, acceptor and operator duties still apply.`;
-    if (type === 'CONF') return `${name}: ${night ? 'Approver III; notify Dy Unit Head / Unit Head per p.9' : 'Approvers I and II'}. Non-working-day rules and gas limits require confirmation.`;
+    if (type === 'CONF' || type === 'CSE') return `${name}: ${night ? 'Approver III; notify Dy Unit Head / Unit Head per p.9' : 'Approvers I and II'}. Non-working-day rules and gas limits require confirmation.`;
     if (type === 'HOT') return `${name}: ${night ? 'Approver II' : 'Approvers I and II'} (p.18). Record authorized substitution evidence where applicable.`;
-    if (type === 'HGHT') return `${name}: ${night ? 'Approver II' : 'Approver I'} (p.18).`;
-    if (type === 'RIGG') return `${name}: p.18 indicates ${night ? 'Approver II' : evening ? 'Approvers I and II' : 'Approver I'}; reconcile p.15 sequence and obtain load-dependent rigging-plan approvals.`;
+    if (type === 'HGHT' || type === 'W@H') return `${name}: ${night ? 'Approver II' : 'Approver I'} (p.18).`;
+    if (type === 'RIGG' || type === 'RIG') return `${name}: p.18 indicates ${night ? 'Approver II' : evening ? 'Approvers I and II' : 'Approver I'}; reconcile p.15 sequence and obtain load-dependent rigging-plan approvals.`;
     if (type === 'RAD') return `${name}: ${night ? 'Approver II' : evening ? 'Approvers I and II' : 'Approver I'} (p.18), plus supporting permits.`;
-    if (type === 'LINE') return `${name}: chemical-dependent approval rules on pp.27–28 conflict with the general matrix. Confirm the required route.`;
+    if (type === 'LINE' || type === 'LBRK') return `${name}: chemical-dependent approval rules on pp.27–28 conflict with the general matrix. Confirm the required route.`;
     if (type === 'EXCV') return `${name}: confirm the depth-based route, utility clearances and whether confined-space entry is also required (pp.18, 29).`;
     return `${name}: confirm the applicable individual procedure and authorized permit matrix.`;
   });
@@ -143,7 +146,7 @@ export function validateSitePermit(payload: PermitDeepInsertPayload): void {
   if (!rows.some(record => record.ItemCode === 'DOCV')) return;
   const value = (code: string) => rows.find(record => record.ItemCode === code)?.Remarks?.trim() || '';
   const types = [...new Set([payload.PermitType, ...rows.filter(record => record.ItemCode === 'TYPE').map(record => record.Remarks)])];
-  if (types.some(type => !PERMIT_CATEGORIES.some(category => category.code === type))) throw new Error('Select supported work categories.');
+  if (types.some(type => !isSupportedCategory(type))) throw new Error('Select supported work categories.');
   for (const field of fieldsFor(types)) {
     if ('required' in field && field.required && !value(field.code)) throw new Error(`Complete ${field.label}.`);
   }
@@ -159,7 +162,7 @@ export function validateSitePermit(payload: PermitDeepInsertPayload): void {
   if (end > Math.min(start + 8 * 3600000, shiftEnd)) throw new Error('Initial validity must end within eight hours or at shift end, whichever is earlier. Request an authorized extension separately.');
   if (requiresGasPlan(types) && payload.GasTestRequired !== 'Y') throw new Error('Hot work / confined-space planning requires gas testing. Select Yes.');
   if (requiresGasPlan(types) && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours for hot work / confined space.');
-  if (types.includes('CONF') && payload.IsolationRequired !== 'Y') throw new Error('Confined-space planning requires positive isolation. Add the isolation plan.');
+  if ((types.includes('CONF') || types.includes('CSE')) && payload.IsolationRequired !== 'Y') throw new Error('Confined-space planning requires positive isolation. Add the isolation plan.');
   for (const item of preparationsFor(types)) {
     const check = rows.find(record => record.ItemCode === item.code);
     if (!check || !['YES', 'NO', 'NA'].includes(check.Response)) throw new Error(`Review preparation: ${item.label}.`);
