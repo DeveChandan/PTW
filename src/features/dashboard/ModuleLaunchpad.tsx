@@ -72,13 +72,6 @@ const MODULE_THEMES: Record<ModuleId, { bg: string; text: string; border: string
     kpiValue: 'O₂ • LEL • H₂S',
     kpiLabel: '2-Hr Retest Interval Log'
   },
-  'isolation': {
-    bg: 'bg-orange-50 hover:bg-orange-100/60',
-    text: 'text-orange-800',
-    border: 'border-orange-200 hover:border-orange-600',
-    kpiValue: 'LOTO Vault',
-    kpiLabel: '100% Zero-Energy Lockout'
-  },
   'report': {
     bg: 'bg-teal-50 hover:bg-teal-100/60',
     text: 'text-teal-800',
