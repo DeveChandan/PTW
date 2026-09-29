@@ -1,3 +1,4 @@
+import { PrerequisitePanel } from './PrerequisitePanel';
 import { useEffect, useRef, useState } from 'react';
 import type { ModuleId, SapUser } from '../../core/auth/sapAuthContext';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
@@ -18,8 +19,8 @@ const SECTIONS: { key: Collection; title: string; columns: [string, string][] }[
   { key: '_Attachment', title: 'Supporting documents', columns: [['FileName', 'Document'], ['DocumentRef', 'Reference'], ['UploadedBy', 'Uploaded by'], ['UploadedAt', 'Uploaded at']] },
   { key: '_AuditLog', title: 'N · Lifecycle and closure audit', columns: [['Action', 'Action'], ['OldStatus', 'From'], ['NewStatus', 'To'], ['Actor', 'Actor'], ['EventAt', 'Time'], ['Comments', 'Reason / comments']] },
 ];
-const moduleTitle: Partial<Record<ModuleId, string>> = { 'permit-details': 'Permit record', 'permit-approver': 'Approval review', 'permit-issuer': 'Issuer review', 'permit-holder': 'Work execution review', 'gas-tester': 'Gas testing review', isolation: 'Isolation review' };
-const firstSection: Partial<Record<ModuleId, Collection>> = { 'permit-approver': '_Approval', 'permit-issuer': '_Safety', 'permit-holder': '_Worker', 'gas-tester': '_GasTest', isolation: '_Isolation' };
+const moduleTitle: Partial<Record<ModuleId, string>> = { 'permit-details': 'Permit record', 'permit-approver': 'Approval review', 'permit-issuer': 'Issuer review', 'permit-holder': 'Work execution review', 'gas-tester': 'Gas testing review', isolation: 'Isolation review', 'create-isolation': 'Isolation preparation', 'display-isolation': 'Isolation review' };
+const firstSection: Partial<Record<ModuleId, Collection>> = { 'permit-approver': '_Approval', 'permit-issuer': '_Safety', 'permit-holder': '_Worker', 'gas-tester': '_GasTest', isolation: '_Isolation', 'create-isolation': '_Isolation', 'display-isolation': '_Isolation' };
 
 export function PermitProcedureWorkspace({ module, user, onBack }: { module: ModuleId; user: SapUser | null; onBack: () => void }) {
   const [plant, setPlant] = useState(user?.plant || '');
@@ -27,6 +28,7 @@ export function PermitProcedureWorkspace({ module, user, onBack }: { module: Mod
   const [permits, setPermits] = useState<PermitInfoRecord[]>([]);
   const [permit, setPermit] = useState<PermitDeepInsertResponse | null>(null);
   const [active, setActive] = useState<Collection>(firstSection[module] || '_Safety');
+  const [updating, setUpdating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
@@ -53,12 +55,12 @@ export function PermitProcedureWorkspace({ module, user, onBack }: { module: Mod
   const section = SECTIONS.find(item => item.key === active)!;
   const rows = permit?.[active];
   return <div className="mx-auto max-w-7xl space-y-5 px-4 py-6">
-    <header className="flex items-center justify-between gap-4"><div><button type="button" className="mb-2 text-sm text-blue-700" onClick={onBack}>← Launchpad</button><h1 className="text-2xl font-bold">{moduleTitle[module] || 'PTW review'}</h1><p className="mt-1 text-sm text-slate-500">{PROCEDURE.id} · Rev {PROCEDURE.revision} · SAP records</p></div></header>
+    <header className="flex items-center justify-between gap-4"><div><button type="button" className="mb-2 text-sm text-blue-700" disabled={updating} onClick={onBack}>← Launchpad</button><h1 className="text-2xl font-bold">{moduleTitle[module] || 'PTW review'}</h1><p className="mt-1 text-sm text-slate-500">{PROCEDURE.id} · Rev {PROCEDURE.revision} · SAP records</p></div></header>
     <p className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">Review saved permit evidence here. Signing, issue, revalidation, suspension and closure actions require the SAP workflow integration. This view cannot authorize or restart work.</p>
-    <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" onSubmit={event => { event.preventDefault(); void load(); }}>
+    <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" onSubmit={event => { event.preventDefault(); if (!updating) void load(); }}>
       <label className="text-sm">Plant<input className="mt-1 block rounded-lg border p-2" value={plant} maxLength={4} onChange={event => setPlant(event.target.value)} /></label>
       <label className="flex-1 text-sm">Permit number or job description<input className="mt-1 block w-full min-w-[200px] rounded-lg border p-2" value={search} onChange={event => setSearch(event.target.value)} /></label>
-      <button type="submit" disabled={loading} className="rounded-lg bg-[#006398] px-4 py-2 text-white disabled:opacity-50">Search SAP permits</button>
+      <button type="submit" disabled={loading || updating} className="rounded-lg bg-[#006398] px-4 py-2 text-white disabled:opacity-50">Search SAP permits</button>
     </form>
     {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
     {loading && <p role="status">Loading SAP evidence…</p>}
@@ -70,14 +72,16 @@ export function PermitProcedureWorkspace({ module, user, onBack }: { module: Mod
       {hasSearched && <div className="flex justify-end gap-3 border-t p-3"><button disabled={offset === 0} className="disabled:opacity-40" onClick={() => void load(undefined, Math.max(0, offset - 25))}>Previous</button><span className="text-sm">Page {offset / 25 + 1}</span><button disabled={permits.length < 25} className="disabled:opacity-40" onClick={() => void load(undefined, offset + 25)}>Next</button></div>}
     </section>}
     {permit && <section className="space-y-4 rounded-xl border bg-white p-5">
-      <div className="flex flex-wrap justify-between gap-3"><h2 className="text-xl font-bold">Permit {permit.Permit_No} · {permit.Status}</h2><button className="text-sm text-blue-700" onClick={() => setPermit(null)}>Back to results</button></div>
+      <div className="flex flex-wrap justify-between gap-3"><h2 className="text-xl font-bold">Permit {permit.Permit_No} · {permit.Status}</h2><button className="text-sm text-blue-700" disabled={updating} onClick={() => setPermit(null)}>Back to results</button></div>
       <p>{permit.JobDesc}</p>
+      <button type="button" disabled={updating} className="text-sm text-blue-700 disabled:opacity-40" onClick={() => void load(permit.Permit_No)}>Reload current SAP evidence (discards unsaved edits)</button>
       <dl className="grid gap-3 text-sm sm:grid-cols-3">{[
         ['Category', PERMIT_CATEGORIES.find(item => item.code === permit.PermitType)?.label || permit.PermitType],
         ['Plant / area', `${permit.Werks} / ${permit.AreaLoc}`], ['Equipment', permit.Equnr],
         ['SAP reference', permit.Qmnum || permit.Aufnr], ['From (IST)', `${permit.ValidFromD || ''} ${permit.ValidFromT}`], ['To (IST)', `${permit.ValidToD || ''} ${permit.ValidToT}`],
         ['Execution department', permit.ExecDept], ['Suspension reason', permit.SuspendReason], ['Cancellation reason', permit.CancelReason],
       ].map(([label, value]) => <div key={label}><dt className="text-slate-500">{label}</dt><dd>{value || 'Not recorded'}</dd></div>)}</dl>
+      <PrerequisitePanel key={`${permit.Permit_No}:${permit['@odata.etag'] || ''}`} permit={permit} module={module} user={user} onBusyChange={setUpdating} onUpdated={updated => setPermit(current => current?.Permit_No === updated.Permit_No && current?.['@odata.etag'] === permit['@odata.etag'] ? updated : current)} />
       <div className="flex flex-wrap gap-2" aria-label="Permit evidence sections">{SECTIONS.map(item => <button type="button" aria-pressed={active === item.key} key={item.key} onClick={() => setActive(item.key)} className={`rounded-lg border px-3 py-2 text-xs ${active === item.key ? 'bg-[#006398] text-white' : 'bg-slate-50'}`}>{item.title}</button>)}</div>
       <h3 className="font-semibold">{section.title}</h3>
       {active === '_GasTest' && <p className="text-sm text-amber-800">Gas results are displayed as recorded. HSE must reconcile the source gas limits before automatic clearance is enabled. Confirm the approved units for CO and H2S.</p>}

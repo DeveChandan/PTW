@@ -152,7 +152,7 @@ test('backend errors, legacy response shapes and incomplete pages do not become 
 function validPermit() {
   return {
     Permit_No: 'DO-NOT-SEND', FormRev: '1', PermitType: 'COLD', Aufnr: '000040001234', Qmnum: '', Auart: 'PM01',
-    Werks: '1000', JobDesc: 'Pump maintenance', SupvName: 'Site supervisor', PersonsQty: 1,
+    ExecDept: 'Maintenance', IsolationRequired: 'N', GasTestRequired: 'N', Werks: '1000', JobDesc: 'Pump maintenance', SupvName: 'Site supervisor', PersonsQty: 1,
     ValidFromD: '2099-01-01', ValidFromT: '08:00', ValidToD: '2099-01-01', ValidToT: '18:00',
     Status: 'ISSD', Ernam: 'CLIENT', LastChangedAt: null,
     _Worker: [{ PermitNo: 'DO-NOT-SEND', ItemNo: '7', WorkerName: 'Actual worker', WorkerTypeCode: 'EMP', EmpId: 'E100', PhoneNo: '', Shift: 'GENERAL' }],

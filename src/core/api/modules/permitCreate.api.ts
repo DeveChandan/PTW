@@ -30,6 +30,7 @@ export const permitCreateApi = {
     }
     const errors = response.data.SAP__Messages?.filter(message => (message.numericSeverity || 0) >= 4);
     if (errors?.length) throw new Error(errors.map(message => message.message).join(' | '));
+    if (response.data.Status !== body.Status) throw new PermitCreateUnconfirmedError(`SAP returned permit ${response.data.Permit_No} with status ${response.data.Status || 'missing'}, expected ${body.Status}. Check this permit in SAP before any further action.`);
     return response.data;
   },
 

@@ -14,6 +14,7 @@ import {
 } from '../../core/api/modules/permitCreate.api';
 
 import { preparePermitCreate } from '../../core/api/modules/permitCreate.validation';
+import { initialPermitStatus, type Requirement } from '../../core/ptw/prerequisites';
 import { SiteProcedureStep, ProcedureGuidance } from './SiteProcedureStep';
 import { emptySitePlan, PERMIT_CATEGORIES, sitePlanRows } from '../../core/ptw/siteProcedure';
 import { PermitWorkSelectionStep } from './PermitWorkSelectionStep';
@@ -79,7 +80,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   // LOTO & Isolation Requirements
   const [lotoRequired, setLotoRequired] = useState<'Y' | 'N'>('Y');
   const [lotoCertNo, setLotoCertNo] = useState<string>('');
-  const [isolationRequired, setIsolationRequired] = useState<'Y' | 'N'>('Y');
+  const [isolationRequired, setIsolationRequired] = useState<Requirement>('');
+  const [gasTestRequired, setGasTestRequired] = useState<Requirement>('');
   const [isolationRefType, setIsolationRefType] = useState<string>('EQUIP');
   const [isolationNo, setIsolationNo] = useState<string>('');
 
@@ -140,6 +142,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     if (previousWorkKey.current && previousWorkKey.current !== selectionKey) {
       // A different job must not inherit site-specific preparation or JSA evidence.
       setSitePlan(emptySitePlan()); setPermitType('');
+      setIsolationRequired(''); setGasTestRequired(''); setExecDept('');
       setWorkers([]); setPersonsQty(0); setHazards([]); setIsolations([]);
       setPpeItems([]); setSafetyChecklist([]); setLotoCertNo(''); setIsolationNo('');
       setValidFromD(''); setValidFromT(''); setValidToD(''); setValidToT('');
@@ -250,7 +253,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       IsolType: newIsoType,
       ReferenceType: isolationRefType,
       ReferenceId: equnr,
-      Status: 'CRTD',
+      Status: 'INTD',
       RequestedBy: user?.id || personResp,
       RequestedDate: validFromD,
       RequestedTime: validFromT,
@@ -334,8 +337,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       ValidToD: validToD || null,
       ValidToT: validToT,
 
-      GasTestFreqHr: gasTestFreqHr,
-      Status: 'CRTD',
+      GasTestFreqHr: gasTestRequired === 'Y' ? gasTestFreqHr : '',
+      GasTestRequired: gasTestRequired,
+      Status: isolationRequired && gasTestRequired ? initialPermitStatus(isolationRequired, gasTestRequired) : 'INTD',
 
       RefPermitNo: '',
 
@@ -345,7 +349,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       IsolationRequired: isolationRequired,
       IsolationRefType: isolationRefType,
       IsolationNo: isolationNo,
-      IsolationStatus: 'CRTD',
+      IsolationStatus: isolationRequired === 'Y' ? 'INTD' : '',
 
       PermitIssuer: '',
       SuspendReason: '',
@@ -417,6 +421,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     validToD,
     validToT,
     gasTestFreqHr,
+    gasTestRequired,
     lotoRequired,
     lotoCertNo,
     isolationRequired,
@@ -464,7 +469,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setSubmissionResponse(response);
       setNotificationBanner({
         type: 'success',
-        message: `SAP OData V4 Deep Insert Successful! Permit ${response.Permit_No} created in status ${response.Status || 'CRTD'}.`
+        message: `SAP OData V4 Deep Insert Successful! Permit ${response.Permit_No} created in status ${response.Status || 'not confirmed'}.`
       });
     } catch (err: any) {
       if (err instanceof PermitCreateUnconfirmedError) setCreationUncertain(true);
@@ -660,7 +665,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="text-sm">Execution agency<select value={execAgency} onChange={e => setExecAgency(e.target.value)} className="block w-full border rounded p-2"><option value="CONT">Contractor</option><option value="EMP">Company employees</option></select></label>
-                <label className="text-sm">Execution department<input value={execDept} onChange={e => setExecDept(e.target.value)} maxLength={40} className="block w-full border rounded p-2" /></label>
+                <label className="text-sm">Execution department *<input required aria-required="true" placeholder="Enter the executing department" value={execDept} onChange={e => setExecDept(e.target.value)} maxLength={40} className="block w-full border rounded p-2" /></label>
                 <label className="text-sm">Shift<input value={shift} onChange={e => setShift(e.target.value)} maxLength={10} className="block w-full border rounded p-2" /></label>
               </div>
               <label className="block text-sm">Requester comments<textarea value={creatorComment} onChange={e => setCreatorComment(e.target.value)} maxLength={255} className="block w-full border rounded p-2" /></label>
@@ -856,6 +861,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                     <label className="block text-slate-600 font-semibold mb-1">Gas Retest Interval (Hrs)</label>
                     <select
                       value={gasTestFreqHr}
+                      disabled={gasTestRequired !== 'Y'}
                       onChange={(e) => setGasTestFreqHr(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-900 focus:outline-none focus:border-[#006398]"
                     >
@@ -910,6 +916,10 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 </div>
               </div>
 
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                <fieldset><legend className="text-sm font-semibold">Gas testing required *</legend><div className="mt-2 flex gap-5">{(['Y', 'N'] as const).map(value => <label key={value} className="flex items-center gap-2"><input type="radio" name="gas-required" required checked={gasTestRequired === value} onChange={() => setGasTestRequired(value)} />{value === 'Y' ? 'Yes' : 'No'}</label>)}</div></fieldset>
+                <p className="mt-2 text-sm">{!isolationRequired || !gasTestRequired ? 'Select both requirements to determine the initial status.' : initialPermitStatus(isolationRequired, gasTestRequired) === 'INTD' ? 'Initial status: INTD. All required isolation and gas-test approvals must be completed before CRTD.' : 'Initial status: CRTD. No isolation or gas-test approval is requested.'} CRTD does not authorize work.</p>
+              </div>
               {/* LOTO & Isolation Requirements Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
@@ -942,19 +952,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-xs font-bold text-slate-800">Isolation Required</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsolationRequired(isolationRequired === 'Y' ? 'N' : 'Y')}
-                      className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all ${
-                        isolationRequired === 'Y'
-                          ? 'bg-orange-100 text-orange-900 border border-orange-300'
-                          : 'bg-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {isolationRequired === 'Y' ? 'YES (REQUIRED)' : 'NO'}
-                    </button>
+                    <fieldset><legend className="text-sm font-semibold">Isolation required *</legend><div className="mt-2 flex gap-5">{(['Y', 'N'] as const).map(value => <label key={value} className="flex items-center gap-2"><input type="radio" name="isolation-required" required checked={isolationRequired === value} onChange={() => setIsolationRequired(value)} />{value === 'Y' ? 'Yes' : 'No'}</label>)}</div></fieldset>
                   </div>
+                  <p className="text-xs text-slate-600">When required, the isolation module user completes and approves the isolation after this request is saved.</p>
                   {isolationRequired === 'Y' && (
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       <div>

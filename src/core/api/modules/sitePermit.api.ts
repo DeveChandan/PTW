@@ -19,6 +19,6 @@ export const sitePermitApi = {
     const key = encodeURIComponent(literal(number)).replace(/'/g, '%27');
     const response = await odataClient.get<PermitDeepInsertResponse>(`${ODATA_ENTITIES.PERMIT_INFO}('${key}')${query}`, { signal });
     if (!response.data?.Permit_No) throw new Error('SAP did not return the requested permit.');
-    return response.data;
+    return { ...response.data, '@odata.etag': response.data['@odata.etag'] || response.headers?.etag };
   },
 };

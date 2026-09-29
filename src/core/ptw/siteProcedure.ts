@@ -157,8 +157,8 @@ export function validateSitePermit(payload: PermitDeepInsertPayload): void {
   const shiftEnd = siteTime(shiftDate, shiftTime || '');
   if (![start, end, shiftEnd].every(Number.isFinite) || end <= start || shiftEnd <= start) throw new Error('Enter valid site times and a shift end after work starts.');
   if (end > Math.min(start + 8 * 3600000, shiftEnd)) throw new Error('Initial validity must end within eight hours or at shift end, whichever is earlier. Request an authorized extension separately.');
+  if (requiresGasPlan(types) && payload.GasTestRequired !== 'Y') throw new Error('Hot work / confined-space planning requires gas testing. Select Yes.');
   if (requiresGasPlan(types) && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours for hot work / confined space.');
-  if (payload.IsolationRequired === 'Y' && !payload._Isolation?.length) throw new Error('Add the required isolation plan points.');
   if (types.includes('CONF') && payload.IsolationRequired !== 'Y') throw new Error('Confined-space planning requires positive isolation. Add the isolation plan.');
   for (const item of preparationsFor(types)) {
     const check = rows.find(record => record.ItemCode === item.code);

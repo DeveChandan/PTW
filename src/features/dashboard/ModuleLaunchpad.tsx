@@ -8,6 +8,7 @@ interface ModuleLaunchpadProps {
 
 // Visual theme configurations for each KPI card
 const MODULE_THEMES: Record<ModuleId, { bg: string; text: string; border: string; kpiValue: string; kpiLabel: string }> = {
+  isolation: { bg: 'bg-orange-50', text: 'text-orange-800', border: 'border-orange-200', kpiValue: 'Isolation', kpiLabel: 'Prerequisite evidence' },
   'permit-create': {
     bg: 'bg-blue-50 hover:bg-blue-100/60',
     text: 'text-[#006398]',

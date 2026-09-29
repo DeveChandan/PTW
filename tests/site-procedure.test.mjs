@@ -13,7 +13,7 @@ const { emptySitePlan, sitePlanRows, preparePermitCreate, preparationsFor, PERMI
 const completePlan = () => ({ ...emptySitePlan(), nature: ['Welding / gas cutting'], tools: ['Welding machine'], fields: { JSA1: 'JSA-001', JSA2: 'Issuer, acceptor and contractor visited site', SHFT: '2099-01-01T16:00', ISSR: 'ISSUER', ACCP: 'ACCEPTOR', OPER: 'OPERATOR', OTHR: 'Special work scope' } });
 function payload(primary = 'HOT', plan = completePlan()) {
   return { PermitType: primary, Werks: '1000', JobDesc: 'Maintain equipment', SupvName: 'Supervisor', Aufnr: '000000000123', Qmnum: '', AreaLoc: 'Area A', ExecDept: 'Maintenance',
-    ValidFromD: '2099-01-01', ValidFromT: '08:00', ValidToD: '2099-01-01', ValidToT: '16:00', GasTestFreqHr: '2', PersonsQty: 1, IsolationRequired: 'Y',
+    ValidFromD: '2099-01-01', ValidFromT: '08:00', ValidToD: '2099-01-01', ValidToT: '16:00', GasTestRequired: 'Y', GasTestFreqHr: '2', PersonsQty: 1, IsolationRequired: 'Y',
     _Worker: [{ WorkerName: 'Worker', WorkerTypeCode: 'EMP', EmpId: 'W1' }], _HazardControl: [{ HazardDesc: 'Stored energy', ControlDesc: 'Isolate' }],
     _Isolation: [{ IsolationNo: 'I1', IsolationPoint: 'Main isolator', IsIsolated: 'N', ZeroEnergyConf: 'N' }], _Safety: sitePlanRows(primary, plan) };
 }
@@ -22,7 +22,7 @@ test('every procedure category and combined work fits the SAP creation schema wi
   for (const category of PERMIT_CATEGORIES) {
     const plan = completePlan(); plan.additionalTypes = ['HOT', 'CONF', 'EXCV', 'HGHT', 'LINE', 'RIGG', 'RAD', 'HYPN', 'ELEC', 'OTHER'];
     const body = preparePermitCreate(payload(category.code, plan));
-    assert.equal(body.Status, 'CRTD');
+    assert.equal(body.Status, 'INTD');
     assert.ok(body._Safety.some(row => row.ItemCode === 'DOCV'));
     assert.equal(body._Safety.find(row => row.ItemCode === 'JSA1').ReferenceNo, 'JSA-001');
     assert.ok(body._Safety.some(row => row.ItemCode === 'FC02'));
@@ -47,7 +47,7 @@ test('combined activities cannot bypass gas interval or isolation planning check
   const plan = completePlan(); plan.additionalTypes = ['CONF'];
   assert.throws(() => preparePermitCreate({ ...payload('COLD', plan), GasTestFreqHr: '8' }), /two hours/);
   assert.throws(() => preparePermitCreate({ ...payload('CONF'), IsolationRequired: 'N' }), /positive isolation/);
-  assert.throws(() => preparePermitCreate({ ...payload(), _Isolation: [] }), /isolation plan/);
+  assert.equal(preparePermitCreate({ ...payload(), _Isolation: [] }).Status, 'INTD');
 });
 
 test('issuer separation, JSA reference, mandatory scope and NA reasons are checked', () => {
@@ -71,7 +71,7 @@ test('changing category excludes obsolete conditional data but preserves shared 
 
 test('new general safety category fits SAP and retains reported evidence', () => {
   const p = payload(); p._Safety.push({ Category: 'GEN', ItemCode: 'S001', ValueText: 'Additional preparation', Response: 'NO', Remarks: 'Pending' });
-  assert.equal(preparePermitCreate(p)._Safety.at(-1).Category, 'GEN');
+  assert.equal(preparePermitCreate(p)._Safety.find(row => row.ItemCode === 'S001').Category, 'GEN');
 });
 
 test('approval planning respects time boundaries and exposes unresolved routes', () => {

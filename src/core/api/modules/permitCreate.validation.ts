@@ -1,3 +1,4 @@
+import { initialPermitStatus, gasRequirementRow } from '../../ptw/prerequisites';
 import schema from '../permitCreateSchema.json';
 import { validateSitePermit } from '../../ptw/siteProcedure';
 import { PermitDeepInsertPayload } from '../../types/ptw.types';
@@ -35,7 +36,7 @@ function serialize(entity: string, value: Record<string, unknown>): Record<strin
 }
 
 export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<string, unknown> {
-  const required = ['PermitType', 'Werks', 'JobDesc', 'SupvName', 'ValidFromD', 'ValidFromT', 'ValidToD', 'ValidToT'] as const;
+  const required = ['ExecDept', 'PermitType', 'Werks', 'JobDesc', 'SupvName', 'ValidFromD', 'ValidFromT', 'ValidToD', 'ValidToT'] as const;
   for (const key of required) if (!payload[key]?.trim()) throw new Error(`Complete ${key} before creating the permit.`);
   if (!payload.Aufnr && !payload.Qmnum) throw new Error('Select a real SAP order or notification.');
   const start = new Date(`${payload.ValidFromD}T${payload.ValidFromT}+05:30`);
@@ -44,9 +45,15 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
   if (end.getTime() <= Date.now()) throw new Error('The permit validity period has already ended.');
   if (!payload._Worker?.length || payload.PersonsQty !== payload._Worker.length) throw new Error('Add the actual crew and make the crew quantity match the worker list.');
   if (!payload._HazardControl?.length) throw new Error('Add the work hazards and required controls.');
+  const status = initialPermitStatus(payload.IsolationRequired, payload.GasTestRequired || '');
+  if (payload.GasTestRequired === 'Y' && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours.');
   validateSitePermit(payload);
+  payload = { ...payload, ExecDept: payload.ExecDept.trim(), GasTestFreqHr: payload.GasTestRequired === 'Y' ? payload.GasTestFreqHr : '',
+    IsolationStatus: payload.IsolationRequired === 'Y' ? 'INTD' : '',
+    _Isolation: payload.IsolationRequired === 'Y' ? payload._Isolation : [],
+    _Safety: [...(payload._Safety || []).filter(row => !(row.Category === 'PTW' && row.ItemCode === 'GREQ')), gasRequirementRow(payload.GasTestRequired || '')] };
   const body = serialize('PermitInfoType', payload as unknown as Record<string, unknown>);
-  body.Status = 'CRTD';
+  body.Status = status;
   for (const [navigation, entity] of Object.entries(children)) {
     const rows = (payload as unknown as Record<string, unknown>)[navigation];
     if (!Array.isArray(rows) || !rows.length) continue;

@@ -1,3 +1,5 @@
+> 29 September update: creation now uses INTD when isolation or gas testing is required; module forms and the proposed SAP action contract are documented in [ptw-prerequisite-backend-contract.md](ptw-prerequisite-backend-contract.md). This supersedes the CRTD-only/read-only statements below. Live actions await backend implementation.
+
 # Client procedure implementation
 
 ## Delivered in this update

@@ -13,6 +13,7 @@ export type PermitTypeCode =
   | 'EXCV' | 'LINE' | 'RIGG' | 'RAD' | 'HYPN' | 'OTHER';
 
 export type PermitStatusCode = 
+  | 'INTD'  // Initiated; required isolation / gas approval pending
   | 'CRTD'  // Created / Draft
   | 'DRAF'  // Draft
   | 'SUBM'  // Submitted for Review
@@ -96,6 +97,7 @@ export interface PermitInfoRecord {
   ValidToD: string | null; // Valid To Date (YYYY-MM-DD)
   ValidToT: string; // Valid To Time (HH:mm:ss)
 
+  GasTestRequired?: string; // UI choice; serialized as PTW/GREQ in _Safety, not a SAP header property
   GasTestFreqHr: string; // Gas Test Frequency in Hours (01, 02, etc.), MaxLength 2
   Status: string; // Permit Lifecycle Status (CRTD, SUBM, APPR, etc.), MaxLength 4
 
