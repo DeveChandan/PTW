@@ -19,9 +19,11 @@ import { SiteProcedureStep, ProcedureGuidance } from './SiteProcedureStep';
 import { emptySitePlan, PERMIT_CATEGORIES, sitePlanRows } from '../../core/ptw/siteProcedure';
 import { PermitWorkSelectionStep } from './PermitWorkSelectionStep';
 import { WorkSelection, referenceId, toPermitReferenceFields } from '../../core/api/modules/permitWorkLookup.api';
-import { configApi } from '../../core/api';
+import { configApi, checklistApi, toSapChecklistPermitType } from '../../core/api';
 import { SapConfigRecord } from '../../core/types/config.types';
+import { SapChecklistItem, ChecklistAnswer, ChecklistAnswerType } from '../../core/types/checklist.types';
 import { PpeValueHelpDialog } from '../../shared/components/PpeValueHelpDialog';
+import { PermitChecklistModal } from './PermitChecklistModal';
 
 interface PermitCreateModuleProps {
   user: SapUser | null;
@@ -133,6 +135,84 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [workerTypeOptions, setWorkerTypeOptions] = useState<SapConfigRecord[]>([]);
   const [isPpeHelpOpen, setIsPpeHelpOpen] = useState(false);
 
+  // SAP Checklist Questionnaire State
+  const [checklistItems, setChecklistItems] = useState<SapChecklistItem[]>([]);
+  const [checklistAnswers, setChecklistAnswers] = useState<Record<string, { response: ChecklistAnswerType; remarks: string }>>({});
+  const [isChecklistModalOpen, setIsChecklistModalOpen] = useState<boolean>(false);
+  const [isLoadingChecklist, setIsLoadingChecklist] = useState<boolean>(false);
+
+  const checklistStats = useMemo(() => {
+    let yes = 0;
+    let no = 0;
+    let na = 0;
+    let answered = 0;
+    checklistItems.forEach((item) => {
+      const resp = checklistAnswers[item.QuestionaireId]?.response;
+      if (resp === 'YES') { yes++; answered++; }
+      else if (resp === 'NO') { no++; answered++; }
+      else if (resp === 'NA') { na++; answered++; }
+    });
+    const total = checklistItems.length;
+    const pending = total - answered;
+    const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
+    return { yes, no, na, answered, total, pending, percent };
+  }, [checklistItems, checklistAnswers]);
+
+  const handleSelectPermitType = async (code: string) => {
+    setPermitType(code);
+    const sapCode = toSapChecklistPermitType(code);
+    setIsLoadingChecklist(true);
+    try {
+      const questions = await checklistApi.fetchChecklist(sapCode);
+      setChecklistItems(questions);
+      if (questions.length > 0) {
+        setIsChecklistModalOpen(true);
+      }
+    } catch (err) {
+      console.error('Failed to load permit checklist:', err);
+    } finally {
+      setIsLoadingChecklist(false);
+    }
+  };
+
+  const handleSaveChecklist = (answers: ChecklistAnswer[]) => {
+    const newAnswersMap: Record<string, { response: ChecklistAnswerType; remarks: string }> = {};
+    answers.forEach((a) => {
+      newAnswersMap[a.questionaireId] = { response: a.response, remarks: a.remarks };
+    });
+    setChecklistAnswers(newAnswersMap);
+
+    const newSafetyRecords: SafetyRecord[] = answers
+      .filter((a) => a.response)
+      .map((a, idx) => ({
+        PermitNo: '',
+        ItemNo: String(idx + 1).slice(-4),
+        Category: (a.category || 'GEN').substring(0, 6).toUpperCase(),
+        ItemCode: `Q${a.questionaireId}`.slice(0, 4),
+        Response: a.response || 'NO',
+        ValueText: a.question.substring(0, 100),
+        ValueNum: 0,
+        Unit: '',
+        ReferenceNo: a.questionaireId.substring(0, 30),
+        ResponsibleUser: user?.id || '',
+        VerifiedBy: '',
+        VerifiedAt: null,
+        Remarks: (a.remarks || '').substring(0, 255),
+      }));
+
+    setSafetyChecklist((prev) => {
+      const manualEntries = prev.filter((p) => !p.ItemCode.startsWith('Q'));
+      return [...newSafetyRecords, ...manualEntries];
+    });
+
+    setIsChecklistModalOpen(false);
+    const answeredCount = answers.filter((a) => a.response).length;
+    setNotificationBanner({
+      type: 'success',
+      message: `Compliance checklist updated: ${answeredCount} of ${answers.length} verified.`
+    });
+  };
+
   useEffect(() => {
     configApi.fetchShiftConfig().then((data) => {
       setShiftOptions(data);
@@ -165,6 +245,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setIsolationRequired(''); setGasTestRequired(''); setExecDept('');
       setWorkers([]); setPersonsQty(0); setHazards([]); setIsolations([]);
       setPpeItems([]); setSafetyChecklist([]); setLotoCertNo(''); setIsolationNo('');
+      setChecklistItems([]); setChecklistAnswers({}); setIsChecklistModalOpen(false);
       setValidFromD(''); setValidFromT(''); setValidToD(''); setValidToT('');
     }
     previousWorkKey.current = selectionKey;
@@ -721,7 +802,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                   {PERMIT_CATEGORIES.map((t) => (
                     <div
                       key={t.code}
-                      onClick={() => setPermitType(t.code)}
+                      onClick={() => void handleSelectPermitType(t.code)}
                       className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
                         permitType === t.code
                           ? 'bg-sky-50 border-[#006398] shadow-sm text-[#006398]'
@@ -739,6 +820,62 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                     </div>
                   ))}
                 </div>
+
+                {/* Dynamic SAP Compliance Questionnaire Status Strip */}
+                {isLoadingChecklist && (
+                  <div className="mt-3 p-3.5 rounded-xl border border-sky-200 bg-sky-50/60 flex items-center gap-2.5 text-xs text-sky-800">
+                    <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                    <span>Checking SAP for required compliance checklist questionnaire...</span>
+                  </div>
+                )}
+
+                {!isLoadingChecklist && permitType && checklistItems.length > 0 && (
+                  <div className="mt-3 p-4 rounded-xl border border-[#006398]/30 bg-gradient-to-r from-sky-50/70 via-slate-50 to-white shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#006398] text-white flex items-center justify-center shadow-xs shrink-0">
+                        <span className="material-symbols-outlined text-[22px]">assignment_turned_in</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs text-slate-800 uppercase tracking-wide">
+                            {PERMIT_CATEGORIES.find((c) => c.code === permitType || c.sapCode === permitType)?.label || permitType} Compliance Checklist
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20">
+                            SAP: {toSapChecklistPermitType(permitType)}
+                          </span>
+                          {checklistStats.percent === 100 ? (
+                            <span className="px-2 py-0.5 rounded-full font-sans text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                              Complete
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full font-sans text-[10px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">warning</span>
+                              Verification Pending
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {checklistStats.answered} of {checklistItems.length} questions completed ({checklistStats.percent}%)
+                          {checklistStats.answered > 0 && (
+                            <span className="ml-2 font-mono text-[11px] text-slate-600">
+                              · YES: {checklistStats.yes} · NO: {checklistStats.no} · NA: {checklistStats.na}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsChecklistModalOpen(true)}
+                      className="px-4 py-2 rounded-xl bg-[#006398] hover:bg-[#004e78] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                      {checklistStats.percent === 100 ? 'Review Checklist' : 'Fill Compliance Questionnaire'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Maintenance Order & Notification Strip */}
@@ -1399,9 +1536,27 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
               {/* Safety Checklist (_Safety) */}
               <div className="pt-4 border-t border-slate-200">
-                <h3 className="font-display font-bold text-base text-slate-900 mb-3">
-                  Safety Inspection Checklist (_Safety)
-                </h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="font-display font-bold text-base text-slate-900">
+                      Safety Inspection Checklist (_Safety)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Verified safety preparations and mandatory questionnaire responses for{' '}
+                      {PERMIT_CATEGORIES.find((c) => c.code === permitType || c.sapCode === permitType)?.label || permitType || 'permit'}.
+                    </p>
+                  </div>
+                  {checklistItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsChecklistModalOpen(true)}
+                      className="px-3.5 py-1.5 rounded-xl border border-[#006398] text-[#006398] hover:bg-[#006398] hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                      Open {toSapChecklistPermitType(permitType)} Questionnaire ({checklistStats.answered}/{checklistItems.length})
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-3">
                   {safetyChecklist.map((item, idx) => (
                     <div
@@ -1958,6 +2113,21 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
             return [...prev, ...newRecords];
           });
         }}
+      />
+
+      {/* Dynamic SAP Permit Compliance Checklist Questionnaire Modal */}
+      <PermitChecklistModal
+        isOpen={isChecklistModalOpen}
+        permitType={toSapChecklistPermitType(permitType)}
+        permitTypeName={
+          PERMIT_CATEGORIES.find(
+            (c) => c.code === permitType || c.sapCode === permitType
+          )?.label
+        }
+        items={checklistItems}
+        initialAnswers={checklistAnswers}
+        onSave={handleSaveChecklist}
+        onClose={() => setIsChecklistModalOpen(false)}
       />
     </div>
   );

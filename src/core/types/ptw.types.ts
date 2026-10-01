@@ -8,7 +8,7 @@ export type PermitTypeCode =
   | 'HOT'   // Hot Work (Welding, Cutting, Grinding)
   | 'COLD'  // Cold Work (Maintenance, Painting)
   | 'CONF'  // Confined Space Entry
-  | 'ELEC'  // High Voltage / Electrical Isolation
+  | 'ELEC' | 'ELECTRICAL' // High Voltage / Electrical Isolation
   | 'HGHT' // Work at Height (at and above 1.8 m, per site conditions)
   | 'EXCV' | 'LINE' | 'RIGG' | 'RAD' | 'HYPN' | 'OTHER';
 

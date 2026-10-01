@@ -53,7 +53,8 @@ const FALLBACK_CONFIG_DATA: Record<ConfigType, SapConfigRecord[]> = {
     { Config_Type: 'PERMIT_TYPE', Config_Code: 'LBRK', Config_Desc: 'LINE BREAK', Parent_Code: '', Active: 'X' },
     { Config_Type: 'PERMIT_TYPE', Config_Code: 'RAD', Config_Desc: 'RADIOGRAPHY', Parent_Code: '', Active: 'X' },
     { Config_Type: 'PERMIT_TYPE', Config_Code: 'RIG', Config_Desc: 'RIGGING', Parent_Code: '', Active: 'X' },
-    { Config_Type: 'PERMIT_TYPE', Config_Code: 'W@H', Config_Desc: 'WORK AT HEIGHT', Parent_Code: '', Active: 'X' }
+    { Config_Type: 'PERMIT_TYPE', Config_Code: 'W@H', Config_Desc: 'WORK AT HEIGHT', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'PERMIT_TYPE', Config_Code: 'ELEC', Config_Desc: 'ELECTRICAL', Parent_Code: '', Active: 'X' }
   ],
   WORKER_TYPE: [
     { Config_Type: 'WORKER_TYPE', Config_Code: 'CONT', Config_Desc: 'CONTRACTOR', Parent_Code: '', Active: 'X' },
