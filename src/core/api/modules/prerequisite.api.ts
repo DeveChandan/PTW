@@ -16,8 +16,8 @@ export class PrerequisiteUnconfirmedError extends Error {}
 
 export function validatePrerequisiteRequest(permit: PermitDeepInsertResponse, request: PrerequisiteRequest): void {
   if (permit.Status !== 'INTD') throw new Error('Prerequisite updates are allowed only while the permit is INTD. Refresh the permit.');
-  if (!['ISOLATION', 'GAS'].includes(request.Kind) || !['SAVE', 'APPROVE', 'REJECT'].includes(request.Decision)) throw new Error('Invalid prerequisite action.');
-  if ((request.Kind === 'ISOLATION' ? permit.IsolationRequired : readGasRequirement(permit)) !== 'Y') throw new Error('This prerequisite is not recorded as required.');
+  const isIsoReq = permit.IsolationRequired === 'Y' || permit.IsolationRequired === 'X';
+  if ((request.Kind === 'ISOLATION' ? isIsoReq : readGasRequirement(permit) === 'Y') !== true) throw new Error('This prerequisite is not recorded as required.');
   if (!permit['@odata.etag'] || permit['@odata.etag'] === '*') throw new Error('SAP must return a current permit ETag before an update.');
   if (!request.RequestId || request.RequestId.length > 36) throw new Error('A request ID is required.');
   if (!request.Comments.trim() || request.Comments.length > 255) throw new Error('Enter a comment of up to 255 characters.');

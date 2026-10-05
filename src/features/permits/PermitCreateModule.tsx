@@ -82,9 +82,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [gasTestFreqHr, setGasTestFreqHr] = useState<string>('2');
   const [creatorComment, setCreatorComment] = useState<string>('');
 
-  // LOTO & Isolation Requirements
-  const [lotoRequired, setLotoRequired] = useState<'Y' | 'N'>('Y');
-  const [lotoCertNo, setLotoCertNo] = useState<string>('');
+  // Isolation & Gas Testing Requirements
   const [isolationRequired, setIsolationRequired] = useState<Requirement>('');
   const [gasTestRequired, setGasTestRequired] = useState<Requirement>('');
   const [isolationRefType, setIsolationRefType] = useState<string>('EQUIP');
@@ -250,7 +248,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setSitePlan(emptySitePlan()); setPermitType('');
       setIsolationRequired(''); setGasTestRequired(''); setExecDept('');
       setWorkers([]); setPersonsQty(0); setHazards([]); setIsolations([]);
-      setPpeItems([]); setSafetyChecklist([]); setLotoCertNo(''); setIsolationNo('');
+      setPpeItems([]); setSafetyChecklist([]); setIsolationNo('');
       setChecklistItems([]); setChecklistAnswers({}); setIsChecklistModalOpen(false);
       setValidFromD(''); setValidFromT(''); setValidToD(''); setValidToT('');
     }
@@ -450,13 +448,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
       RefPermitNo: '',
 
-      LotoRequired: lotoRequired,
-      LotoCertNo: lotoCertNo,
+      LotoRequired: (isolationRequired === 'X' || isolationRequired === 'Y') ? 'Y' : 'N',
+      LotoCertNo: (isolationRequired === 'X' || isolationRequired === 'Y') ? (isolationNo || '') : '',
 
-      IsolationRequired: isolationRequired,
-      IsolationRefType: isolationRefType,
-      IsolationNo: isolationNo,
-      IsolationStatus: isolationRequired === 'Y' ? 'INTD' : '',
+      IsolationRequired: (isolationRequired === 'X' || isolationRequired === 'Y') ? 'X' : ' ',
+      IsolationRefType: (isolationRequired === 'X' || isolationRequired === 'Y') ? isolationRefType : '',
+      IsolationNo: (isolationRequired === 'X' || isolationRequired === 'Y') ? isolationNo : '',
+      IsolationStatus: (isolationRequired === 'X' || isolationRequired === 'Y') ? 'INTD' : '',
 
       PermitIssuer: '',
       SuspendReason: '',
@@ -493,7 +491,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       _PPE: ppeItems,
       _Safety: [...sitePlanRows(permitType, sitePlan), ...safetyChecklist],
       _HazardControl: hazards,
-      _Isolation: isolationRequired === 'Y' ? isolations : []
+      _Isolation: (isolationRequired === 'X' || isolationRequired === 'Y') ? isolations : []
 
     };
   }, [
@@ -529,8 +527,6 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     validToT,
     gasTestFreqHr,
     gasTestRequired,
-    lotoRequired,
-    lotoCertNo,
     isolationRequired,
     isolationRefType,
     isolationNo,
@@ -1159,71 +1155,62 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 <fieldset><legend className="text-sm font-semibold">Gas testing required *</legend><div className="mt-2 flex gap-5">{(['Y', 'N'] as const).map(value => <label key={value} className="flex items-center gap-2"><input type="radio" name="gas-required" required checked={gasTestRequired === value} onChange={() => setGasTestRequired(value)} />{value === 'Y' ? 'Yes' : 'No'}</label>)}</div></fieldset>
                 <p className="mt-2 text-sm">{!isolationRequired || !gasTestRequired ? 'Select both requirements to determine the initial status.' : initialPermitStatus(isolationRequired, gasTestRequired) === 'INTD' ? 'Initial status: INTD. All required isolation and gas-test approvals must be completed before CRTD.' : 'Initial status: CRTD. No isolation or gas-test approval is requested.'} CRTD does not authorize work.</p>
               </div>
-              {/* LOTO & Isolation Requirements Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-xs font-bold text-slate-800">LOTO Required</span>
-                    <button
-                      type="button"
-                      onClick={() => setLotoRequired(lotoRequired === 'Y' ? 'N' : 'Y')}
-                      className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all ${
-                        lotoRequired === 'Y'
-                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                          : 'bg-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {lotoRequired === 'Y' ? 'YES (REQUIRED)' : 'NO'}
-                    </button>
-                  </div>
-                  {lotoRequired === 'Y' && (
-                    <div className="mt-2">
-                      <label className="block text-[11px] text-slate-600 font-semibold mb-1">LOTO Certificate No</label>
+              {/* Isolation Requirements Section */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <fieldset>
+                    <legend className="text-sm font-semibold">Isolation required *</legend>
+                    <div className="mt-2 flex gap-5">
+                      {[
+                        { value: 'X', label: 'Yes' },
+                        { value: ' ', label: 'No' },
+                      ].map(({ value, label }) => (
+                        <label key={value} className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="isolation-required"
+                            required
+                            checked={value === 'X' ? (isolationRequired === 'X' || isolationRequired === 'Y') : (isolationRequired === ' ' || isolationRequired === 'N')}
+                            onChange={() => setIsolationRequired(value as Requirement)}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                </div>
+                <p className="text-xs text-slate-600">
+                  When required, the isolation module user completes and approves the isolation after this request is saved.
+                </p>
+                {(isolationRequired === 'X' || isolationRequired === 'Y') && (
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl">
+                    <div>
+                      <label className="block text-[11px] text-slate-600 font-semibold mb-1">Isolation No</label>
                       <input
                         type="text"
-                        value={lotoCertNo}
-                        onChange={(e) => setLotoCertNo(e.target.value)}
+                        list="available-isolations"
+                        placeholder="e.g. ISO0000012"
+                        value={isolationNo}
+                        onChange={(e) => setIsolationNo(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-900"
+                      />
+                      <datalist id="available-isolations">
+                        {availableIsolations.map((no) => (
+                          <option key={no} value={no} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-600 font-semibold mb-1">Ref Type</label>
+                      <input
+                        type="text"
+                        value={isolationRefType}
+                        onChange={(e) => setIsolationRefType(e.target.value)}
                         className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-900"
                       />
                     </div>
-                  )}
-                </div>
-
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <fieldset><legend className="text-sm font-semibold">Isolation required *</legend><div className="mt-2 flex gap-5">{(['Y', 'N'] as const).map(value => <label key={value} className="flex items-center gap-2"><input type="radio" name="isolation-required" required checked={isolationRequired === value} onChange={() => setIsolationRequired(value)} />{value === 'Y' ? 'Yes' : 'No'}</label>)}</div></fieldset>
                   </div>
-                  <p className="text-xs text-slate-600">When required, the isolation module user completes and approves the isolation after this request is saved.</p>
-                  {isolationRequired === 'Y' && (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[11px] text-slate-600 font-semibold mb-1">Isolation No</label>
-                        <input
-                          type="text"
-                          list="available-isolations"
-                          placeholder="e.g. ISO0000012"
-                          value={isolationNo}
-                          onChange={(e) => setIsolationNo(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-900"
-                        />
-                        <datalist id="available-isolations">
-                          {availableIsolations.map((no) => (
-                            <option key={no} value={no} />
-                          ))}
-                        </datalist>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-slate-600 font-semibold mb-1">Ref Type</label>
-                        <input
-                          type="text"
-                          value={isolationRefType}
-                          onChange={(e) => setIsolationRefType(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-900"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           )}

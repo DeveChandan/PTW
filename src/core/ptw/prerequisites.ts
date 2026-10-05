@@ -1,9 +1,10 @@
 import type { PermitDeepInsertPayload, SafetyRecord } from '../types/ptw.types';
 
-export type Requirement = 'Y' | 'N' | '';
+export type Requirement = 'Y' | 'N' | 'X' | ' ' | '';
 export function initialPermitStatus(isolation: string, gas: string): 'INTD' | 'CRTD' {
-  if (!['Y', 'N'].includes(isolation) || !['Y', 'N'].includes(gas)) throw new Error('Select Yes or No for isolation and gas testing.');
-  return isolation === 'Y' || gas === 'Y' ? 'INTD' : 'CRTD';
+  if (!['Y', 'N', 'X', ' '].includes(isolation) || !['Y', 'N'].includes(gas)) throw new Error('Select Yes or No for isolation and gas testing.');
+  const isIsoYes = isolation === 'Y' || isolation === 'X';
+  return isIsoYes || gas === 'Y' ? 'INTD' : 'CRTD';
 }
 
 // The SAP header has no GasTestRequired property. Persist the choice in Safety.
@@ -21,5 +22,6 @@ export function readGasRequirement(permit: Pick<PermitDeepInsertPayload, '_Safet
 /** Backend contract reference; signatures/evidence must be validated by SAP first. */
 export function prerequisiteStatus(isolation: string, gas: string, isolationApproved: boolean, gasApproved: boolean): 'INTD' | 'CRTD' {
   initialPermitStatus(isolation, gas);
-  return (isolation === 'Y' && !isolationApproved) || (gas === 'Y' && !gasApproved) ? 'INTD' : 'CRTD';
+  const isIsoYes = isolation === 'Y' || isolation === 'X';
+  return (isIsoYes && !isolationApproved) || (gas === 'Y' && !gasApproved) ? 'INTD' : 'CRTD';
 }

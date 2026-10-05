@@ -48,9 +48,11 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
   const status = initialPermitStatus(payload.IsolationRequired, payload.GasTestRequired || '');
   if (payload.GasTestRequired === 'Y' && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours.');
   validateSitePermit(payload);
+  const isIso = payload.IsolationRequired === 'Y' || payload.IsolationRequired === 'X';
   payload = { ...payload, ExecDept: payload.ExecDept.trim(), GasTestFreqHr: payload.GasTestRequired === 'Y' ? payload.GasTestFreqHr : '',
-    IsolationStatus: payload.IsolationRequired === 'Y' ? 'INTD' : '',
-    _Isolation: payload.IsolationRequired === 'Y' ? payload._Isolation : [],
+    IsolationRequired: isIso ? 'X' : ' ',
+    IsolationStatus: isIso ? 'INTD' : '',
+    _Isolation: isIso ? payload._Isolation : [],
     _Safety: [...(payload._Safety || []).filter(row => !(row.Category === 'PTW' && row.ItemCode === 'GREQ')), gasRequirementRow(payload.GasTestRequired || '')] };
   const body = serialize('PermitInfoType', payload as unknown as Record<string, unknown>);
   body.Status = status;

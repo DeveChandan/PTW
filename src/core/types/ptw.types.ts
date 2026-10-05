@@ -106,7 +106,7 @@ export interface PermitInfoRecord {
   LotoRequired: IndicatorYN | string; // LOTO Required ('Y'/'N'), MaxLength 1
   LotoCertNo: string; // LOTO Certificate Number, MaxLength 20
 
-  IsolationRequired: IndicatorYN | string; // Isolation Required ('Y'/'N'), MaxLength 1
+  IsolationRequired: 'X' | ' ' | IndicatorYN | string; // Isolation Required ('X'/' '), MaxLength 1
   IsolationRefType: string; // Isolation Reference Type (EQUIP, etc.), MaxLength 6
   IsolationNo: string; // Isolation Certificate Number, MaxLength 20
   IsolationStatus: string; // Isolation Status, MaxLength 4

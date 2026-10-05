@@ -162,7 +162,7 @@ export function validateSitePermit(payload: PermitDeepInsertPayload): void {
   if (end > Math.min(start + 8 * 3600000, shiftEnd)) throw new Error('Initial validity must end within eight hours or at shift end, whichever is earlier. Request an authorized extension separately.');
   if (requiresGasPlan(types) && payload.GasTestRequired !== 'Y') throw new Error('Hot work / confined-space planning requires gas testing. Select Yes.');
   if (requiresGasPlan(types) && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours for hot work / confined space.');
-  if ((types.includes('CONF') || types.includes('CSE')) && payload.IsolationRequired !== 'Y') throw new Error('Confined-space planning requires positive isolation. Add the isolation plan.');
+  if ((types.includes('CONF') || types.includes('CSE')) && payload.IsolationRequired !== 'Y' && payload.IsolationRequired !== 'X') throw new Error('Confined-space planning requires positive isolation. Add the isolation plan.');
   for (const item of preparationsFor(types)) {
     const check = rows.find(record => record.ItemCode === item.code);
     if (!check || !['YES', 'NO', 'NA'].includes(check.Response)) throw new Error(`Review preparation: ${item.label}.`);

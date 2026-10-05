@@ -22,14 +22,14 @@ export function SiteProcedureStep({ primary, plan, startTime, onChange }: { prim
         </label>)}
       </div>
     </section>
-    {([['nature', 'C · Nature of work', NATURE_OF_WORK], ['tools', 'D · Tools and equipment', TOOLS]] as const).map(([key, label, choices]) => <section key={key}>
+    {([['nature', 'B · Nature of work', NATURE_OF_WORK], ['tools', 'C · Tools and equipment', TOOLS]] as const).map(([key, label, choices]) => <section key={key}>
       <h3 className="mb-3 font-bold">{label}</h3>
       <div className="grid gap-2 sm:grid-cols-3">{choices.map(choice => <label key={choice} className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={plan[key].includes(choice)} onChange={() => onChange({ ...plan, [key]: toggle(plan[key], choice) })} />{choice}
       </label>)}</div>
     </section>)}
     <section>
-      <h3 className="font-bold">JSA, shift and proposed responsibilities</h3>
+      <h3 className="font-bold">D · JSA, shift and proposed responsibilities</h3>
       <p className="mb-3 text-sm text-slate-600">Times use Dahej site time (IST). Initial validity is limited to eight hours or shift end, whichever is earlier. Proposed signatories must be checked against the approved permit matrix.</p>
       <div className="grid gap-4 sm:grid-cols-2">{fieldsFor(types).map(field => <label key={field.code} className="text-sm">
         {field.label}{'required' in field && field.required ? ' *' : ''}
@@ -40,7 +40,7 @@ export function SiteProcedureStep({ primary, plan, startTime, onChange }: { prim
       <div className="mt-4 rounded-lg bg-slate-50 p-4"><h4 className="font-semibold">Approval planning guidance</h4><ul className="mt-2 list-disc space-y-2 pl-5 text-sm">{approvalGuidance(types, startTime).map(item => <li key={item}>{item}</li>)}</ul><p className="mt-2 text-sm text-slate-600">This guidance does not establish authorization. Confirm the current permit matrix, holidays, delegation and client clarifications.</p></div>
     </section>
     <section>
-      <h3 className="font-bold">F · Job and equipment preparation</h3>
+      <h3 className="font-bold">E · Job and equipment preparation</h3>
       <p className="mb-3 text-sm text-slate-600">“Reported complete” is a requester statement awaiting verification. Outstanding preparations may remain pending in a request. Explain every Not applicable selection.</p>
       <div className="space-y-3">{preparationsFor(types).map(item => {
         const check = plan.checks[item.code] || { response: '', remarks: '' };

@@ -799,11 +799,11 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   </span>
 
                   <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
-                    selectedPermit.IsolationRequired === 'Y'
+                    (selectedPermit.IsolationRequired === 'Y' || selectedPermit.IsolationRequired === 'X')
                       ? 'bg-purple-50 text-purple-800 border-purple-300'
                       : 'bg-slate-100 text-slate-600 border-slate-200'
                   }`}>
-                    LOTO: {selectedPermit.IsolationRequired === 'Y' ? 'REQ (POSITIVE)' : 'NOT REQ'}
+                    LOTO: {(selectedPermit.IsolationRequired === 'Y' || selectedPermit.IsolationRequired === 'X') ? 'REQ (POSITIVE)' : 'NOT REQ'}
                   </span>
 
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
@@ -1175,7 +1175,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
               {!selectedPermit._Isolation || selectedPermit._Isolation.length === 0 ? (
                 <p className="p-8 text-center text-xs text-slate-400">
-                  {selectedPermit.IsolationRequired === 'Y'
+                  {(selectedPermit.IsolationRequired === 'Y' || selectedPermit.IsolationRequired === 'X')
                     ? 'Positive isolation required, but no isolation points recorded yet.'
                     : 'Isolation not required for this permit.'}
                 </p>

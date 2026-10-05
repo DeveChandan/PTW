@@ -18,7 +18,8 @@ export function PrerequisitePanel({ permit, module, user, onUpdated, onBusyChang
   const [error, setError] = useState('');
   const lock = useRef(false);
   const gasRequired = readGasRequirement(permit);
-  const required = kind === 'ISOLATION' ? permit.IsolationRequired : gasRequired;
+  const isIsoReq = permit.IsolationRequired === 'Y' || permit.IsolationRequired === 'X';
+  const required = kind === 'ISOLATION' ? (isIsoReq ? 'Y' : 'N') : gasRequired;
   const canAct = !!kind && !!user?.roles.some(role => (kind === 'GAS' ? ['ZPTW_GAS_TESTER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ADMIN'] : ['ZPTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'ZPTW_ADMIN']).includes(role));
   const blocked = !canAct || !prerequisiteAction || permit.Status !== 'INTD' || required !== 'Y' || !permit['@odata.etag'] || busy || uncertain;
   const send = async (decision: PrerequisiteDecision) => {
@@ -33,7 +34,7 @@ export function PrerequisitePanel({ permit, module, user, onUpdated, onBusyChang
       if (reason instanceof PrerequisiteUnconfirmedError) setUncertain(true);
     } finally { lock.current = false; setBusy(false); onBusyChange(false); }
   };
-  const requirementLabel = (value: string) => value === 'Y' ? 'Yes' : value === 'N' ? 'No' : 'Not recorded';
+  const requirementLabel = (value: string) => (value === 'Y' || value === 'X') ? 'Yes' : (value === 'N' || value === ' ') ? 'No' : 'Not recorded';
   return <section className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
     <h3 className="font-semibold">Prerequisites · {permit.Status}</h3>
     <p className="text-sm">Isolation required: {requirementLabel(permit.IsolationRequired)} · Gas testing required: {requirementLabel(gasRequired)}</p>

@@ -19,9 +19,17 @@ test('creation status and approval matrix require ALL required checks, not eithe
     }
     const body = preparePermitCreate({ ...create(), IsolationRequired: isolation, GasTestRequired: gas, GasTestFreqHr: '2' });
     assert.equal(body.Status, initialPermitStatus(isolation, gas));
+    assert.equal(body.IsolationRequired, isolation === 'Y' ? 'X' : ' ');
     assert.equal(readGasRequirement(body), gas);
     assert.equal(body.GasTestRequired, undefined);
   }
+  // Verify direct ABAP flags 'X' and ' '
+  const bodyX = preparePermitCreate({ ...create(), IsolationRequired: 'X', GasTestRequired: 'N' });
+  assert.equal(bodyX.IsolationRequired, 'X');
+  assert.equal(bodyX.Status, 'INTD');
+  const bodyBlank = preparePermitCreate({ ...create(), IsolationRequired: ' ', GasTestRequired: 'N' });
+  assert.equal(bodyBlank.IsolationRequired, ' ');
+  assert.equal(bodyBlank.Status, 'CRTD');
 });
 test('required choices and department cannot default silently; unknown stored gas flag stays unknown', () => {
   for (const change of [{ ExecDept: ' ' }, { IsolationRequired: '' }, { GasTestRequired: undefined }, { GasTestRequired: 'YES' }]) assert.throws(() => preparePermitCreate({ ...create(), ...change }));
