@@ -89,6 +89,8 @@ class SapODataClient {
           } else {
             throw Object.assign(new Error('SAP did not return a CSRF token. Sign in again before saving.'), { beforeSend: true });
           }
+        } else if (method === 'GET' && !config.headers.has('X-CSRF-Token')) {
+          config.headers.set('X-CSRF-Token', 'Fetch');
         }
         return config;
       },
@@ -117,11 +119,14 @@ class SapODataClient {
           this.onSessionExpiredHandler();
         }
 
-        // Handle expired CSRF token (SAP returns 403 with x-csrf-token: Required)
-        const isCsrfRequired = error.response?.status === 403 && 
-          error.response?.headers?.['x-csrf-token']?.toLowerCase() === 'required';
+        // Handle expired or invalid CSRF token (SAP returns 403 or 400 with CSRF invalid / required)
+        const errorText = JSON.stringify(error.response?.data || '').toLowerCase();
+        const isCsrfError =
+          (error.response?.status === 403 && error.response?.headers?.['x-csrf-token']?.toLowerCase() === 'required') ||
+          (error.response?.headers?.['x-csrf-token']?.toLowerCase() === 'required') ||
+          errorText.includes('csrf');
 
-        if (isCsrfRequired && originalRequest && !originalRequest._retry && originalRequest.headers?.get('X-CSRF-Token') !== 'Fetch') {
+        if (isCsrfError && originalRequest && !originalRequest._retry && originalRequest.headers?.get('X-CSRF-Token') !== 'Fetch') {
           originalRequest._retry = true;
           this.csrfToken = null; // Invalidate cached token
           const freshToken = await this.fetchCsrfToken();
@@ -140,11 +145,31 @@ class SapODataClient {
    * Fetches a fresh CSRF token from SAP Gateway
    */
   public async fetchCsrfToken(): Promise<string | null> {
+    if (this.csrfToken && this.csrfToken.toLowerCase() !== 'required') {
+      return this.csrfToken;
+    }
     if (this.isFetchingToken) {
       return this.isFetchingToken;
     }
 
     this.isFetchingToken = (async () => {
+      // 1. Probe active entity sets (Config, Isolation, or service root)
+      for (const ep of ['Config?$top=1', 'Isolation?$top=1', '']) {
+        try {
+          const res = await this.instance.get(ep, {
+            headers: { 'X-CSRF-Token': 'Fetch' }
+          });
+          const token = res.headers['x-csrf-token'] || null;
+          if (token && token.toLowerCase() !== 'required') {
+            this.csrfToken = token;
+            return token;
+          }
+        } catch {
+          // Probe next endpoint
+        }
+      }
+
+      // 2. Try HEAD on service root as fallback
       try {
         const response = await this.instance.head('', {
           headers: {
@@ -152,46 +177,60 @@ class SapODataClient {
           }
         });
         const token = response.headers['x-csrf-token'] || null;
-        this.csrfToken = token;
-        return token;
-      } catch (err) {
-        // Fallback: try GET if HEAD is not supported by ICF node
-        try {
-          const getRes = await this.instance.get('', {
-            headers: { 'X-CSRF-Token': 'Fetch' },
-            params: { $top: 1 }
-          });
-          const token = getRes.headers['x-csrf-token'] || null;
+        if (token && token.toLowerCase() !== 'required') {
           this.csrfToken = token;
           return token;
-        } catch {
-          console.warn('[SapODataClient] SAP CSRF token request failed.');
-          return null;
         }
-      } finally {
-        this.isFetchingToken = null;
+      } catch {
+        // ICF nodes often disable HEAD
       }
+
+      console.warn('[SapODataClient] SAP CSRF token request failed across all probe endpoints.');
+      return null;
     })();
 
-    return this.isFetchingToken;
+    try {
+      return await this.isFetchingToken;
+    } finally {
+      this.isFetchingToken = null;
+    }
   }
 
   /**
    * Parses SAP OData V4 error responses into readable Error objects
    */
   private parseSapError(error: any): Error {
-    if (error.response?.data) {
-      const data = error.response.data as ODataErrorResponse;
-      const message = data.error?.message;
-      const details = data.error?.details || data.error?.innererror?.errordetails;
+    const rawData = error.response?.data;
+    if (rawData) {
+      console.error('[SapODataClient] SAP Error Response Body:', rawData);
 
-      if (details && details.length > 0) {
-        const detailMessages = details.map(d => d.message).join(' | ');
-        return Object.assign(error, { message: `SAP Error: ${message || ''} (${detailMessages})` });
+      let mainMessage = '';
+      if (typeof rawData === 'string') {
+        mainMessage = rawData.slice(0, 300);
+      } else if (typeof rawData === 'object' && rawData !== null) {
+        const errObj = (rawData as Partial<ODataErrorResponse>).error as any;
+        if (errObj) {
+          if (typeof errObj.message === 'string') {
+            mainMessage = errObj.message;
+          } else if (typeof errObj.message?.value === 'string') {
+            mainMessage = errObj.message.value;
+          } else if (errObj.code) {
+            mainMessage = `[${errObj.code}]`;
+          }
+        }
       }
 
-      if (message) {
-        return Object.assign(error, { message: `SAP Error: ${message}` });
+      const detailsList = (rawData as any)?.error?.details || (rawData as any)?.error?.innererror?.errordetails || [];
+      const detailMessages = Array.isArray(detailsList)
+        ? detailsList
+            .map((d: any) => (typeof d === 'string' ? d : d.message || d.code || ''))
+            .filter(Boolean)
+            .join(' | ')
+        : '';
+
+      const combined = [mainMessage, detailMessages].filter(Boolean).join(' - ');
+      if (combined) {
+        return Object.assign(error, { message: `SAP Error: ${combined}` });
       }
     }
     return error;

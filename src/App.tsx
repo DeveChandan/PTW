@@ -6,6 +6,9 @@ import { ModuleLaunchpad } from './features/dashboard/ModuleLaunchpad';
 import { ComingSoonModule } from './shared/components/ComingSoonModule';
 import { PermitProcedureWorkspace } from './features/permits/PermitProcedureWorkspace';
 import { PermitCreateModule } from './features/permits/PermitCreateModule';
+import { PermitDisplayWorkspace } from './features/permits/PermitDisplayWorkspace';
+import { IsolationWorkspace } from './features/isolation/IsolationWorkspace';
+import { GasTesterWorkspace } from './features/gastest/GasTesterWorkspace';
 import { ReportModule } from './features/dashboard/ReportModule';
 
 export const App: React.FC = () => {
@@ -83,6 +86,23 @@ export const App: React.FC = () => {
           </div>
         ) : selectedModule === 'permit-create' ? (
           <PermitCreateModule
+            user={user}
+            onBack={() => setSelectedModule(null)}
+          />
+        ) : selectedModule === 'permit-details' ? (
+          <PermitDisplayWorkspace
+            user={user}
+            onBack={() => setSelectedModule(null)}
+          />
+        ) : selectedModule === 'create-isolation' || selectedModule === 'display-isolation' || selectedModule === 'isolation' ? (
+          <IsolationWorkspace
+            key={selectedModule}
+            module={selectedModule}
+            user={user}
+            onBack={() => setSelectedModule(null)}
+          />
+        ) : selectedModule === 'gas-tester' ? (
+          <GasTesterWorkspace
             user={user}
             onBack={() => setSelectedModule(null)}
           />

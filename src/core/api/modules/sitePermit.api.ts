@@ -4,10 +4,12 @@ import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../types/ptw
 
 const literal = (value: string) => value.replace(/'/g, "''");
 export const sitePermitApi = {
-  async list(plant: string, search: string, skip = 0, signal?: AbortSignal): Promise<PermitInfoRecord[]> {
+  async list(plant: string, search: string, skip = 0, signal?: AbortSignal, type?: string, status?: string): Promise<PermitInfoRecord[]> {
     const filters: string[] = [];
     if (plant.trim()) filters.push(`Werks eq '${literal(plant.trim())}'`);
     if (search.trim()) filters.push(`(contains(Permit_No,'${literal(search.trim())}') or contains(JobDesc,'${literal(search.trim())}'))`);
+    if (type && type !== 'ALL') filters.push(`PermitType eq '${literal(type.trim())}'`);
+    if (status && status !== 'ALL') filters.push(`Status eq '${literal(status.trim())}'`);
     const query = buildODataQuery({ $filter: filters.join(' and ') || undefined, $top: 25, $skip: skip, $orderby: 'Erdat desc,Erzet desc,Permit_No desc' });
     const response = await odataClient.get<{ value: PermitInfoRecord[] }>(`${ODATA_ENTITIES.PERMIT_INFO}${query}`, { signal });
     if (!Array.isArray(response.data?.value)) throw new Error('SAP did not return a permit list.');

@@ -59,6 +59,110 @@ const FALLBACK_CONFIG_DATA: Record<ConfigType, SapConfigRecord[]> = {
   WORKER_TYPE: [
     { Config_Type: 'WORKER_TYPE', Config_Code: 'CONT', Config_Desc: 'CONTRACTOR', Parent_Code: '', Active: 'X' },
     { Config_Type: 'WORKER_TYPE', Config_Code: 'EMP', Config_Desc: 'EMPLOYEE', Parent_Code: '', Active: 'X' }
+  ],
+  DEPARTMENT: [
+    { Config_Type: 'DEPARTMENT', Config_Code: 'CIVIL', Config_Desc: 'CIVIL', Parent_Code: '', Active: '' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'ELECTRICAL', Config_Desc: 'ELECTRICAL', Parent_Code: '', Active: '' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'INSPECTION', Config_Desc: 'INSPECTION', Parent_Code: '', Active: '' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'INSTRUMENT', Config_Desc: 'INSTRUMENTATION', Parent_Code: '', Active: '' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'MECH_ROT', Config_Desc: 'MECHANICAL (ROTARY)', Parent_Code: '', Active: '' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'MECH_STAT', Config_Desc: 'MECHANICAL (STATIC)', Parent_Code: '', Active: '' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'PROCESS', Config_Desc: 'PROCESS', Parent_Code: '', Active: '' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'SAFETY', Config_Desc: 'SAFETY', Parent_Code: '', Active: '' }
+  ],
+  ISOLATION_TYPE: [
+    { Config_Type: 'ISOLATION_TYPE', Config_Code: 'ELEC', Config_Desc: 'ELECTRICAL', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATION_TYPE', Config_Code: 'INHOVR', Config_Desc: 'INHIBITS AND OVERRIDES', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATION_TYPE', Config_Code: 'MECH', Config_Desc: 'PROCESS/MECHANICAL', Parent_Code: '', Active: 'X' }
+  ],
+  ISOLATED_STATE: [
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'APPLIED', Config_Desc: 'APPLIED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'BLEED', Config_Desc: 'BLEED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'CAPPED', Config_Desc: 'CAPPED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'CLOSED', Config_Desc: 'CLOSED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'DISCONN', Config_Desc: 'DISCONNECTED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'FITTED', Config_Desc: 'FITTED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'IN_PLACE', Config_Desc: 'IN PLACE', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'INH_OVR', Config_Desc: 'INHIBITED/OVERRIDEN', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'INSERTED', Config_Desc: 'INSERTED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'INSTALLED', Config_Desc: 'INSTALLED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'LABELLED', Config_Desc: 'LABELLED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'LOCKED', Config_Desc: 'LOCKED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'OPEN', Config_Desc: 'OPEN', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'PLUGGED', Config_Desc: 'PLUGGED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'RACKED_IN', Config_Desc: 'RACKED IN', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'RACKED_OUT', Config_Desc: 'RACKED OUT', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'RELEASED', Config_Desc: 'RELEASED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'REMOVED', Config_Desc: 'REMOVED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOLATED_STATE', Config_Code: 'SECURED', Config_Desc: 'SECURED', Parent_Code: '', Active: 'X' }
+  ],
+  ISOL_METHOD: [
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'BLANK_IR', Config_Desc: 'BLANK (I/R)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'BLANK_RI', Config_Desc: 'BLANK (R/I)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'BLEED_BC', Config_Desc: 'BLEED (B/C)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'BLEED_BO', Config_Desc: 'BLEED (B/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'BUSBAR_SHUT', Config_Desc: 'BUSBAR SHUTTERS', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'CAPPED', Config_Desc: 'CAPPED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'CB_RIRO', Config_Desc: 'CIRCUIT BREAKER (RI/RO)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'CB_RORI', Config_Desc: 'CIRCUIT BREAKER (RO/RI)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'CIRC_SHUT', Config_Desc: 'CIRCUIT SHUTTERS', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'CUBICLE_D', Config_Desc: 'CUBICLE DOOR', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'EARTH_SW', Config_Desc: 'EARTH SWITCH (A/R)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'FUSE', Config_Desc: 'FUSE', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'INHIB_OVR', Config_Desc: 'INHIBIT/OVERRIDE', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'INHIBIT', Config_Desc: 'INHIBIT', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'ISOL_CO', Config_Desc: 'ISOLATOR (C/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'ISOL_OC', Config_Desc: 'ISOLATOR (O/C)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'ISOL_OO', Config_Desc: 'ISOLATOR (O/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'KNIFE_SW', Config_Desc: 'KNIFE SWITCH/EDGE', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'LC_VLV_CC', Config_Desc: 'L/C VALVE (C/C)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'LC_VLV_OC', Config_Desc: 'L/C VALVE (O/C)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'LO_VLV_CO', Config_Desc: 'L/O VALVE (C/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'LO_VLV_OO', Config_Desc: 'L/O VALVE (O/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'LOCKBOX_LR', Config_Desc: 'LOCKBOX/HASP (L/R)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'MAIN_EARTH', Config_Desc: 'MAIN EARTH', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'MOVEMENT', Config_Desc: 'MOVEMENT', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'OUT_CABLE', Config_Desc: 'OUTGOING CABLES', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'PIPE_SP_FR', Config_Desc: 'PIPE SPOOL (F/R)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'PIPE_SP_RF', Config_Desc: 'PIPE SPOOL (R/F)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'PLUGGED', Config_Desc: 'PLUGGED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'PORT_EARTH', Config_Desc: 'PORTABLE EARTHS', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'PROC_BLEED', Config_Desc: 'PROCESS BLEED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'RACK_MECH', Config_Desc: 'RACKING MECHANISM', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'SHUTTERS', Config_Desc: 'SHUTTERS', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'SPADE_II', Config_Desc: 'SPADE/BLIND (I/I)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'SPADE_INS', Config_Desc: 'SPADE INSERTED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'SPADE_IR', Config_Desc: 'SPADE/BLIND (I/R)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'SPADE_RI', Config_Desc: 'SPADE/BLIND (R/I)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'SPECT_IR', Config_Desc: 'SPECTACLE BLIND (I/R)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'SPECT_RI', Config_Desc: 'SPECTACLE BLIND (R/I)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'STORED_ENG', Config_Desc: 'STORED ENERGY', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'VALVE_CC', Config_Desc: 'VALVE (C/C)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'VALVE_CO', Config_Desc: 'VALVE (C/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'VALVE_OC', Config_Desc: 'VALVE (O/C)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'VALVE_OO', Config_Desc: 'VALVE (O/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'VENT_CO', Config_Desc: 'VENT (C/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'VENT_OC', Config_Desc: 'VENT (O/C)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'VENT_OO', Config_Desc: 'VENT (O/O)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'ISOL_METHOD', Config_Code: 'VOLT_TRAN', Config_Desc: 'VOLTAGE TRANSFORMER', Parent_Code: '', Active: 'X' }
+  ],
+  DEISOLATED_STATE: [
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'CLOSED', Config_Desc: 'CLOSED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'CONNECTED', Config_Desc: 'CONNECTED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'FITTED', Config_Desc: 'FITTED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'FREE', Config_Desc: 'FREE', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'IN_PLACE', Config_Desc: 'IN PLACE', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'INSTALLED', Config_Desc: 'INSTALLED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'LBL_REMOVED', Config_Desc: 'LABEL REMOVED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'NORMAL', Config_Desc: 'NORMAL', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'OPEN', Config_Desc: 'OPEN', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'RACKED_IN', Config_Desc: 'RACKED IN', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'RACKED_OUT', Config_Desc: 'RACKED OUT', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'REMOVED', Config_Desc: 'REMOVED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'REPLACED', Config_Desc: 'REPLACED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'RESTORED', Config_Desc: 'RESTORED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'UN_LOCKED', Config_Desc: 'UN-LOCKED', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEISOLATED_STATE', Config_Code: 'UNLOCKED', Config_Desc: 'UNLOCKED', Parent_Code: '', Active: 'X' }
   ]
 };
 
@@ -81,7 +185,11 @@ class ConfigApiService {
       const response = await odataClient.get<SapConfigResponse>(`Config?$filter=${filter}`);
       
       const records = response.data?.value || [];
-      const activeRecords = records.filter(item => item.Active === 'X');
+      // Some config records have Active='X' while others (e.g. DEPARTMENT) have Active=''
+      const hasExplicitActiveFlags = records.some(item => item.Active === 'X');
+      const activeRecords = hasExplicitActiveFlags
+        ? records.filter(item => item.Active === 'X')
+        : records.filter(item => item.Active !== 'N' && item.Active !== '0' && item.Active !== 'FALSE');
 
       if (activeRecords.length > 0) {
         this.cache.set(type, activeRecords);
@@ -114,6 +222,26 @@ class ConfigApiService {
 
   public async fetchWorkerTypeConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
     return this.fetchConfigByType('WORKER_TYPE', forceRefresh);
+  }
+
+  public async fetchDepartmentConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
+    return this.fetchConfigByType('DEPARTMENT', forceRefresh);
+  }
+
+  public async fetchIsolationTypeConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
+    return this.fetchConfigByType('ISOLATION_TYPE', forceRefresh);
+  }
+
+  public async fetchIsolatedStateConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
+    return this.fetchConfigByType('ISOLATED_STATE', forceRefresh);
+  }
+
+  public async fetchIsolMethodConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
+    return this.fetchConfigByType('ISOL_METHOD', forceRefresh);
+  }
+
+  public async fetchDeisolatedStateConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
+    return this.fetchConfigByType('DEISOLATED_STATE', forceRefresh);
   }
 
   public clearCache(): void {

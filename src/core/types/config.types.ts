@@ -1,4 +1,13 @@
-export type ConfigType = 'PPE' | 'SHIFT' | 'PERMIT_TYPE' | 'WORKER_TYPE';
+export type ConfigType = 
+  | 'PPE' 
+  | 'SHIFT' 
+  | 'PERMIT_TYPE' 
+  | 'WORKER_TYPE' 
+  | 'DEPARTMENT'
+  | 'ISOLATION_TYPE'
+  | 'ISOLATED_STATE'
+  | 'ISOL_METHOD'
+  | 'DEISOLATED_STATE';
 
 export interface SapConfigRecord {
   Config_Type: ConfigType | string;

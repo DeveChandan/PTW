@@ -19,7 +19,7 @@ import { SiteProcedureStep, ProcedureGuidance } from './SiteProcedureStep';
 import { emptySitePlan, PERMIT_CATEGORIES, sitePlanRows } from '../../core/ptw/siteProcedure';
 import { PermitWorkSelectionStep } from './PermitWorkSelectionStep';
 import { WorkSelection, referenceId, toPermitReferenceFields } from '../../core/api/modules/permitWorkLookup.api';
-import { configApi, checklistApi, toSapChecklistPermitType } from '../../core/api';
+import { configApi, checklistApi, isolationApi, toSapChecklistPermitType } from '../../core/api';
 import { SapConfigRecord } from '../../core/types/config.types';
 import { SapChecklistItem, ChecklistAnswer, ChecklistAnswerType } from '../../core/types/checklist.types';
 import { PpeValueHelpDialog } from '../../shared/components/PpeValueHelpDialog';
@@ -126,11 +126,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   // New Isolation Point Inputs
   const [newIsoPoint, setNewIsoPoint] = useState('');
-  const [newIsoType, setNewIsoType] = useState('FLOCK');
+  const [newIsoType, setNewIsoType] = useState('MECH');
   const [newIsoLockTag, setNewIsoLockTag] = useState('');
 
   // SAP Live Config State (Dropdowns & F4 Value Help)
   const [shiftOptions, setShiftOptions] = useState<SapConfigRecord[]>([]);
+  const [deptOptions, setDeptOptions] = useState<SapConfigRecord[]>([]);
+  const [availableIsolations, setAvailableIsolations] = useState<string[]>([]);
   const [ppeCatalog, setPpeCatalog] = useState<SapConfigRecord[]>([]);
   const [workerTypeOptions, setWorkerTypeOptions] = useState<SapConfigRecord[]>([]);
   const [isPpeHelpOpen, setIsPpeHelpOpen] = useState(false);
@@ -222,6 +224,10 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     });
     configApi.fetchPpeConfig().then(setPpeCatalog);
     configApi.fetchWorkerTypeConfig().then(setWorkerTypeOptions);
+    configApi.fetchDepartmentConfig().then(setDeptOptions);
+    isolationApi.list().then((list) => {
+      setAvailableIsolations(list.map((i) => i.IsolationNo));
+    });
   }, []);
 
   // 3. Overall Readiness Completion Percentage
@@ -766,7 +772,47 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="text-sm">Execution agency<select value={execAgency} onChange={e => setExecAgency(e.target.value)} className="block w-full border rounded p-2"><option value="CONT">Contractor</option><option value="EMP">Company employees</option></select></label>
-                <label className="text-sm">Execution department *<input required aria-required="true" placeholder="Enter the executing department" value={execDept} onChange={e => setExecDept(e.target.value)} maxLength={40} className="block w-full border rounded p-2" /></label>
+                <label className="text-sm">
+                  Execution department *
+                  <select
+                    required
+                    aria-required="true"
+                    value={execDept}
+                    onChange={e => setExecDept(e.target.value)}
+                    className="block w-full border rounded p-2 bg-white"
+                  >
+                    <option value="" disabled>Select department</option>
+                    {(deptOptions.length > 0
+                      ? deptOptions
+                      : [
+                          { Config_Code: 'CIVIL', Config_Desc: 'CIVIL' },
+                          { Config_Code: 'ELECTRICAL', Config_Desc: 'ELECTRICAL' },
+                          { Config_Code: 'INSPECTION', Config_Desc: 'INSPECTION' },
+                          { Config_Code: 'INSTRUMENT', Config_Desc: 'INSTRUMENTATION' },
+                          { Config_Code: 'MECH_ROT', Config_Desc: 'MECHANICAL (ROTARY)' },
+                          { Config_Code: 'MECH_STAT', Config_Desc: 'MECHANICAL (STATIC)' },
+                          { Config_Code: 'PROCESS', Config_Desc: 'PROCESS' },
+                          { Config_Code: 'SAFETY', Config_Desc: 'SAFETY' },
+                        ]
+                    ).map((d) => (
+                      <option key={d.Config_Code} value={d.Config_Desc}>
+                        {d.Config_Code === d.Config_Desc ? d.Config_Desc : `${d.Config_Desc} (${d.Config_Code})`}
+                      </option>
+                    ))}
+                    {execDept && !(deptOptions.length > 0 ? deptOptions : [
+                      { Config_Code: 'CIVIL', Config_Desc: 'CIVIL' },
+                      { Config_Code: 'ELECTRICAL', Config_Desc: 'ELECTRICAL' },
+                      { Config_Code: 'INSPECTION', Config_Desc: 'INSPECTION' },
+                      { Config_Code: 'INSTRUMENT', Config_Desc: 'INSTRUMENTATION' },
+                      { Config_Code: 'MECH_ROT', Config_Desc: 'MECHANICAL (ROTARY)' },
+                      { Config_Code: 'MECH_STAT', Config_Desc: 'MECHANICAL (STATIC)' },
+                      { Config_Code: 'PROCESS', Config_Desc: 'PROCESS' },
+                      { Config_Code: 'SAFETY', Config_Desc: 'SAFETY' }
+                    ]).some(d => (d.Config_Desc || d.Config_Code) === execDept || d.Config_Code === execDept) && (
+                      <option value={execDept}>{execDept}</option>
+                    )}
+                  </select>
+                </label>
                 <label className="text-sm">
                   Shift *
                   <select
@@ -933,14 +979,27 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 </div>
               </div>
 
-              {/* Plant, Functional Location & Equipment Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 font-sans text-xs">
+              {/* Plant, Functional Location, Equipment & Work Area Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 font-sans text-xs">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Plant (Werks) *</label>
                   <input
                     type="text"
                     value={werks}
                     onChange={(e) => setWerks(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-900 focus:outline-none focus:border-[#006398]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Work Area (AreaLoc) *</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={40}
+                    value={areaLoc}
+                    onChange={(e) => setAreaLoc(e.target.value)}
+                    placeholder="e.g. Caustic Unit / Tank Farm"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-900 focus:outline-none focus:border-[#006398]"
                   />
                 </div>
@@ -1141,10 +1200,17 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         <label className="block text-[11px] text-slate-600 font-semibold mb-1">Isolation No</label>
                         <input
                           type="text"
+                          list="available-isolations"
+                          placeholder="e.g. ISO0000012"
                           value={isolationNo}
                           onChange={(e) => setIsolationNo(e.target.value)}
                           className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-900"
                         />
+                        <datalist id="available-isolations">
+                          {availableIsolations.map((no) => (
+                            <option key={no} value={no} />
+                          ))}
+                        </datalist>
                       </div>
                       <div>
                         <label className="block text-[11px] text-slate-600 font-semibold mb-1">Ref Type</label>
@@ -1922,10 +1988,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         onChange={(e) => setNewIsoType(e.target.value)}
                         className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs"
                       >
-                        <option value="FLOCK">FLOCK - Flange Lock</option>
-                        <option value="VALVE">VALVE - Manual Valve</option>
-                        <option value="ELEC">ELEC - Breaker Lockout</option>
-                        <option value="BLIND">BLIND - Spade/Blind</option>
+                        <option value="MECH">MECH — PROCESS/MECHANICAL</option>
+                        <option value="ELEC">ELEC — ELECTRICAL</option>
+                        <option value="INHOVR">INHOVR — INHIBITS AND OVERRIDES</option>
                       </select>
                     </div>
 

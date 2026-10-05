@@ -22,7 +22,12 @@ const SECTIONS: { key: Collection; title: string; columns: [string, string][] }[
 const moduleTitle: Partial<Record<ModuleId, string>> = { 'permit-details': 'Permit record', 'permit-approver': 'Approval review', 'permit-issuer': 'Issuer review', 'permit-holder': 'Work execution review', 'gas-tester': 'Gas testing review', isolation: 'Isolation review', 'create-isolation': 'Isolation preparation', 'display-isolation': 'Isolation review' };
 const firstSection: Partial<Record<ModuleId, Collection>> = { 'permit-approver': '_Approval', 'permit-issuer': '_Safety', 'permit-holder': '_Worker', 'gas-tester': '_GasTest', isolation: '_Isolation', 'create-isolation': '_Isolation', 'display-isolation': '_Isolation' };
 
+import { PermitDisplayWorkspace } from './PermitDisplayWorkspace';
+
 export function PermitProcedureWorkspace({ module, user, onBack }: { module: ModuleId; user: SapUser | null; onBack: () => void }) {
+  if (module === 'permit-details') {
+    return <PermitDisplayWorkspace user={user} onBack={onBack} />;
+  }
   const [plant, setPlant] = useState(user?.plant || '');
   const [search, setSearch] = useState('');
   const [permits, setPermits] = useState<PermitInfoRecord[]>([]);
@@ -55,7 +60,34 @@ export function PermitProcedureWorkspace({ module, user, onBack }: { module: Mod
   const section = SECTIONS.find(item => item.key === active)!;
   const rows = permit?.[active];
   return <div className="mx-auto max-w-7xl space-y-5 px-4 py-6">
-    <header className="flex items-center justify-between gap-4"><div><button type="button" className="mb-2 text-sm text-blue-700" disabled={updating} onClick={onBack}>← Launchpad</button><h1 className="text-2xl font-bold">{moduleTitle[module] || 'PTW review'}</h1><p className="mt-1 text-sm text-slate-500">{PROCEDURE.id} · Rev {PROCEDURE.revision} · SAP records</p></div></header>
+    <header className="flex items-center justify-between gap-4 border-b pb-4">
+      <div>
+        <div className="mb-3 flex items-center gap-2.5">
+          <button
+            type="button"
+            disabled={updating}
+            onClick={onBack}
+            className="group inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition-all duration-200 hover:border-[#006398] hover:bg-slate-50 hover:text-[#006398] hover:shadow-sm active:scale-[0.98] disabled:opacity-50"
+            title="Return to Launchpad"
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors duration-200 group-hover:bg-[#006398]/10 group-hover:text-[#006398]">
+              <span className="material-symbols-outlined text-[15px] transition-transform duration-200 group-hover:-translate-x-0.5">
+                arrow_back
+              </span>
+            </span>
+            <span>Return to Launchpad</span>
+          </button>
+          <span className="text-slate-300 font-light">/</span>
+          <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-slate-400">
+            <span>PTW Suite</span>
+            <span>/</span>
+            <span className="font-semibold text-slate-600">{moduleTitle[module] || 'PTW Review'}</span>
+          </div>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">{moduleTitle[module] || 'PTW review'}</h1>
+        <p className="mt-1 text-xs text-slate-500 font-mono">{PROCEDURE.id} · Rev {PROCEDURE.revision} · SAP records</p>
+      </div>
+    </header>
     <p className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">Review saved permit evidence here. Signing, issue, revalidation, suspension and closure actions require the SAP workflow integration. This view cannot authorize or restart work.</p>
     <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" onSubmit={event => { event.preventDefault(); if (!updating) void load(); }}>
       <label className="text-sm">Plant<input className="mt-1 block rounded-lg border p-2" value={plant} maxLength={4} onChange={event => setPlant(event.target.value)} /></label>

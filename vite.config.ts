@@ -35,31 +35,70 @@ export default defineConfig(({ mode }) => {
         '/sap/opu/odata4': {
           target: sapTarget,
           changeOrigin: true,
-          cookieDomainRewrite: '',
-          secure: false, // Set to true if using valid corporate SSL certificates
+          cookieDomainRewrite: { '*': '' },
+          cookiePathRewrite: { '*': '/' },
+          secure: false,
           headers: {
             'sap-client': sapClient
+          },
+          configure: (proxy) => {
+            proxy.on('proxyRes', (proxyRes) => {
+              const sc = proxyRes.headers['set-cookie'];
+              if (sc && Array.isArray(sc)) {
+                proxyRes.headers['set-cookie'] = sc.map((c) =>
+                  c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=\w+/gi, '; SameSite=Lax')
+                );
+              }
+            });
           }
         },
         // Proxy SAP User Info and Fiori Launchpad Services
         '/sap/bc/ui2': {
           target: sapTarget,
           changeOrigin: true,
-          cookieDomainRewrite: '',
+          cookieDomainRewrite: { '*': '' },
+          cookiePathRewrite: { '*': '/' },
           secure: false,
           headers: {
             'sap-client': sapClient
+          },
+          configure: (proxy) => {
+            proxy.on('proxyRes', (proxyRes) => {
+              const sc = proxyRes.headers['set-cookie'];
+              if (sc && Array.isArray(sc)) {
+                proxyRes.headers['set-cookie'] = sc.map((c) =>
+                  c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=\w+/gi, '; SameSite=Lax')
+                );
+              }
+            });
           }
         },
-        '/sap/public': { target: sapTarget, changeOrigin: true, secure: false, cookieDomainRewrite: '' },
+        '/sap/public': {
+          target: sapTarget,
+          changeOrigin: true,
+          secure: false,
+          cookieDomainRewrite: { '*': '' },
+          cookiePathRewrite: { '*': '/' }
+        },
         // Proxy generic SAP ICF services (MIME repository, authentication)
         '/sap/bc': {
           target: sapTarget,
           changeOrigin: true,
-          cookieDomainRewrite: '',
+          cookieDomainRewrite: { '*': '' },
+          cookiePathRewrite: { '*': '/' },
           secure: false,
           headers: {
             'sap-client': sapClient
+          },
+          configure: (proxy) => {
+            proxy.on('proxyRes', (proxyRes) => {
+              const sc = proxyRes.headers['set-cookie'];
+              if (sc && Array.isArray(sc)) {
+                proxyRes.headers['set-cookie'] = sc.map((c) =>
+                  c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=\w+/gi, '; SameSite=Lax')
+                );
+              }
+            });
           }
         }
       }
