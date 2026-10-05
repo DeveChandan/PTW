@@ -1,3 +1,5 @@
+> Historical review/proposal: frontend fixes are now implemented. See [current implementation and backend handoff](ptw-frontend-metadata-update.md). Statements below describing the old serializer or generic action are retained as review history, not the current integration contract.
+
 # PTW department, isolation and gas prerequisite handoff
 
 Date: 29 September 2026. Requested workflow; proposed backend contract, not a description of deployed SAP actions.

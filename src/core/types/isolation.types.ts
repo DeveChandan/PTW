@@ -1,6 +1,6 @@
 export interface SapIsolationItem {
   IsolationNo?: string;
-  ItemNo: string;
+  ItemNo?: string;
   ReferenceType: string; // 'EQUI' | 'FLOC' | string
   ReferenceId: string; // e.g. '10000001'
   IsolationPoint: string; // Physical point e.g. 'P-101 INLET'

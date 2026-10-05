@@ -1169,7 +1169,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   </p>
                 </div>
                 <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-purple-50 text-purple-800 border border-purple-200">
-                  {selectedPermit._Isolation?.length || 0} Lock Points
+                  {selectedPermit._Isolation?.reduce((count, certificate) => count + (certificate._Item?.length || 0), 0) || 0} Lock Points
                 </span>
               </div>
 
@@ -1194,7 +1194,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-sans">
-                      {selectedPermit._Isolation.map((iso, i) => (
+                      {selectedPermit._Isolation.flatMap(certificate => certificate._Item || []).map((iso, i) => (
                         <tr key={i} className="hover:bg-slate-50">
                           <td className="p-3 font-mono text-slate-400">{iso.ItemNo || i + 1}</td>
                           <td className="p-3 font-semibold text-slate-900">{iso.IsolationPoint}</td>
@@ -1239,7 +1239,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                 <div>
                   <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
                     <span className="material-symbols-outlined text-[20px] text-amber-600">science</span>
-                    <span>Atmospheric Gas Testing Register (Entity: _GasTest)</span>
+                    <span>Atmospheric Gas Testing Register (Entity: GasTest)</span>
                   </h3>
                   <p className="text-xs text-slate-500 font-mono mt-0.5">
                     Retest Interval: <strong>{selectedPermit.GasTestFreqHr || 2} Hours</strong> · Gas Test Required: {selectedPermit.GasTestRequired || 'N'}

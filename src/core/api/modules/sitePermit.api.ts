@@ -1,3 +1,4 @@
+import { gasTesterApi } from './gasTester.api';
 import odataClient from '../odataClient';
 import { buildODataQuery, ODATA_ENTITIES } from '../odataEndpoints';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../types/ptw.types';
@@ -17,10 +18,12 @@ export const sitePermitApi = {
   },
   async read(number: string, signal?: AbortSignal): Promise<PermitDeepInsertResponse> {
     if (!number.trim() || number.length > 10) throw new Error('Enter a valid SAP permit number (up to 10 characters).');
-    const query = buildODataQuery({ $expand: ['_Worker', '_PPE', '_Safety', '_HazardControl', '_Isolation', '_GasTest', '_Approval', '_ShiftRenewal', '_Attachment', '_AuditLog'] });
+    const query = buildODataQuery({ $expand: ['_Worker', '_PPE', '_Safety', '_HazardControl', '_Isolation($expand=_Item)', '_Approval', '_ShiftRenewal', '_Attachment', '_AuditLog'] });
     const key = encodeURIComponent(literal(number)).replace(/'/g, '%27');
     const response = await odataClient.get<PermitDeepInsertResponse>(`${ODATA_ENTITIES.PERMIT_INFO}('${key}')${query}`, { signal });
     if (!response.data?.Permit_No) throw new Error('SAP did not return the requested permit.');
-    return { ...response.data, '@odata.etag': response.data['@odata.etag'] || response.headers?.etag };
+    const gases = await gasTesterApi.list(number, signal);
+    return { ...response.data, _GasTest: gases, '@odata.etag': response.data['@odata.etag'] || response.headers?.etag };
+
   },
 };

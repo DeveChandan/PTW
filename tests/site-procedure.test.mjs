@@ -15,7 +15,7 @@ function payload(primary = 'HOT', plan = completePlan()) {
   return { PermitType: primary, Werks: '1000', JobDesc: 'Maintain equipment', SupvName: 'Supervisor', Aufnr: '000000000123', Qmnum: '', AreaLoc: 'Area A', ExecDept: 'Maintenance',
     ValidFromD: '2099-01-01', ValidFromT: '08:00', ValidToD: '2099-01-01', ValidToT: '16:00', GasTestRequired: 'Y', GasTestFreqHr: '2', PersonsQty: 1, IsolationRequired: 'Y',
     _Worker: [{ WorkerName: 'Worker', WorkerTypeCode: 'EMP', EmpId: 'W1' }], _HazardControl: [{ HazardDesc: 'Stored energy', ControlDesc: 'Isolate' }],
-    _Isolation: [{ IsolationNo: 'I1', IsolationPoint: 'Main isolator', IsIsolated: 'N', ZeroEnergyConf: 'N' }], _Safety: sitePlanRows(primary, plan) };
+    _Isolation: [], _Safety: sitePlanRows(primary, plan) };
 }
 
 test('every procedure category and combined work fits the SAP creation schema without fabricated signatures', () => {
@@ -119,7 +119,9 @@ test('SAP record read uses metadata field names and escapes OData literals', asy
     assert.equal(url.searchParams.get('$skip'), '25');
     await sitePermitApi.read("P'1");
     assert.match(decodeURIComponent(calls[1]), /PermitInfo\('P''1'\)/);
-    assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_GasTest'));
+    assert.ok(!new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_GasTest'));
+    assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_Isolation($expand=_Item)'));
+    assert.equal(calls[2], 'GasTest');
     assert.doesNotMatch(calls[1], /GasTests|Hazards|PpeItems/);
     odataClient.get = async () => ({ data: {} });
     await assert.rejects(sitePermitApi.list('', ''), /permit list/);

@@ -1,3 +1,5 @@
+import { prepareIsolationCreate } from './isolation.validation';
+import { entityKey, WorkflowUnconfirmedError } from './backendWorkflow.api';
 import { odataClient } from '../odataClient';
 import type { SapIsolationHeader, SapIsolationResponse } from '../../types/isolation.types';
 
@@ -99,134 +101,41 @@ export const FALLBACK_ISOLATION_DATA: SapIsolationHeader[] = [
 ];
 
 class IsolationApiService {
-  private localStore: SapIsolationHeader[] = [...FALLBACK_ISOLATION_DATA];
-
-  /**
-   * Retrieves all Isolation certificates with their associated points
-   * Endpoint: Isolation?$expand=*
-   */
-  public async list(filterStr?: string, signal?: AbortSignal): Promise<SapIsolationHeader[]> {
-    try {
-      let url = 'Isolation?$expand=*';
-      if (filterStr && filterStr.trim()) {
-        url += `&$filter=${encodeURIComponent(filterStr.trim())}`;
-      }
-      const response = await odataClient.get<SapIsolationResponse>(url, { signal });
-      const records = response.data?.value || [];
-      if (records.length > 0) {
-        // Preserve any locally created records not yet synced/returned by the server
-        const existingIds = new Set(records.map(r => r.IsolationNo));
-        const localCreated = this.localStore.filter(r => !existingIds.has(r.IsolationNo));
-        this.localStore = [...localCreated, ...records];
-        return this.localStore;
-      }
-      return this.localStore;
-    } catch (error) {
-      console.warn('[IsolationApi] Live fetch for Isolation?$expand=* failed, using local store. Reason:', error);
-      return this.localStore;
-    }
+  public async list(permitNo?: string, signal?: AbortSignal): Promise<SapIsolationHeader[]> {
+    const query = permitNo?.trim() ? `&$filter=${encodeURIComponent("PermitNo eq '" + permitNo.trim().replace(/'/g, "''") + "'")}` : '';
+    const response = await odataClient.get<SapIsolationResponse>(`Isolation?$expand=_Item${query}`, { signal });
+    if (!Array.isArray(response.data?.value)) throw new Error('SAP did not return isolation certificates.');
+    return response.data.value;
   }
-
-  /**
-   * Reads a single Isolation certificate by ID
-   * Endpoint: Isolation('{isolationNo}')?$expand=*
-   */
   public async read(isolationNo: string, signal?: AbortSignal): Promise<SapIsolationHeader | null> {
-    try {
-      const encodedNo = encodeURIComponent(isolationNo);
-      const url = `Isolation('${encodedNo}')?$expand=*`;
-      const response = await odataClient.get<SapIsolationHeader>(url, { signal });
-      if (response.data) {
-        return response.data;
-      }
-      return this.localStore.find(i => i.IsolationNo === isolationNo) || null;
-    } catch (error) {
-      console.warn(`[IsolationApi] Live read for Isolation('${isolationNo}') failed, using local store. Reason:`, error);
-      return this.localStore.find(i => i.IsolationNo === isolationNo) || null;
-    }
+    const response = await odataClient.get<SapIsolationHeader>(`Isolation('${entityKey(isolationNo)}')?$expand=_Item`, { signal });
+    if (!response.data?.IsolationNo) throw new Error('SAP did not return this isolation certificate.');
+    return { ...response.data, '@odata.etag': response.data['@odata.etag'] || response.headers?.etag };
   }
-
-  /**
-   * Creates a new Isolation Certificate with deep inserted items
-   * Endpoint: POST Isolation
-   */
   public async create(payload: Partial<SapIsolationHeader>): Promise<SapIsolationHeader> {
-    const response = await odataClient.post<SapIsolationHeader>('Isolation', payload, {
-      headers: { Prefer: 'return=representation' }
-    });
-    if (!response.data || !response.data.IsolationNo) {
-      throw new Error('SAP did not return an Isolation Certificate number. Please check your SAP database connection.');
+    const body = prepareIsolationCreate(payload);
+    let response;
+    try { response = await odataClient.post<SapIsolationHeader>('Isolation', body, { headers: { Prefer: 'return=representation' } }); }
+    catch (reason: any) {
+      if ((!reason.response && !reason.beforeSend) || reason.response?.status >= 500) throw new WorkflowUnconfirmedError('Isolation save outcome is unconfirmed. Check SAP before creating another certificate.');
+      throw reason;
     }
-    const errors = response.data.SAP__Messages?.filter(m => (m.numericSeverity || 0) >= 4);
-    if (errors && errors.length > 0) {
-      throw new Error(errors.map(m => m.message).join(' | '));
-    }
-    this.localStore.unshift(response.data);
-    return response.data;
+    if (!response.data?.IsolationNo || response.data.SAP__Messages?.some(message => (message.numericSeverity || 0) >= 4)) throw new WorkflowUnconfirmedError('SAP did not return a confirmed isolation certificate. Check SAP before retrying.');
+    return { ...response.data, '@odata.etag': response.data['@odata.etag'] || response.headers?.etag };
   }
-
-  /**
-   * Updates an existing Isolation Certificate (e.g. update or add PermitNo, Remarks, Status)
-   * Endpoint: PATCH Isolation('{isolationNo}')
-   */
-  public async update(isolationNo: string, payload: Partial<SapIsolationHeader>): Promise<SapIsolationHeader> {
-    const encodedNo = encodeURIComponent(isolationNo);
-    const url = `Isolation('${encodedNo}')`;
-
+  public async update(isolationNo: string, payload: Partial<SapIsolationHeader>, etag?: string): Promise<SapIsolationHeader> {
+    if (Object.keys(payload).some(key => key !== 'Remarks')) throw new Error('Only remarks can be edited. Permit linkage is immutable; use workflow actions for certificate status.');
+    if (!etag || etag === '*') throw new Error('Reload the SAP certificate and its ETag before saving.');
+    if ((payload.Remarks || '').length > 255) throw new Error('Remarks must be at most 255 characters.');
     try {
-      const response = await odataClient.patch<SapIsolationHeader>(url, payload, '*', {
-        headers: {
-          Prefer: 'return=representation'
-        }
-      });
-      if (response.data) {
-        const idx = this.localStore.findIndex(i => i.IsolationNo === isolationNo);
-        if (idx !== -1) {
-          this.localStore[idx] = { ...this.localStore[idx], ...response.data };
-          return this.localStore[idx];
-        }
-        this.localStore.unshift(response.data);
-        return response.data;
-      }
-    } catch (error) {
-      console.warn(`[IsolationApi] Live PATCH for Isolation('${isolationNo}') failed, applying to local store. Reason:`, error);
+      const response = await odataClient.patch<SapIsolationHeader>(`Isolation('${entityKey(isolationNo)}')`, { Remarks: payload.Remarks || '' }, etag, { headers: { Prefer: 'return=representation' } });
+      if (!response.data?.IsolationNo || response.data.SAP__Messages?.some(message => (message.numericSeverity || 0) >= 4)) throw new WorkflowUnconfirmedError('SAP did not confirm the remarks update. Check SAP before retrying.');
+      return { ...response.data, '@odata.etag': response.data['@odata.etag'] || response.headers?.etag };
+    } catch (reason: any) {
+      if ((!reason.response && !reason.beforeSend) || reason.response?.status >= 500) throw new WorkflowUnconfirmedError('Isolation update outcome is unconfirmed. Check SAP before retrying.');
+      throw reason;
     }
-
-    // Fallback local store update
-    const idx = this.localStore.findIndex(i => i.IsolationNo === isolationNo);
-    if (idx !== -1) {
-      this.localStore[idx] = {
-        ...this.localStore[idx],
-        ...payload,
-        LastChangedAt: new Date().toISOString()
-      };
-      return this.localStore[idx];
-    }
-
-    const updated: SapIsolationHeader = {
-      IsolationNo: isolationNo,
-      PermitNo: payload.PermitNo || '',
-      Status: payload.Status || 'CRTD',
-      RequestedBy: payload.RequestedBy || 'VERTIF-V',
-      RequestedDate: new Date().toISOString().slice(0, 10),
-      RequestedTime: new Date().toTimeString().slice(0, 8),
-      VerifiedBy: '',
-      VerifiedDate: null,
-      VerifiedTime: '00:00:00',
-      ApprovedBy: '',
-      ApprovedDate: null,
-      ApprovedTime: '00:00:00',
-      NormalizedBy: '',
-      NormalizedDate: null,
-      NormalizedTime: '00:00:00',
-      Remarks: payload.Remarks || '',
-      LastChangedAt: new Date().toISOString(),
-      _Item: payload._Item || []
-    };
-    this.localStore.unshift(updated);
-    return updated;
   }
 }
-
 export const isolationApi = new IsolationApiService();
 export default isolationApi;

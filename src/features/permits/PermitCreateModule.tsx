@@ -82,7 +82,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [gasTestFreqHr, setGasTestFreqHr] = useState<string>('2');
   const [creatorComment, setCreatorComment] = useState<string>('');
 
-  // Isolation & Gas Testing Requirements
+  // LOTO & Isolation Requirements
   const [isolationRequired, setIsolationRequired] = useState<Requirement>('');
   const [gasTestRequired, setGasTestRequired] = useState<Requirement>('');
   const [isolationRefType, setIsolationRefType] = useState<string>('EQUIP');
@@ -123,9 +123,6 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [newControlDesc, setNewControlDesc] = useState('');
 
   // New Isolation Point Inputs
-  const [newIsoPoint, setNewIsoPoint] = useState('');
-  const [newIsoType, setNewIsoType] = useState('MECH');
-  const [newIsoLockTag, setNewIsoLockTag] = useState('');
 
   // SAP Live Config State (Dropdowns & F4 Value Help)
   const [shiftOptions, setShiftOptions] = useState<SapConfigRecord[]>([]);
@@ -225,7 +222,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     configApi.fetchDepartmentConfig().then(setDeptOptions);
     isolationApi.list().then((list) => {
       setAvailableIsolations(list.map((i) => i.IsolationNo));
-    });
+    }).catch(reason => setNotificationBanner({ type: 'error', message: reason instanceof Error ? reason.message : 'Unable to load isolation certificates from SAP.' }));
   }, []);
 
   // 3. Overall Readiness Completion Percentage
@@ -347,55 +344,6 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     );
   };
 
-  // 10. Add Isolation Point Handler
-  const handleAddIsolation = () => {
-    if (!newIsoPoint) return;
-    const nextItemNo = (Math.max(0, ...isolations.map(row => Number(row.ItemNo))) + 1).toString();
-    const newIso: IsolationRecord = {
-      PermitNo: permitNo,
-      IsolationNo: isolationNo,
-      ItemNo: nextItemNo,
-      IsolType: newIsoType,
-      ReferenceType: isolationRefType,
-      ReferenceId: equnr,
-      Status: 'INTD',
-      RequestedBy: user?.id || personResp,
-      RequestedDate: validFromD,
-      RequestedTime: validFromT,
-      VerifiedBy: '',
-      VerifiedDate: null,
-      VerifiedTime: '00:00:00',
-      IsolatedBy: '',
-      IsolatedDate: null,
-      IsolatedTime: '00:00:00',
-      ApprovedBy: '',
-      ApprovedDate: null,
-      ApprovedTime: '00:00:00',
-      NormalizedBy: '',
-      NormalizedDate: null,
-      NormalizedTime: '00:00:00',
-      IsolationPoint: newIsoPoint.toUpperCase(),
-      IsolMethod: 'LOCK',
-      LockTagNo: newIsoLockTag,
-      IsIsolated: 'N',
-      PointIsolatedBy: '',
-      PointIsolatedAt: null,
-      ZeroEnergyConf: 'N',
-      ZeroEnergyBy: '',
-      ZeroEnergyAt: null,
-      IsNormalized: 'N',
-      PointNormalizedBy: '',
-      PointNormalizedAt: null,
-      Remarks: 'ZERO ENERGY CONFIRMATION MANDATORY',
-      LastChangedAt: null
-    };
-
-    setIsolations([...isolations, newIso]);
-    setNewIsoPoint('');
-    setNewIsoLockTag('');
-  };
-
-  // 11. Build the Complete Deep Insert JSON Payload
   const fullPayload: PermitDeepInsertPayload = useMemo(() => {
     return {
       Permit_No: permitNo,
@@ -449,9 +397,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       RefPermitNo: '',
 
       LotoRequired: (isolationRequired === 'X' || isolationRequired === 'Y') ? 'Y' : 'N',
-      LotoCertNo: (isolationRequired === 'X' || isolationRequired === 'Y') ? (isolationNo || '') : '',
+      LotoCertNo: (isolationRequired === 'X' || isolationRequired === 'Y') ? isolationNo : '',
 
-      IsolationRequired: (isolationRequired === 'X' || isolationRequired === 'Y') ? 'X' : ' ',
+      IsolationRequired: isolationRequired,
       IsolationRefType: (isolationRequired === 'X' || isolationRequired === 'Y') ? isolationRefType : '',
       IsolationNo: (isolationRequired === 'X' || isolationRequired === 'Y') ? isolationNo : '',
       IsolationStatus: (isolationRequired === 'X' || isolationRequired === 'Y') ? 'INTD' : '',
@@ -491,7 +439,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       _PPE: ppeItems,
       _Safety: [...sitePlanRows(permitType, sitePlan), ...safetyChecklist],
       _HazardControl: hazards,
-      _Isolation: (isolationRequired === 'X' || isolationRequired === 'Y') ? isolations : []
+      _Isolation: []
 
     };
   }, [
@@ -1171,7 +1119,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                             name="isolation-required"
                             required
                             checked={value === 'X' ? (isolationRequired === 'X' || isolationRequired === 'Y') : (isolationRequired === ' ' || isolationRequired === 'N')}
-                            onChange={() => setIsolationRequired(value as Requirement)}
+                            onChange={() => { setIsolationRequired(value as Requirement); if (value === ' ') { setIsolationNo(''); setIsolations([]); } }}
                           />
                           {label}
                         </label>
@@ -1900,115 +1848,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           )}
 
           {/* TAB 5: Gas Testing & Isolation */}
-          {activeTab === 'gas-isolation' && (
-            <div className="space-y-6">
-              <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">No gas test or tester signature is recorded during permit creation. An authorized gas tester must record actual measurements in the gas-testing workflow before work is authorized.</p>
+          {activeTab === 'gas-isolation' && <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 space-y-3"><h3 className="font-semibold">Isolation certificate and gas workflow</h3><p>Create the permit first. If isolation is required, open Isolation Create with the returned permit number and add the physical points under the certificate. SAP assigns the certificate and item numbers.</p><p>Gas measurements are read from the backend. The gas module can finalize saved backend tests; the supplied service does not support entering new measurements.</p><p>All required checks must be approved in SAP before the permit progresses from INTD to CRTD.</p></div>}
 
-              {/* LOTO Physical Isolation Points */}
-              <div className="pt-4 border-t border-slate-200">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-display font-bold text-base text-slate-900">
-                      Lockout / Tagout Physical Isolation Points (_Isolation)
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Physical electrical breaker, valve locks, and blind flanges requiring zero-energy lock.
-                    </p>
-                  </div>
-                  <span className="font-mono text-xs font-bold text-[#006398] bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-lg">
-                    Certificate: {isolationNo}
-                  </span>
-                </div>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs mb-4">
-                  <table className="w-full text-left border-collapse text-xs font-sans">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase">
-                        <th className="py-2.5 px-3">Item #</th>
-                        <th className="py-2.5 px-3">Isolation Point</th>
-                        <th className="py-2.5 px-3">Type</th>
-                        <th className="py-2.5 px-3">Tag / Lock No</th>
-                        <th className="py-2.5 px-3">Zero Energy Conf</th>
-                        <th className="py-2.5 px-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-mono text-xs">
-                      {isolations.map((iso) => (
-                        <tr key={iso.ItemNo} className="hover:bg-slate-50/60">
-                          <td className="py-2.5 px-3 text-slate-500">{iso.ItemNo}</td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900 font-sans">{iso.IsolationPoint}</td>
-                          <td className="py-2.5 px-3 text-[#006398]">{iso.IsolType}</td>
-                          <td className="py-2.5 px-3 font-bold">{iso.LockTagNo}</td>
-                          <td className="py-2.5 px-3 text-amber-800">{iso.ZeroEnergyConf === 'Y' ? 'YES' : 'PENDING'}</td>
-                          <td className="py-2.5 px-3">
-                            <span className="px-2 py-0.5 rounded bg-blue-100 text-[#006398] font-bold text-[10px]">
-                              {iso.Status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Add Isolation Point Inline Strip */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                  <span className="block font-mono text-xs font-bold text-slate-800 uppercase mb-3">
-                    Add Physical Isolation Point
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs font-sans">
-                    <div>
-                      <label className="block text-slate-600 font-semibold mb-1">Isolation Point</label>
-                      <input
-                        type="text"
-                        value={newIsoPoint}
-                        onChange={(e) => setNewIsoPoint(e.target.value)}
-                        placeholder="e.g. PUMP DISCHARGE VALVE"
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-600 font-semibold mb-1">Isolation Type</label>
-                      <select
-                        value={newIsoType}
-                        onChange={(e) => setNewIsoType(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs"
-                      >
-                        <option value="MECH">MECH — PROCESS/MECHANICAL</option>
-                        <option value="ELEC">ELEC — ELECTRICAL</option>
-                        <option value="INHOVR">INHOVR — INHIBITS AND OVERRIDES</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-600 font-semibold mb-1">Lock / Tag Number</label>
-                      <input
-                        type="text"
-                        value={newIsoLockTag}
-                        onChange={(e) => setNewIsoLockTag(e.target.value)}
-                        placeholder="LT-000101-02"
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs"
-                      />
-                    </div>
-
-                    <div className="flex items-end">
-                      <button
-                        type="button"
-                        onClick={handleAddIsolation}
-                        className="w-full px-3 py-1.5 bg-[#006398] hover:bg-[#004f7a] text-white rounded-lg font-mono font-bold text-xs flex items-center justify-center gap-1 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">add</span>
-                        <span>Add Point</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: Live Payload Inspector & Review / Submit */}
           {activeTab === 'payload' && (
             <div className="space-y-6">
               {/* Payload Summary Header */}

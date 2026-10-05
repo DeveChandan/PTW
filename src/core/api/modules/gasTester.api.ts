@@ -171,7 +171,6 @@ export const FALLBACK_GAS_TESTS: GasTestRecord[] = [
 ];
 
 class GasTesterApiService {
-  private localStore: GasTestRecord[] = [...FALLBACK_GAS_TESTS];
 
   /**
    * Evaluates Oxygen (O2 % v/v) with precision safety limits and color indication
@@ -491,96 +490,20 @@ class GasTesterApiService {
    * Endpoint: GasTest?$orderby=TestSeq desc
    */
   public async list(permitNo?: string, signal?: AbortSignal): Promise<GasTestRecord[]> {
-    try {
-      let url = `${ODATA_ENTITIES.GAS_TEST}?$orderby=TestSeq desc`;
-      if (permitNo && permitNo.trim()) {
-        const filter = encodeURIComponent(`PermitNo eq '${permitNo.trim()}'`);
-        url += `&$filter=${filter}`;
-      }
-
-      const response = await odataClient.get<ODataCollectionResponse<GasTestRecord>>(url, { signal });
-      const records = response.data?.value || [];
-
-      if (records.length > 0) {
-        // Merge with local store to preserve local creates
-        const serverKeys = new Set(records.map(r => `${r.PermitNo}-${r.TestSeq}`));
-        const localCreated = this.localStore.filter(r => !serverKeys.has(`${r.PermitNo}-${r.TestSeq}`));
-        this.localStore = [...localCreated, ...records];
-        return permitNo ? this.localStore.filter(r => r.PermitNo === permitNo) : this.localStore;
-      }
-
-      return permitNo ? this.localStore.filter(r => r.PermitNo === permitNo) : this.localStore;
-    } catch (error) {
-      console.warn('[GasTesterApi] Live fetch for GasTest failed, using local store. Reason:', error);
-      return permitNo ? this.localStore.filter(r => r.PermitNo === permitNo) : this.localStore;
-    }
+    const params = { $orderby: 'TestDate desc,TestTime desc', ...(permitNo?.trim() ? { $filter: `PermitNo eq '${permitNo.trim().replace(/'/g, "''")}'` } : {}) };
+    const response = await odataClient.get<ODataCollectionResponse<GasTestRecord>>(ODATA_ENTITIES.GAS_TEST, { signal, params });
+    if (!Array.isArray(response.data?.value)) throw new Error('SAP did not return gas test records.');
+    return response.data.value;
   }
-
-  /**
-   * Reads a single Gas Test record by composite key (PermitNo, TestSeq)
-   * Endpoint: GasTest(PermitNo='{permitNo}',TestSeq='{testSeq}')
-   */
   public async read(permitNo: string, testSeq: string, signal?: AbortSignal): Promise<GasTestRecord | null> {
-    try {
-      const url = `${ODATA_ENTITIES.GAS_TEST}(PermitNo='${encodeURIComponent(permitNo)}',TestSeq='${encodeURIComponent(testSeq)}')`;
-      const response = await odataClient.get<GasTestRecord>(url, { signal });
-      if (response.data) {
-        return response.data;
-      }
-      return this.localStore.find(r => r.PermitNo === permitNo && r.TestSeq === testSeq) || null;
-    } catch (error) {
-      console.warn(`[GasTesterApi] Live read for GasTest(${permitNo}, ${testSeq}) failed, using local store. Reason:`, error);
-      return this.localStore.find(r => r.PermitNo === permitNo && r.TestSeq === testSeq) || null;
-    }
+    const key = (value: string) => encodeURIComponent(value.replace(/'/g, "''")).replace(/'/g, '%27');
+    const response = await odataClient.get<GasTestRecord>(`GasTest(PermitNo='${key(permitNo)}',TestSeq='${key(testSeq)}')`, { signal });
+    if (!response.data?.PermitNo) throw new Error('SAP did not return this gas test.');
+    return response.data;
   }
-
-  /**
-   * Records a new calibrated gas test reading directly into SAP GasTest entity set
-   * Endpoint: POST GasTest
-   */
   public async create(record: Partial<GasTestRecord>): Promise<GasTestRecord> {
-    const payload: GasTestRecord = {
-      PermitNo: record.PermitNo || '',
-      TestSeq: record.TestSeq || '1',
-      TestType: record.TestType || 'INIT',
-      TestDate: record.TestDate || new Date().toISOString().split('T')[0],
-      TestTime: record.TestTime || new Date().toTimeString().split(' ')[0],
-      TestLocation: record.TestLocation || '',
-      SampleLevel: record.SampleLevel || 'MID',
-      TestedBy: record.TestedBy || '',
-      Cert: record.Cert || '',
-      MeterType: record.MeterType || 'Multi-Gas 4-in-1',
-      MeterId: record.MeterId || '',
-      CalibDate: record.CalibDate || new Date().toISOString().split('T')[0],
-      BumpTestOk: record.BumpTestOk || 'Y',
-      LelPct: Number(record.LelPct || 0),
-      O2Pct: Number(record.O2Pct || 20.9),
-      CoVal: Number(record.CoVal || 0),
-      H2sVal: Number(record.H2sVal || 0),
-      OtherGas: record.OtherGas || '',
-      OtherVal: Number(record.OtherVal || 0),
-      OtherUnit: record.OtherUnit || 'PPM',
-      TesterSigned: record.TesterSigned || 'Y',
-      Remarks: record.Remarks || '',
-      SAP__Messages: []
-    };
-
-    try {
-      const response = await odataClient.post<GasTestRecord>(ODATA_ENTITIES.GAS_TEST, payload, {
-        headers: { Prefer: 'return=representation' }
-      });
-
-      if (response.data && response.data.PermitNo) {
-        this.localStore.unshift(response.data);
-        return response.data;
-      }
-    } catch (err) {
-      console.warn('[GasTesterApi] Live POST GasTest failed, saving to local store. Reason:', err);
-    }
-
-    // Fallback store save
-    this.localStore.unshift(payload);
-    return payload;
+    void record;
+    throw new Error('The supplied SAP metadata makes GasTest read-only. A backend measurement-entry API is required.');
   }
 
   /**

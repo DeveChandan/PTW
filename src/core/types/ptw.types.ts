@@ -1,3 +1,4 @@
+import type { SapIsolationHeader } from './isolation.types';
 /**
  * Permit To Work (PTW) Domain Entity Interfaces
  * Reflects SAP CDS / RAP Service Definition:
@@ -378,7 +379,9 @@ export interface PermitDeepInsertPayload extends PermitInfoRecord {
 /**
  * Response returned by SAP Gateway on Deep Insert
  */
-export interface PermitDeepInsertResponse extends PermitDeepInsertPayload {
+export interface PermitDeepInsertResponse extends Omit<PermitDeepInsertPayload, '_Isolation'> {
+  _Isolation?: SapIsolationHeader[];
+  /** Client-enriched collection fetched from GasTest, not a PermitInfo navigation. */
   '@odata.context'?: string;
   '@odata.metadataEtag'?: string;
   '@odata.etag'?: string;

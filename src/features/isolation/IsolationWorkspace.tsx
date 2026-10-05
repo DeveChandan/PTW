@@ -1,3 +1,5 @@
+import { CertificateActions } from './CertificateActions';
+import { WorkflowUnconfirmedError } from '../../core/api/modules/backendWorkflow.api';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { ModuleId, SapUser } from '../../core/auth/sapAuthContext';
 import type { SapIsolationHeader, SapIsolationItem } from '../../core/types/isolation.types';
@@ -59,34 +61,37 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
   // Edit Certificate Modal State
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [editingIso, setEditingIso] = useState<SapIsolationHeader | null>(null);
-  const [editPermitNo, setEditPermitNo] = useState<string>('');
   const [editRemarks, setEditRemarks] = useState<string>('');
-  const [editStatus, setEditStatus] = useState<string>('CRTD');
+  const [saveUncertain, setSaveUncertain] = useState(false);
+  const submissionLock = useRef(false);
   const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const handleOpenEdit = (iso: SapIsolationHeader) => {
-    setEditingIso(iso);
-    setEditPermitNo(iso.PermitNo || '');
-    setEditRemarks(iso.Remarks || '');
-    setEditStatus(iso.Status || 'CRTD');
-    setShowEditModal(true);
+  const handleOpenEdit = async (iso: SapIsolationHeader) => {
+    try {
+      const current = await isolationApi.read(iso.IsolationNo);
+      if (!current) throw new Error('SAP did not return this certificate.');
+      setEditingIso(current);
+      setEditRemarks(current.Remarks || '');
+      setShowEditModal(true);
+    } catch (reason) {
+      setNotification({ type: 'error', text: reason instanceof Error ? reason.message : 'Unable to load the current certificate.' });
+    }
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingIso) return;
+    if (!editingIso || submissionLock.current || saveUncertain) return;
+    submissionLock.current = true;
 
     setIsSavingEdit(true);
     setNotification(null);
 
     try {
       const updated = await isolationApi.update(editingIso.IsolationNo, {
-        PermitNo: editPermitNo.trim().toUpperCase(),
-        Remarks: editRemarks.trim(),
-        Status: editStatus
-      });
+        Remarks: editRemarks.trim()
+      }, editingIso['@odata.etag']);
 
       // Update in state
       setIsolations((prev) =>
@@ -104,12 +109,13 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       });
       setShowEditModal(false);
     } catch (err) {
+      if (err instanceof WorkflowUnconfirmedError) setSaveUncertain(true);
       setNotification({
         type: 'error',
         text: err instanceof Error ? err.message : 'Failed to update isolation certificate.'
       });
     } finally {
-      setIsSavingEdit(false);
+      submissionLock.current = false; setIsSavingEdit(false);
     }
   };
 
@@ -124,6 +130,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
         setIsolations(data);
       }
     } catch (err) {
+      if (err instanceof WorkflowUnconfirmedError) setSaveUncertain(true);
       if (!controller.signal.aborted) {
         setNotification({
           type: 'error',
@@ -248,6 +255,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submissionLock.current || saveUncertain) return;
     if (createPoints.some((p) => !p.IsolationPoint.trim())) {
       setNotification({
         type: 'error',
@@ -256,20 +264,15 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       return;
     }
 
+    submissionLock.current = true;
     setIsSubmitting(true);
     setNotification(null);
 
     try {
-      const now = new Date();
       const payload: Partial<SapIsolationHeader> = {
         PermitNo: createPermitNo.trim(),
         Remarks: createRemarks.trim(),
-        RequestedBy: user?.id || 'VERTIF-V',
-        Status: 'CRTD',
-        RequestedDate: now.toISOString().slice(0, 10),
-        RequestedTime: now.toTimeString().slice(0, 8),
-        _Item: createPoints.map((p, idx) => ({
-          ItemNo: String(idx),
+        _Item: createPoints.map((p) => ({
           ReferenceType: p.ReferenceType || 'EQUI',
           ReferenceId: p.ReferenceId.trim(),
           IsolationPoint: p.IsolationPoint.trim().toUpperCase(),
@@ -316,12 +319,13 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
         }
       ]);
     } catch (err) {
+      if (err instanceof WorkflowUnconfirmedError) setSaveUncertain(true);
       setNotification({
         type: 'error',
         text: err instanceof Error ? err.message : 'Error submitting isolation certificate.'
       });
     } finally {
-      setIsSubmitting(false);
+      submissionLock.current = false; setIsSubmitting(false);
     }
   };
 
@@ -723,10 +727,10 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                     type="button"
                     onClick={() => handleOpenEdit(selectedIso)}
                     className="text-[11px] font-semibold text-[#006398] hover:underline flex items-center gap-0.5"
-                    title="Update or add Permit number"
+                    title="Edit certificate remarks"
                   >
                     <span className="material-symbols-outlined text-[13px]">edit</span>
-                    {selectedIso.PermitNo ? 'Change' : '+ Add Permit'}
+                    Edit remarks
                   </button>
                 </div>
                 <div className="mt-1 flex items-center gap-1.5">
@@ -1173,7 +1177,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || saveUncertain}
                 className="inline-flex items-center gap-2 rounded-lg bg-[#006398] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#004f7a] shadow-sm disabled:opacity-50 transition-colors"
               >
                 {isSubmitting && (
@@ -1186,6 +1190,8 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
         </form>
       )}
 
+      {selectedIso && viewMode === 'detail' && <CertificateActions key={selectedIso.IsolationNo} certificate={selectedIso} user={user} onUpdated={updated => { setSelectedIso(updated); setIsolations(rows => rows.map(row => row.IsolationNo === updated.IsolationNo ? updated : row)); }} />}
+      {saveUncertain && <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-4 text-sm">SAP save outcome is unconfirmed. Check existing certificates and audit in SAP before another save.</p>}
       {/* MODE / MODAL: EDIT CERTIFICATE & LINK PERMIT */}
       {showEditModal && editingIso && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
@@ -1204,7 +1210,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 font-mono">
-                    Update or link Permit No &amp; Certificate remarks in SAP
+                    Edit certificate remarks in SAP
                   </p>
                 </div>
               </div>
@@ -1220,71 +1226,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
             {/* Modal Form */}
             <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
               {/* Permit Number Field */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-800 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[15px] text-[#006398]">link</span>
-                    Linked Permit Number (PermitNo)
-                  </label>
-                  {editPermitNo && (
-                    <button
-                      type="button"
-                      onClick={() => setEditPermitNo('')}
-                      className="text-[10px] text-rose-600 hover:underline"
-                    >
-                      Clear / Unassign
-                    </button>
-                  )}
-                </div>
-
-                <div className="relative">
-                  <input
-                    type="text"
-                    maxLength={10}
-                    placeholder="e.g. PTW0000013 or leave empty to unassign"
-                    value={editPermitNo}
-                    onChange={(e) => setEditPermitNo(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono font-bold text-sm text-[#006398] uppercase focus:ring-2 focus:ring-[#006398]/20 focus:border-[#006398] transition"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10px] text-slate-400">Quick suggestions:</span>
-                  {['PTW0000002', 'PTW0000013', 'PTW0000014', 'PTW0000015'].map((pNo) => (
-                    <button
-                      key={pNo}
-                      type="button"
-                      onClick={() => setEditPermitNo(pNo)}
-                      className={`font-mono text-[10px] px-2 py-0.5 rounded border transition ${
-                        editPermitNo === pNo
-                          ? 'bg-[#006398] text-white border-[#006398]'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {pNo}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
-                  Assigning a Permit No links this isolation certificate and its zero-energy points to the specified permit. Work permits in <code>INTD</code> status require verified isolation evidence for authorization.
-                </p>
-              </div>
-
-              {/* Status Field */}
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-800">Certificate Status</label>
-                <select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono font-bold focus:ring-2 focus:ring-[#006398]/20 focus:border-[#006398]"
-                >
-                  <option value="CRTD">CRTD — Draft / Created</option>
-                  <option value="ISOL">ISOL — Physically Isolated &amp; Tagged</option>
-                  <option value="NORM">NORM — Normalized / Restored</option>
-                </select>
-              </div>
-
+              <p className="text-sm">Linked permit: {editingIso.PermitNo || 'Unassigned'} · Status: {editingIso.Status}. SAP controls status and permit linkage is immutable.</p>
               {/* Remarks Field */}
               <div className="space-y-1.5">
                 <label className="font-bold text-slate-800">Certificate Remarks / Scope</label>
@@ -1310,7 +1252,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
 
                 <button
                   type="submit"
-                  disabled={isSavingEdit}
+                  disabled={isSavingEdit || saveUncertain}
                   className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#006398] hover:bg-[#004f7a] text-white font-bold shadow-xs disabled:opacity-50 transition active:scale-[0.98]"
                 >
                   {isSavingEdit ? (

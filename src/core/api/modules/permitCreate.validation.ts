@@ -5,8 +5,8 @@ import { PermitDeepInsertPayload } from '../../types/ptw.types';
 
 interface Property { type: string; maxLength: string | null; precision: string | null; scale: string | null; nullable: boolean }
 const entities = schema as Record<string, Record<string, Property>>;
-const children: Record<string, string> = { _Worker: 'WorkerType', _PPE: 'PPEType', _Safety: 'SafetyType', _HazardControl: 'HazardControlType', _Isolation: 'IsolationType' };
-const serverFields = new Set(['Permit_No', 'PermitNo', 'SAP__Messages', 'Ernam', 'Erdat', 'Erzet', 'Aenam', 'Aedat', 'Aezet', 'LastChangedAt']);
+const children: Record<string, string> = { _Worker: 'WorkerType', _PPE: 'PPEType', _Safety: 'SafetyType', _HazardControl: 'HazardControlType' };
+const serverFields = new Set(['Permit_No', 'PermitNo', 'SAP__Messages', 'Ernam', 'Erdat', 'Erzet', 'Aenam', 'Aedat', 'Aezet', 'LastChangedAt', 'PersonsQty']);
 
 function serialize(entity: string, value: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
@@ -45,6 +45,8 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
   if (end.getTime() <= Date.now()) throw new Error('The permit validity period has already ended.');
   if (!payload._Worker?.length || payload.PersonsQty !== payload._Worker.length) throw new Error('Add the actual crew and make the crew quantity match the worker list.');
   if (!payload._HazardControl?.length) throw new Error('Add the work hazards and required controls.');
+  if (payload.LotoRequired === 'Y' && !['Y', 'X'].includes(payload.IsolationRequired)) throw new Error('LOTO requires isolation. Select Yes for isolation.');
+  if (payload._Isolation?.length) throw new Error('Create isolation certificates with their _Item points in the isolation module after the permit is created.');
   const status = initialPermitStatus(payload.IsolationRequired, payload.GasTestRequired || '');
   if (payload.GasTestRequired === 'Y' && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours.');
   validateSitePermit(payload);

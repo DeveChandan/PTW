@@ -58,7 +58,7 @@ export function PermitProcedureWorkspace({ module, user, onBack }: { module: Mod
     } finally { if (!controller.signal.aborted) setLoading(false); }
   };
   const section = SECTIONS.find(item => item.key === active)!;
-  const rows = permit?.[active];
+  const rows = active === '_Isolation' ? permit?._Isolation?.flatMap(certificate => (certificate._Item || []).map(point => ({ ...point, IsolationNo: certificate.IsolationNo, CertificateStatus: certificate.Status }))) : permit?.[active];
   return <div className="mx-auto max-w-7xl space-y-5 px-4 py-6">
     <header className="flex items-center justify-between gap-4 border-b pb-4">
       <div>
@@ -113,7 +113,7 @@ export function PermitProcedureWorkspace({ module, user, onBack }: { module: Mod
         ['SAP reference', permit.Qmnum || permit.Aufnr], ['From (IST)', `${permit.ValidFromD || ''} ${permit.ValidFromT}`], ['To (IST)', `${permit.ValidToD || ''} ${permit.ValidToT}`],
         ['Execution department', permit.ExecDept], ['Suspension reason', permit.SuspendReason], ['Cancellation reason', permit.CancelReason],
       ].map(([label, value]) => <div key={label}><dt className="text-slate-500">{label}</dt><dd>{value || 'Not recorded'}</dd></div>)}</dl>
-      <PrerequisitePanel key={`${permit.Permit_No}:${permit['@odata.etag'] || ''}`} permit={permit} module={module} user={user} onBusyChange={setUpdating} onUpdated={updated => setPermit(current => current?.Permit_No === updated.Permit_No && current?.['@odata.etag'] === permit['@odata.etag'] ? updated : current)} />
+      <PrerequisitePanel key={permit.Permit_No} permit={permit} module={module} user={user} onBusyChange={setUpdating} onUpdated={updated => setPermit(current => current?.Permit_No === updated.Permit_No && current?.['@odata.etag'] === permit['@odata.etag'] ? updated : current)} />
       <div className="flex flex-wrap gap-2" aria-label="Permit evidence sections">{SECTIONS.map(item => <button type="button" aria-pressed={active === item.key} key={item.key} onClick={() => setActive(item.key)} className={`rounded-lg border px-3 py-2 text-xs ${active === item.key ? 'bg-[#006398] text-white' : 'bg-slate-50'}`}>{item.title}</button>)}</div>
       <h3 className="font-semibold">{section.title}</h3>
       {active === '_GasTest' && <p className="text-sm text-amber-800">Gas results are displayed as recorded. HSE must reconcile the source gas limits before automatic clearance is enabled. Confirm the approved units for CO and H2S.</p>}
