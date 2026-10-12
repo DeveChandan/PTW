@@ -161,6 +161,10 @@ interface SapAuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   isSessionRestoring: boolean;
+  isReauthRequired: boolean;
+  setIsReauthRequired: (val: boolean) => void;
+  reauthenticate: (password: string) => Promise<boolean>;
+  cancelReauth: () => void;
   error: string | null;
   activeModule: ModuleId;
   setActiveModule: (mod: ModuleId) => void;
@@ -198,6 +202,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [isSessionRestoring, setIsSessionRestoring] = useState<boolean>(true);
+  const [isReauthRequired, setIsReauthRequired] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<ModuleId>('permit-create');
 
@@ -321,7 +326,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (raw) {
           const parsed: StoredUserSession = JSON.parse(raw);
           if (Date.now() - parsed.timestamp > SESSION_IDLE_TIMEOUT_MS) {
-            logout();
+            setIsReauthRequired(true);
             setError('Your SAP session has timed out due to inactivity.');
           }
         }
@@ -339,21 +344,25 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [isAuthenticated]);
 
   /**
-   * 3. Intercept 401 Unauthorized from SAP Gateway to expire session
+   * 3. Intercept 401 Unauthorized from SAP Gateway to trigger non-destructive in-place reauth
    */
   useEffect(() => {
     odataClient.onSessionExpired(() => {
-      try {
-        sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      } catch {
-        // ignore
+      if (user) {
+        setIsReauthRequired(true);
+      } else {
+        try {
+          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+        authApi.clearSession();
+        setUser(null);
+        setIsAuthenticated(false);
+        setError('Your SAP session was terminated by the server. Please log on again.');
       }
-      authApi.clearSession();
-      setUser(null);
-      setIsAuthenticated(false);
-      setError('Your SAP session was terminated by the server. Please log on again.');
     });
-  }, []);
+  }, [user]);
 
   /**
    * Retrieve remembered SAP User ID from localStorage
@@ -437,6 +446,26 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return user.unlockedModules.includes(moduleId);
   };
 
+  const reauthenticate = async (password: string): Promise<boolean> => {
+    if (!user) return false;
+    const ok = await login({
+      userId: user.id,
+      password,
+      client: user.client,
+      language: user.language
+    });
+    if (ok) {
+      setIsReauthRequired(false);
+      setError(null);
+    }
+    return ok;
+  };
+
+  const cancelReauth = () => {
+    setIsReauthRequired(false);
+    logout();
+  };
+
   const unlockedModulesList = MODULE_REGISTRY.filter((mod) =>
     user ? user.unlockedModules.includes(mod.id) : false
   );
@@ -448,6 +477,10 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isAuthenticated,
         loading,
         isSessionRestoring,
+        isReauthRequired,
+        setIsReauthRequired,
+        reauthenticate,
+        cancelReauth,
         error,
         activeModule,
         setActiveModule,

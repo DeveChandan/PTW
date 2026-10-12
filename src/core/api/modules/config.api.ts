@@ -5,7 +5,7 @@ import { ConfigType, SapConfigRecord, SapConfigResponse } from '../../types/conf
  * Offline / Fallback Seed Data supplied by SAP backend configuration
  * Used when disconnected from VPN or when SAP Gateway is unreachable.
  */
-const FALLBACK_CONFIG_DATA: Record<ConfigType, SapConfigRecord[]> = {
+export const FALLBACK_CONFIG_DATA: Record<ConfigType, SapConfigRecord[]> = {
   PPE: [
     { Config_Type: 'PPE', Config_Code: 'ARCFLHV', Config_Desc: 'ARC FLASH SUIT WITH HOOD (HV) 40CAL/CM²', Parent_Code: 'ELECTRICAL', Active: 'X' },
     { Config_Type: 'PPE', Config_Code: 'ARCFLLV', Config_Desc: 'ARC FLASH SUIT WITH HOOD (LV) 8CAL/CM²', Parent_Code: 'ELECTRICAL', Active: 'X' },
@@ -61,14 +61,48 @@ const FALLBACK_CONFIG_DATA: Record<ConfigType, SapConfigRecord[]> = {
     { Config_Type: 'WORKER_TYPE', Config_Code: 'EMP', Config_Desc: 'EMPLOYEE', Parent_Code: '', Active: 'X' }
   ],
   DEPARTMENT: [
-    { Config_Type: 'DEPARTMENT', Config_Code: 'CIVIL', Config_Desc: 'CIVIL', Parent_Code: '', Active: '' },
-    { Config_Type: 'DEPARTMENT', Config_Code: 'ELECTRICAL', Config_Desc: 'ELECTRICAL', Parent_Code: '', Active: '' },
-    { Config_Type: 'DEPARTMENT', Config_Code: 'INSPECTION', Config_Desc: 'INSPECTION', Parent_Code: '', Active: '' },
-    { Config_Type: 'DEPARTMENT', Config_Code: 'INSTRUMENT', Config_Desc: 'INSTRUMENTATION', Parent_Code: '', Active: '' },
-    { Config_Type: 'DEPARTMENT', Config_Code: 'MECH_ROT', Config_Desc: 'MECHANICAL (ROTARY)', Parent_Code: '', Active: '' },
-    { Config_Type: 'DEPARTMENT', Config_Code: 'MECH_STAT', Config_Desc: 'MECHANICAL (STATIC)', Parent_Code: '', Active: '' },
-    { Config_Type: 'DEPARTMENT', Config_Code: 'PROCESS', Config_Desc: 'PROCESS', Parent_Code: '', Active: '' },
-    { Config_Type: 'DEPARTMENT', Config_Code: 'SAFETY', Config_Desc: 'SAFETY', Parent_Code: '', Active: '' }
+    { Config_Type: 'DEPARTMENT', Config_Code: 'CIVIL', Config_Desc: 'CIVIL', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'ELECTRICAL', Config_Desc: 'ELECTRICAL', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'ENV', Config_Desc: 'ENVIRONMENT', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'FIRE', Config_Desc: 'FIRE', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'INSTRU', Config_Desc: 'INSTRUMENTATION', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'IT', Config_Desc: 'IT', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'MECH', Config_Desc: 'MECHANICAL', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'MECH_ROTARY', Config_Desc: 'MECHANICAL (ROTARY)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'MECH_STATIC', Config_Desc: 'MECHANICAL (STATIC)', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'PROCESS', Config_Desc: 'PROCESS / OPPERATIONS', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'DEPARTMENT', Config_Code: 'SAFETY', Config_Desc: 'SAFETY', Parent_Code: '', Active: 'X' }
+  ],
+  PLANT: [
+    { Config_Type: 'PLANT', Config_Code: 'APTFE_PLANT', Config_Desc: 'APTFE PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CA_PLANT', Config_Desc: 'CA PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CACL2_PLANT_1', Config_Desc: 'CACL2 PLANT 1', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CACL2_PLANT_2', Config_Desc: 'CACL2 PLANT 2', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CACL2_PLANT_3', Config_Desc: 'CACL2 PLANT 3', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CACL2_PLANT_4', Config_Desc: 'CACL2 PLANT 4', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CMS_PLANT_1', Config_Desc: 'CMS PLANT 1', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CMS_PLANT_2', Config_Desc: 'CMS PLANT 2', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'COMMON_POLYMER_UTIL', Config_Desc: 'COMMON POLYMER UTILS', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CPP_COAL', Config_Desc: 'CPP - COAL', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'CPP_NG', Config_Desc: 'CPP - NG', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'DPTFE_PLANT', Config_Desc: 'DPTFE PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'ETP_PLANT', Config_Desc: 'EFFLUENT TREATMENT PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'FEP_PLANT', Config_Desc: 'FEP PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'FI_PLANT', Config_Desc: 'FI PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'FKM_PLANT', Config_Desc: 'FKM PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'HCFC_R22_PLANT', Config_Desc: 'HCFC (R-22) PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'HF_PLANT', Config_Desc: 'HF PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'PFA_PLANT', Config_Desc: 'PFA PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'PILOT_PLANT', Config_Desc: 'PILOT PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'PVDF_PLANT', Config_Desc: 'PVDF PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'R125_PLANT', Config_Desc: 'R-125 PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'R225_PLANT', Config_Desc: 'R-225 PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'REACTOR_8_9', Config_Desc: '8 & 9 REACTOR PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'SPTFE_PTPTFE_PLANT', Config_Desc: 'SPTFE / PTPTFE PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'TFE_PLANT_1', Config_Desc: 'TFE PLANT 1', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'TFE_PLANT_2', Config_Desc: 'TFE PLANT 2', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'TFE_PLANT_3', Config_Desc: 'TFE PLANT 3', Parent_Code: 'DEPARTMENT', Active: 'X' },
+    { Config_Type: 'PLANT', Config_Code: 'VDF_PLANT', Config_Desc: 'VDF PLANT', Parent_Code: 'DEPARTMENT', Active: 'X' }
   ],
   ISOLATION_TYPE: [
     { Config_Type: 'ISOLATION_TYPE', Config_Code: 'ELEC', Config_Desc: 'ELECTRICAL', Parent_Code: '', Active: 'X' },
@@ -226,6 +260,10 @@ class ConfigApiService {
 
   public async fetchDepartmentConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
     return this.fetchConfigByType('DEPARTMENT', forceRefresh);
+  }
+
+  public async fetchPlantConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
+    return this.fetchConfigByType('PLANT', forceRefresh);
   }
 
   public async fetchIsolationTypeConfig(forceRefresh = false): Promise<SapConfigRecord[]> {

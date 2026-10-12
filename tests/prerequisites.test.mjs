@@ -20,15 +20,20 @@ test('creation status and approval matrix require ALL required checks, not eithe
     const body = preparePermitCreate({ ...create(), IsolationRequired: isolation, GasTestRequired: gas, GasTestFreqHr: '2' });
     assert.equal(body.Status, initialPermitStatus(isolation, gas));
     assert.equal(body.IsolationRequired, isolation === 'Y' ? 'X' : ' ');
+    assert.equal(body.IsolationStatus, isolation === 'Y' ? 'CRTD' : '');
     assert.equal(readGasRequirement(body), gas);
-    assert.equal(body.GasTestRequired, undefined);
+    assert.equal(body.GasTestRequired, gas === 'Y' ? 'X' : ' ');
   }
   // Verify direct ABAP flags 'X' and ' '
-  const bodyX = preparePermitCreate({ ...create(), IsolationRequired: 'X', GasTestRequired: 'N' });
+  const bodyX = preparePermitCreate({ ...create(), IsolationRequired: 'X', GasTestRequired: 'X', GasTestFreqHr: '2' });
   assert.equal(bodyX.IsolationRequired, 'X');
+  assert.equal(bodyX.IsolationStatus, 'CRTD');
+  assert.equal(bodyX.GasTestRequired, 'X');
   assert.equal(bodyX.Status, 'INTD');
-  const bodyBlank = preparePermitCreate({ ...create(), IsolationRequired: ' ', GasTestRequired: 'N' });
+  const bodyBlank = preparePermitCreate({ ...create(), IsolationRequired: ' ', GasTestRequired: ' ' });
   assert.equal(bodyBlank.IsolationRequired, ' ');
+  assert.equal(bodyBlank.IsolationStatus, '');
+  assert.equal(bodyBlank.GasTestRequired, ' ');
   assert.equal(bodyBlank.Status, 'CRTD');
 });
 test('required choices and department cannot default silently; unknown stored gas flag stays unknown', () => {
@@ -43,16 +48,33 @@ test('required choices and department cannot default silently; unknown stored ga
 test('create omits computed quantity, rejects contradictory LOTO and defers isolation points', () => {
   assert.equal(preparePermitCreate(create()).PersonsQty, undefined);
   assert.throws(() => preparePermitCreate({...create(),LotoRequired:'Y'}), /LOTO requires isolation/);
-  assert.equal(preparePermitCreate({...create(),LotoRequired:'Y',IsolationRequired:'Y'}).Status,'INTD');
-  assert.equal(preparePermitCreate({...create(),LotoRequired:'Y',IsolationRequired:'X'}).Status,'INTD');
+  assert.throws(() => preparePermitCreate({...create(),LotoRequired:'X'}), /LOTO requires isolation/);
+  const lotoY = preparePermitCreate({...create(),LotoRequired:'Y',IsolationRequired:'Y'});
+  assert.equal(lotoY.Status,'INTD');
+  assert.equal(lotoY.LotoRequired, 'X');
+  assert.equal(lotoY.IsolationStatus, 'CRTD');
+  const lotoX = preparePermitCreate({...create(),LotoRequired:'X',IsolationRequired:'X'});
+  assert.equal(lotoX.Status,'INTD');
+  assert.equal(lotoX.LotoRequired, 'X');
+  assert.equal(lotoX.IsolationStatus, 'CRTD');
+  const lotoN = preparePermitCreate({...create(),LotoRequired:'N',IsolationRequired:'N'});
+  assert.equal(lotoN.LotoRequired, ' ');
+  assert.equal(lotoN.IsolationStatus, '');
+  const lotoBlank = preparePermitCreate({...create(),LotoRequired:' ',IsolationRequired:' '});
+  assert.equal(lotoBlank.LotoRequired, ' ');
+  assert.equal(lotoBlank.IsolationStatus, '');
   assert.throws(() => preparePermitCreate({...create(),LotoRequired:'Y',IsolationRequired:' '}), /LOTO requires isolation/);
+  assert.throws(() => preparePermitCreate({...create(),LotoRequired:'X',IsolationRequired:' '}), /LOTO requires isolation/);
   assert.throws(() => preparePermitCreate({...create(),IsolationRequired:'Y',_Isolation:[{IsolationPoint:'P1'}]}), /isolation module/);
 });
 test('certificate creation serializes nested items and omits computed keys and signatures', () => {
   const body=prepareIsolationCreate({PermitNo:'P1',Status:'APPR',RequestedBy:'FORGED',IsolationNo:'FORGED',_Item:[{ItemNo:'99',IsolationNo:'FORGED',ReferenceType:'EQUI',ReferenceId:'E1',IsolationPoint:'P1',IsolType:'MECH',IsolMethod:'VALVE',IsolatedState:'CLOSED',LockTagNo:'L1',IsIsolated:'Y',ZeroEnergyBy:'FORGED',ZeroEnergyConf:'Y'}]});
   assert.equal(body.Status,undefined);assert.equal(body.IsolationNo,undefined);assert.equal(body.RequestedBy,undefined);
+  assert.equal(body.description, '');
   assert.equal(body._Item[0].ItemNo,undefined);assert.equal(body._Item[0].IsolationNo,undefined);
-  assert.equal(body._Item[0].IsIsolated,'N');assert.equal(body._Item[0].ZeroEnergyConf,'N');assert.equal(body._Item[0].ZeroEnergyBy,'');
+  assert.equal(body._Item[0].IsIsolated,'');assert.equal(body._Item[0].ZeroEnergyConf,'');assert.equal(body._Item[0].ZeroEnergyBy,'');
+  const bodyWithDesc = prepareIsolationCreate({PermitNo:'P1',description:'Main pump isolation',_Item:[{ReferenceType:'EQUI',ReferenceId:'E1',IsolationPoint:'P1',IsolType:'MECH',IsolMethod:'VALVE',IsolatedState:'CLOSED',LockTagNo:'L1'}]});
+  assert.equal(bodyWithDesc.description, 'Main pump isolation');
   assert.throws(()=>prepareIsolationCreate({PermitNo:'P1',_Item:[]}),/point/);
 });
 test('declared bound actions send empty bodies, correct binding and ETag; uncertain writes never retry', async () => {

@@ -51,6 +51,10 @@ export const ODATA_NAV_PROPERTIES = {
   APPROVAL: '_Approval',
   SHIFT_RENEWAL: '_ShiftRenewal',
   AUDIT_LOG: '_AuditLog',
+  WORK_TYPE: '_WorkType',
+  CHK: '_CHK',
+  EQUIPMENT: '_Equipment',
+  NATW: '_NATW',
 } as const;
 
 /**

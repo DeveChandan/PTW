@@ -4,8 +4,11 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { ModuleId, SapUser } from '../../core/auth/sapAuthContext';
 import type { SapIsolationHeader, SapIsolationItem } from '../../core/types/isolation.types';
 import { isolationApi } from '../../core/api/modules/isolation.api';
+import { sitePermitApi } from '../../core/api/modules/sitePermit.api';
 import { configApi } from '../../core/api/modules/config.api';
 import type { SapConfigRecord } from '../../core/types/config.types';
+import { SectionCard } from '../../shared/components/SectionCard';
+import { toast } from '../../shared/context/ToastContext';
 
 interface IsolationWorkspaceProps {
   module: ModuleId;
@@ -26,6 +29,19 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
+  const showNotification = (type: 'success' | 'error' | 'info' | 'warning', text: string) => {
+    setNotification({ type: type === 'warning' ? 'error' : type, text });
+    if (type === 'error') {
+      toast.error(text, { title: 'Isolation Error' });
+    } else if (type === 'warning') {
+      toast.warning(text, { title: 'Mandatory Field Missing' });
+    } else if (type === 'success') {
+      toast.success(text, { title: 'Isolation Updated' });
+    } else {
+      toast.info(text);
+    }
+  };
+
   // Dropdown Configs from SAP OData
   const [isolationTypes, setIsolationTypes] = useState<SapConfigRecord[]>([]);
   const [isolatedStates, setIsolatedStates] = useState<SapConfigRecord[]>([]);
@@ -34,6 +50,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
 
   // New Isolation Creation Form State
   const [createPermitNo, setCreatePermitNo] = useState<string>('');
+  const [createDescription, setCreateDescription] = useState<string>('');
   const [createRemarks, setCreateRemarks] = useState<string>('');
   const [createPoints, setCreatePoints] = useState<Array<Omit<SapIsolationItem, 'IsolationNo' | 'ItemNo'>>>([
     {
@@ -41,9 +58,9 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       ReferenceId: '',
       IsolationPoint: '',
       IsolType: 'MECH',
-      IsolMethod: 'VALVE_CC',
+      IsolMethod: 'VALVE',
       IsolatedState: 'CLOSED',
-      DeIsolatedState: 'NORMAL',
+      DeIsolatedState: '',
       LockTagNo: '',
       IsIsolated: '',
       IsolatedBy: '',
@@ -61,6 +78,8 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
   // Edit Certificate Modal State
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [editingIso, setEditingIso] = useState<SapIsolationHeader | null>(null);
+  const [editPermitNo, setEditPermitNo] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
   const [editRemarks, setEditRemarks] = useState<string>('');
   const [saveUncertain, setSaveUncertain] = useState(false);
   const submissionLock = useRef(false);
@@ -73,10 +92,12 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       const current = await isolationApi.read(iso.IsolationNo);
       if (!current) throw new Error('SAP did not return this certificate.');
       setEditingIso(current);
+      setEditPermitNo(current.PermitNo || '');
+      setEditDescription(current.description || '');
       setEditRemarks(current.Remarks || '');
       setShowEditModal(true);
     } catch (reason) {
-      setNotification({ type: 'error', text: reason instanceof Error ? reason.message : 'Unable to load the current certificate.' });
+      showNotification('error', reason instanceof Error ? reason.message : 'Unable to load the current certificate.');
     }
   };
 
@@ -89,31 +110,50 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
     setNotification(null);
 
     try {
+      const trimmedPermit = editPermitNo.trim().toUpperCase();
       const updated = await isolationApi.update(editingIso.IsolationNo, {
+        PermitNo: trimmedPermit,
+        description: editDescription.trim(),
         Remarks: editRemarks.trim()
       }, editingIso['@odata.etag']);
 
-      // Update in state
-      setIsolations((prev) =>
-        prev.map((i) => (i.IsolationNo === updated.IsolationNo ? { ...i, ...updated } : i))
-      );
-      if (selectedIso && selectedIso.IsolationNo === updated.IsolationNo) {
-        setSelectedIso((prev) => (prev ? { ...prev, ...updated } : null));
+      // Also sync link to PermitInfo in SAP if permit specified or unassigned
+      if (trimmedPermit) {
+        await sitePermitApi.updateIsolationLink(trimmedPermit, editingIso.IsolationNo);
+      } else if (editingIso.PermitNo) {
+        await sitePermitApi.updateIsolationLink(editingIso.PermitNo, '');
       }
 
-      setNotification({
-        type: 'success',
-        text: `Isolation Certificate ${updated.IsolationNo} successfully updated. Linked Permit: ${
-          updated.PermitNo ? updated.PermitNo : 'Unassigned'
+      const effectivePermitNo = updated.PermitNo !== undefined && updated.PermitNo !== '' 
+        ? updated.PermitNo 
+        : trimmedPermit;
+
+      const finalUpdated: SapIsolationHeader = {
+        ...updated,
+        PermitNo: effectivePermitNo
+      };
+
+      // Update in state
+      setIsolations((prev) =>
+        prev.map((i) => (i.IsolationNo === finalUpdated.IsolationNo ? { ...i, ...finalUpdated, _Item: finalUpdated._Item || i._Item } : i))
+      );
+      if (selectedIso && selectedIso.IsolationNo === finalUpdated.IsolationNo) {
+        setSelectedIso((prev) => (prev ? { ...prev, ...finalUpdated, _Item: finalUpdated._Item || prev._Item } : null));
+      }
+
+      showNotification(
+        'success',
+        `Isolation Certificate ${finalUpdated.IsolationNo} successfully updated. Linked Permit: ${
+          effectivePermitNo ? effectivePermitNo : 'Unassigned'
         }.`
-      });
+      );
       setShowEditModal(false);
     } catch (err) {
       if (err instanceof WorkflowUnconfirmedError) setSaveUncertain(true);
-      setNotification({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Failed to update isolation certificate.'
-      });
+      showNotification(
+        'error',
+        err instanceof Error ? err.message : 'Failed to update isolation certificate.'
+      );
     } finally {
       submissionLock.current = false; setIsSavingEdit(false);
     }
@@ -132,10 +172,10 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
     } catch (err) {
       if (err instanceof WorkflowUnconfirmedError) setSaveUncertain(true);
       if (!controller.signal.aborted) {
-        setNotification({
-          type: 'error',
-          text: err instanceof Error ? err.message : 'Failed to fetch isolation records from SAP.'
-        });
+        showNotification(
+          'error',
+          err instanceof Error ? err.message : 'Failed to fetch isolation records from SAP.'
+        );
       }
     } finally {
       if (!controller.signal.aborted) {
@@ -183,6 +223,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
         iso.IsolationNo.toLowerCase().includes(q) ||
         iso.PermitNo.toLowerCase().includes(q) ||
         iso.RequestedBy.toLowerCase().includes(q) ||
+        (iso.description && iso.description.toLowerCase().includes(q)) ||
         (iso.Remarks && iso.Remarks.toLowerCase().includes(q)) ||
         iso._Item?.some(
           (item) =>
@@ -220,9 +261,9 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
         ReferenceId: '',
         IsolationPoint: '',
         IsolType: 'MECH',
-        IsolMethod: 'VALVE_CC',
+        IsolMethod: 'VALVE',
         IsolatedState: 'CLOSED',
-        DeIsolatedState: 'NORMAL',
+        DeIsolatedState: '',
         LockTagNo: '',
         IsIsolated: '',
         IsolatedBy: '',
@@ -256,11 +297,12 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submissionLock.current || saveUncertain) return;
-    if (createPoints.some((p) => !p.IsolationPoint.trim())) {
-      setNotification({
-        type: 'error',
-        text: 'Please specify the physical isolation point name for all points.'
-      });
+    if (!createPoints.length) {
+      showNotification('warning', 'Please add at least one isolation point.');
+      return;
+    }
+    if (createPoints.some((p) => !p.IsolationPoint.trim() || !p.ReferenceId.trim())) {
+      showNotification('warning', 'Please specify the Reference ID and physical isolation point name for all points.');
       return;
     }
 
@@ -271,6 +313,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
     try {
       const payload: Partial<SapIsolationHeader> = {
         PermitNo: createPermitNo.trim(),
+        description: createDescription.trim(),
         Remarks: createRemarks.trim(),
         _Item: createPoints.map((p) => ({
           ReferenceType: p.ReferenceType || 'EQUI',
@@ -286,15 +329,16 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       };
 
       const result = await isolationApi.create(payload);
-      setNotification({
-        type: 'success',
-        text: `Isolation Certificate ${result.IsolationNo} successfully created and registered in SAP database.`
-      });
+      showNotification(
+        'success',
+        `Isolation Certificate ${result.IsolationNo} successfully created and registered in SAP database.`
+      );
       await loadIsolations();
       setSelectedIso(result);
       setViewMode('detail');
       // Reset form
       setCreatePermitNo('');
+      setCreateDescription('');
       setCreateRemarks('');
       setCreatePoints([
         {
@@ -302,9 +346,9 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
           ReferenceId: '',
           IsolationPoint: '',
           IsolType: 'MECH',
-          IsolMethod: 'VALVE_CC',
+          IsolMethod: 'VALVE',
           IsolatedState: 'CLOSED',
-          DeIsolatedState: 'NORMAL',
+          DeIsolatedState: '',
           LockTagNo: '',
           IsIsolated: '',
           IsolatedBy: '',
@@ -320,10 +364,10 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       ]);
     } catch (err) {
       if (err instanceof WorkflowUnconfirmedError) setSaveUncertain(true);
-      setNotification({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Error submitting isolation certificate.'
-      });
+      showNotification(
+        'error',
+        err instanceof Error ? err.message : 'Error submitting isolation certificate.'
+      );
     } finally {
       submissionLock.current = false; setIsSubmitting(false);
     }
@@ -442,367 +486,399 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
         </div>
       )}
 
-      {/* KPI Overview Metrics Strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Total Certificates
-          </span>
+      {/* KPI Overview Metrics Strip with Layered Depth & Light Tint Gradients */}
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-5">
+        <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-slate-50/70 to-slate-100/50 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.04),0_6px_16px_-4px_rgba(15,23,42,0.06),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+              Certificates
+            </span>
+            <span className="material-symbols-outlined text-[18px] text-slate-400">verified</span>
+          </div>
           <p className="mt-1 font-mono text-2xl font-bold text-slate-800">{stats.total}</p>
         </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-            Draft / Created (CRTD)
-          </span>
+
+        <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-white via-[#fffef7] to-amber-50/70 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(217,119,6,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700">
+              Draft (CRTD)
+            </span>
+            <span className="material-symbols-outlined text-[18px] text-amber-600">edit_document</span>
+          </div>
           <p className="mt-1 font-mono text-2xl font-bold text-amber-900">{stats.crtd}</p>
         </div>
-        <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700">
-            Isolated (ISOL)
-          </span>
+
+        <div className="rounded-2xl border border-sky-200/90 bg-gradient-to-br from-white via-[#f5f9fe] to-sky-50/70 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(0,99,152,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-700">
+              Isolated (ISOL)
+            </span>
+            <span className="material-symbols-outlined text-[18px] text-[#006398]">lock</span>
+          </div>
           <p className="mt-1 font-mono text-2xl font-bold text-blue-900">{stats.isol}</p>
         </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-            Normalized (NORM)
-          </span>
+
+        <div className="rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-white via-[#f4fbf7] to-emerald-50/70 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(5,150,105,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700">
+              Normalized (NORM)
+            </span>
+            <span className="material-symbols-outlined text-[18px] text-emerald-600">lock_open</span>
+          </div>
           <p className="mt-1 font-mono text-2xl font-bold text-emerald-900">{stats.norm}</p>
         </div>
-        <div className="rounded-xl border border-orange-200 bg-orange-50/50 p-3.5 shadow-sm">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-orange-700">
-            Total Points Locked
-          </span>
+
+        <div className="rounded-2xl border border-orange-200/90 bg-gradient-to-br from-white via-[#fffdf8] to-orange-50/70 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(234,88,12,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-orange-700">
+              Points Locked
+            </span>
+            <span className="material-symbols-outlined text-[18px] text-orange-600">key</span>
+          </div>
           <p className="mt-1 font-mono text-2xl font-bold text-orange-900">{stats.totalPoints}</p>
         </div>
       </div>
 
       {/* MODE 1: LIST / BROWSE CERTIFICATES */}
       {viewMode === 'list' && (
-        <div className="space-y-4">
-          {/* Search & Filter Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-1 items-center gap-2 min-w-[260px]">
-              <span className="material-symbols-outlined text-slate-400">search</span>
-              <input
-                type="text"
-                placeholder="Search certificate #, permit #, point name, lock/tag..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs outline-none bg-transparent placeholder-slate-400"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="text-xs text-slate-400 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 font-medium">Status:</span>
-              <div className="flex gap-1">
-                {(['ALL', 'CRTD', 'ISOL', 'NORM'] as const).map((st) => (
+        <SectionCard
+          theme="amber"
+          sectionTag="LOTO REGISTRY"
+          title="Isolation Certificate Registry"
+          subtitle="Positive zero-energy lockouts, breaker tags, and physical isolation certificates."
+          icon="lock"
+          badge={
+            <span className="px-2.5 py-0.5 rounded-full font-mono text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              {filteredIsolations.length} Certificates
+            </span>
+          }
+        >
+          <div className="space-y-4">
+            {/* Search & Filter Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4 shadow-xs">
+              <div className="flex flex-1 items-center gap-2 min-w-[260px] bg-white px-3 py-2 rounded-xl border border-slate-200">
+                <span className="material-symbols-outlined text-slate-400 text-[18px]">search</span>
+                <input
+                  type="text"
+                  placeholder="Search certificate #, permit #, point name, lock/tag..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full text-xs outline-none bg-transparent placeholder-slate-400 font-sans"
+                />
+                {searchQuery && (
                   <button
-                    key={st}
                     type="button"
-                    onClick={() => setStatusFilter(st)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-mono font-bold transition-all ${
-                      statusFilter === st
-                        ? 'bg-[#006398] text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs text-slate-400 hover:text-slate-600"
                   >
-                    {st}
+                    ✕
                   </button>
-                ))}
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-semibold font-mono">Status:</span>
+                <div className="flex gap-1">
+                  {(['ALL', 'CRTD', 'ISOL', 'NORM'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setStatusFilter(st)}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-mono font-bold transition-all ${
+                        statusFilter === st
+                          ? 'bg-[#006398] text-white shadow-xs'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Certificates Table */}
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b bg-slate-50/80 font-mono text-[11px] uppercase tracking-wider text-slate-600">
-                <tr>
-                  <th className="p-3">Isolation Certificate</th>
-                  <th className="p-3">Linked Permit</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Requested By & Date</th>
-                  <th className="p-3">Points Registered</th>
-                  <th className="p-3">Remarks / Scope</th>
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredIsolations.length === 0 ? (
+            {/* Certificates Table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b bg-slate-50/80 font-mono text-[11px] uppercase tracking-wider text-slate-600">
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-500">
-                      <div className="flex flex-col items-center gap-2">
-                        <span className="material-symbols-outlined text-[36px] text-slate-300">
-                          folder_off
-                        </span>
-                        <span>No isolation certificates found matching current criteria.</span>
-                      </div>
-                    </td>
+                    <th className="p-3">Isolation Certificate</th>
+                    <th className="p-3">Linked Permit</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Requested By & Date</th>
+                    <th className="p-3">Points Registered</th>
+                    <th className="p-3">Description / Remarks</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
-                ) : (
-                  filteredIsolations.map((iso) => (
-                    <tr key={iso.IsolationNo} className="hover:bg-sky-50/40 transition-colors">
-                      <td className="p-3 font-mono font-bold text-[#006398]">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedIso(iso);
-                            setViewMode('detail');
-                          }}
-                          className="hover:underline flex items-center gap-1.5"
-                        >
-                          <span className="material-symbols-outlined text-[16px] text-orange-600">
-                            lock
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-sans">
+                  {filteredIsolations.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-500">
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="material-symbols-outlined text-[36px] text-slate-300">
+                            folder_off
                           </span>
-                          {iso.IsolationNo}
-                        </button>
-                      </td>
-                      <td className="p-3 font-mono">
-                        {iso.PermitNo ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 rounded bg-sky-50 px-2 py-0.5 text-[#006398] font-bold border border-sky-100">
-                              {iso.PermitNo}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEdit(iso);
-                              }}
-                              className="text-slate-400 hover:text-[#006398] p-0.5 rounded transition"
-                              title="Edit Permit No"
-                            >
-                              <span className="material-symbols-outlined text-[14px]">edit</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenEdit(iso);
-                            }}
-                            className="inline-flex items-center gap-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold transition"
-                            title="Add or link a Permit No to this certificate"
-                          >
-                            <span className="material-symbols-outlined text-[13px]">add_link</span>
-                            <span>+ Link Permit</span>
-                          </button>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase ${
-                            iso.Status === 'CRTD'
-                              ? 'bg-amber-100 text-amber-800'
-                              : iso.Status === 'ISOL'
-                              ? 'bg-blue-100 text-blue-800'
-                              : iso.Status === 'NORM'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {iso.Status}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <div className="font-semibold text-slate-800">{iso.RequestedBy}</div>
-                        <div className="font-mono text-[10px] text-slate-400">
-                          {iso.RequestedDate} {iso.RequestedTime}
+                          <span>No isolation certificates found matching current criteria.</span>
                         </div>
                       </td>
-                      <td className="p-3">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">
-                          {iso._Item?.length || 0} point(s)
-                        </span>
-                      </td>
-                      <td className="p-3 max-w-[200px] truncate text-slate-600" title={iso.Remarks}>
-                        {iso.Remarks || '—'}
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(iso)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-[#006398] transition"
-                            title="Edit Certificate / Link Permit"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">edit</span>
-                            <span>Edit</span>
-                          </button>
+                    </tr>
+                  ) : (
+                    filteredIsolations.map((iso) => (
+                      <tr key={iso.IsolationNo} className="hover:bg-sky-50/40 transition-colors">
+                        <td className="p-3 font-mono font-bold text-[#006398]">
                           <button
                             type="button"
                             onClick={() => {
                               setSelectedIso(iso);
                               setViewMode('detail');
                             }}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-[#006398]"
+                            className="hover:underline flex items-center gap-1.5"
                           >
-                            <span>View Details</span>
-                            <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                            <span className="material-symbols-outlined text-[16px] text-orange-600">
+                              lock
+                            </span>
+                            {iso.IsolationNo}
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="p-3 font-mono">
+                          {iso.PermitNo ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 rounded bg-sky-50 px-2 py-0.5 text-[#006398] font-bold border border-sky-100">
+                                {iso.PermitNo}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEdit(iso);
+                                }}
+                                className="text-slate-400 hover:text-[#006398] p-0.5 rounded transition"
+                                title="Edit Permit No"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">edit</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEdit(iso);
+                              }}
+                              className="inline-flex items-center gap-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold transition"
+                              title="Add or link a Permit No to this certificate"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">add_link</span>
+                              <span>+ Link Permit</span>
+                            </button>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase ${
+                              iso.Status === 'CRTD'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                : iso.Status === 'ISOL'
+                                ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                : iso.Status === 'NORM'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {iso.Status}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-semibold text-slate-800">{iso.RequestedBy}</div>
+                          <div className="font-mono text-[10px] text-slate-400">
+                            {iso.RequestedDate} {iso.RequestedTime}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">
+                            {iso._Item?.length || 0} point(s)
+                          </span>
+                        </td>
+                        <td className="p-3 max-w-[220px] text-slate-600" title={iso.description || iso.Remarks || ''}>
+                          {iso.description && (
+                            <div className="font-semibold text-slate-800 truncate">{iso.description}</div>
+                          )}
+                          <div className={`truncate ${iso.description ? 'text-[11px] text-slate-500' : ''}`}>
+                            {iso.Remarks || (!iso.description ? '—' : '')}
+                          </div>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(iso)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-[#006398] transition"
+                              title="Edit Certificate / Link Permit"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">edit</span>
+                              <span>Edit / Link</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedIso(iso);
+                                setViewMode('detail');
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg bg-[#006398] hover:bg-[#004e78] text-white px-2.5 py-1 text-xs font-semibold shadow-xs transition-colors"
+                            >
+                              <span>View Details</span>
+                              <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {/* MODE 2: CERTIFICATE DETAIL / POINTS DOSSIER */}
       {viewMode === 'detail' && selectedIso && (
         <div className="space-y-6">
           {/* Certificate Header Dossier */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-[28px] text-orange-600">
-                  lock_open_right
-                </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-bold font-mono text-slate-900">
-                      {selectedIso.IsolationNo}
-                    </h2>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-xs font-bold tracking-wider uppercase ${
-                        selectedIso.Status === 'CRTD'
-                          ? 'bg-amber-100 text-amber-800'
-                          : selectedIso.Status === 'ISOL'
-                          ? 'bg-blue-100 text-blue-800'
-                          : selectedIso.Status === 'NORM'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {selectedIso.Status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 font-mono mt-0.5">
-                    SAP S/4HANA Isolation Certificate Master Record
-                  </p>
-                </div>
-              </div>
-
+          <SectionCard
+            theme="rose"
+            sectionTag="CERTIFICATE"
+            title={`Isolation Certificate ${selectedIso.IsolationNo}`}
+            subtitle="SAP S/4HANA Isolation Certificate Master Record"
+            icon="lock_open_right"
+            badge={
               <div className="flex items-center gap-2">
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-xs font-bold tracking-wider uppercase ${
+                    selectedIso.Status === 'CRTD'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : selectedIso.Status === 'ISOL'
+                      ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                      : selectedIso.Status === 'NORM'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  {selectedIso.Status}
+                </span>
                 <button
                   type="button"
                   onClick={() => handleOpenEdit(selectedIso)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#006398] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#004f7a] shadow-sm transition active:scale-[0.98]"
-                  title="Update certificate details or add/change Permit No"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#006398] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#004f7a] shadow-xs transition active:scale-[0.98]"
+                  title="Update certificate details or link Permit No"
                 >
-                  <span className="material-symbols-outlined text-[16px]">edit</span>
-                  <span>Edit Certificate / Permit</span>
+                  <span className="material-symbols-outlined text-[16px]">link</span>
+                  <span>Link Permit / Edit</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode('list')}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
                 >
                   ← Back to List
                 </button>
               </div>
-            </div>
-
-            {/* Header Meta Attributes Grid */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 font-mono text-xs">
-              <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 relative group">
-                <div className="flex items-center justify-between">
+            }
+          >
+            <div className="space-y-4">
+              {/* Header Meta Attributes Grid */}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 font-mono text-xs">
+                <div className="rounded-xl bg-slate-50 p-3 border border-slate-100 relative group">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-500 uppercase font-sans font-bold">
+                      Linked Permit
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(selectedIso)}
+                      className="text-[11px] font-semibold text-[#006398] hover:underline flex items-center gap-0.5"
+                      title="Link or change Permit No"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">edit</span>
+                      {selectedIso.PermitNo ? 'Change' : 'Link permit'}
+                    </button>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    {selectedIso.PermitNo ? (
+                      <span className="bg-sky-100/70 text-[#006398] px-2 py-0.5 rounded font-mono font-bold border border-sky-200">
+                        {selectedIso.PermitNo}
+                      </span>
+                    ) : (
+                      <span className="text-amber-700 italic font-sans font-normal text-xs flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">link_off</span>
+                        None (Unassigned)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3">
                   <span className="text-[10px] text-slate-500 uppercase font-sans font-bold">
-                    Linked Permit
+                    Requested By
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEdit(selectedIso)}
-                    className="text-[11px] font-semibold text-[#006398] hover:underline flex items-center gap-0.5"
-                    title="Edit certificate remarks"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">edit</span>
-                    Edit remarks
-                  </button>
+                  <p className="mt-1 font-bold text-slate-800">{selectedIso.RequestedBy}</p>
+                  <span className="text-[10px] text-slate-400">
+                    {selectedIso.RequestedDate} {selectedIso.RequestedTime}
+                  </span>
                 </div>
-                <div className="mt-1 flex items-center gap-1.5">
-                  {selectedIso.PermitNo ? (
-                    <span className="bg-sky-100/70 text-[#006398] px-2 py-0.5 rounded font-mono font-bold border border-sky-200">
-                      {selectedIso.PermitNo}
-                    </span>
-                  ) : (
-                    <span className="text-amber-700 italic font-sans font-normal text-xs flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">link_off</span>
-                      None (Unassigned)
-                    </span>
-                  )}
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <span className="text-[10px] text-slate-500 uppercase font-sans font-bold">
+                    Verified / Approved
+                  </span>
+                  <p className="mt-1 font-bold text-slate-800">
+                    {selectedIso.VerifiedBy || 'Pending Verification'}
+                  </p>
+                  <span className="text-[10px] text-slate-400">
+                    {selectedIso.ApprovedBy ? `Approved by ${selectedIso.ApprovedBy}` : 'Unapproved'}
+                  </span>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <span className="text-[10px] text-slate-500 uppercase font-sans font-bold">
+                    De-Isolation / Normalized
+                  </span>
+                  <p className="mt-1 font-bold text-slate-800">
+                    {selectedIso.NormalizedBy || 'Active In Field'}
+                  </p>
+                  <span className="text-[10px] text-slate-400">
+                    {selectedIso.NormalizedDate ? selectedIso.NormalizedDate : 'Not normalized'}
+                  </span>
                 </div>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-[10px] text-slate-500 uppercase font-sans font-bold">
-                  Requested By
-                </span>
-                <p className="mt-1 font-bold text-slate-800">{selectedIso.RequestedBy}</p>
-                <span className="text-[10px] text-slate-400">
-                  {selectedIso.RequestedDate} {selectedIso.RequestedTime}
-                </span>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-[10px] text-slate-500 uppercase font-sans font-bold">
-                  Verified / Approved
-                </span>
-                <p className="mt-1 font-bold text-slate-800">
-                  {selectedIso.VerifiedBy || 'Pending Verification'}
-                </p>
-                <span className="text-[10px] text-slate-400">
-                  {selectedIso.ApprovedBy ? `Approved by ${selectedIso.ApprovedBy}` : 'Unapproved'}
-                </span>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-[10px] text-slate-500 uppercase font-sans font-bold">
-                  De-Isolation / Normalized
-                </span>
-                <p className="mt-1 font-bold text-slate-800">
-                  {selectedIso.NormalizedBy || 'Active In Field'}
-                </p>
-                <span className="text-[10px] text-slate-400">
-                  {selectedIso.NormalizedDate ? selectedIso.NormalizedDate : 'Not normalized'}
-                </span>
-              </div>
-            </div>
 
-            {selectedIso.Remarks && (
-              <div className="rounded-xl border border-sky-100 bg-sky-50/50 p-3 text-xs text-sky-900">
-                <span className="font-bold">Remarks: </span>
-                {selectedIso.Remarks}
-              </div>
-            )}
-          </div>
+              {selectedIso.description && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-950">
+                  <span className="font-bold text-[#006398]">Description: </span>
+                  {selectedIso.description}
+                </div>
+              )}
+
+              {selectedIso.Remarks && (
+                <div className="rounded-xl border border-sky-100 bg-sky-50/50 p-3 text-xs text-sky-900">
+                  <span className="font-bold">Remarks: </span>
+                  {selectedIso.Remarks}
+                </div>
+              )}
+            </div>
+          </SectionCard>
 
           {/* Child Items (_Item) Table */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-slate-600">
-                  checklist
-                </span>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Physical Isolation Points Registry (_Item)
-                </h3>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-600">
-                  {selectedIso._Item?.length || 0}
-                </span>
-              </div>
-            </div>
-
+          <SectionCard
+            theme="amber"
+            sectionTag="POINTS LEDGER"
+            title="Physical Isolation Points Registry (_Item)"
+            subtitle="Engineered zero-energy boundary, lock tags, zero-energy confirmations, and de-isolation."
+            icon="checklist"
+            badge={
+              <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 font-mono text-[11px] font-bold">
+                {selectedIso._Item?.length || 0} Lock Points
+              </span>
+            }
+          >
             <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-left text-xs">
                 <thead className="border-b bg-slate-50 font-mono text-[11px] uppercase tracking-wider text-slate-600">
@@ -823,7 +899,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                 <tbody className="divide-y divide-slate-100">
                   {!selectedIso._Item || selectedIso._Item.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="py-8 text-center text-slate-400 italic">
+                      <td colSpan={11} className="py-8 text-center text-slate-400 italic font-mono">
                         No isolation points recorded for this certificate.
                       </td>
                     </tr>
@@ -909,25 +985,33 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                 </tbody>
               </table>
             </div>
-          </div>
+          </SectionCard>
         </div>
       )}
 
       {/* MODE 3: CREATE ISOLATION CERTIFICATE */}
       {viewMode === 'create' && (
         <form onSubmit={handleCreateSubmit} className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-            <div className="border-b pb-4">
-              <h2 className="text-lg font-bold text-slate-900">
-                Register New Isolation Certificate (POST Isolation)
-              </h2>
-              <p className="text-xs text-slate-500">
-                Define engineered zero-energy boundary, physical breaker/valve lock points and danger tags.
-              </p>
-            </div>
+          <SectionCard
+            theme="rose"
+            sectionTag="PREPARATION"
+            title="Register New Isolation Certificate (POST Isolation)"
+            subtitle="Define engineered zero-energy boundary, physical breaker/valve lock points and danger tags."
+            icon="lock_clock"
+            badge={
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
+              >
+                ← Back to List
+              </button>
+            }
+          >
+            <div className="space-y-6">
 
             {/* Header Level Form */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-semibold text-slate-700">
                 Linked Permit Number (Optional)
                 <input
@@ -951,7 +1035,25 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
               </label>
 
               <label className="text-xs font-semibold text-slate-700">
-                Isolation Scope / Remarks
+                <span className="flex items-center justify-between">
+                  <span>Description of the Isolation</span>
+                  <span className="font-mono text-[10px] text-slate-400 font-normal">description</span>
+                </span>
+                <input
+                  type="text"
+                  placeholder="e.g. Primary pump electrical & mechanical isolation"
+                  value={createDescription}
+                  onChange={(e) => setCreateDescription(e.target.value)}
+                  maxLength={255}
+                  className="mt-1 block w-full rounded-lg border border-slate-300 p-2 text-xs outline-none focus:border-[#006398]"
+                />
+              </label>
+
+              <label className="text-xs font-semibold text-slate-700">
+                <span className="flex items-center justify-between">
+                  <span>Isolation Scope / Remarks</span>
+                  <span className="font-mono text-[10px] text-slate-400 font-normal">Remarks</span>
+                </span>
                 <input
                   type="text"
                   placeholder="e.g. Pump P-101 motor overhaul isolation"
@@ -985,29 +1087,48 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
               </div>
 
               <div className="space-y-3">
-                {createPoints.map((point, idx) => (
-                  <div
-                    key={idx}
-                    className="relative rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition-all hover:border-slate-300"
-                  >
-                    <div className="flex items-center justify-between mb-3 border-b border-slate-200/80 pb-2">
-                      <span className="font-mono text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[16px] text-orange-600">
-                          pin_drop
+                {createPoints.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center bg-slate-50">
+                    <span className="material-symbols-outlined text-[28px] text-slate-400 mb-1">
+                      format_list_bulleted
+                    </span>
+                    <p className="text-xs font-semibold text-slate-700">No isolation points added</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      You can save this certificate as Header-Only (_Item: []), or click "Add Point" to configure isolation points.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAddPointRow}
+                      className="mt-3 inline-flex items-center gap-1 rounded-lg bg-[#006398] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#004f7a]"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">add</span>
+                      Add First Point
+                    </button>
+                  </div>
+                ) : (
+                  createPoints.map((point, idx) => (
+                    <div
+                      key={idx}
+                      className="relative rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition-all hover:border-slate-300"
+                    >
+                      <div className="flex items-center justify-between mb-3 border-b border-slate-200/80 pb-2">
+                        <span className="font-mono text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-orange-600">
+                            pin_drop
+                          </span>
+                          Isolation Point #{idx + 1}
                         </span>
-                        Isolation Point #{idx + 1}
-                      </span>
-                      {createPoints.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePointRow(idx)}
-                          className="text-xs text-rose-600 hover:underline flex items-center gap-0.5"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">delete</span>
-                          Remove
-                        </button>
-                      )}
-                    </div>
+                        {createPoints.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePointRow(idx)}
+                            className="text-xs text-rose-600 hover:underline flex items-center gap-0.5"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">delete</span>
+                            Remove
+                          </button>
+                        )}
+                      </div>
 
                     <div className="grid gap-3 sm:grid-cols-4 text-xs">
                       <label>
@@ -1077,9 +1198,12 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                           className="mt-1 block w-full rounded border border-slate-300 bg-white p-2 font-mono text-xs"
                         >
                           {(isolMethods.length > 0 ? isolMethods : [
+                            { Config_Code: 'VALVE', Config_Desc: 'VALVE' },
                             { Config_Code: 'VALVE_CC', Config_Desc: 'VALVE (C/C)' },
                             { Config_Code: 'VALVE_CO', Config_Desc: 'VALVE (C/O)' },
                             { Config_Code: 'CB_RIRO', Config_Desc: 'CIRCUIT BREAKER (RI/RO)' },
+                            { Config_Code: 'BREAKER', Config_Desc: 'CIRCUIT BREAKER' },
+                            { Config_Code: 'BLIND', Config_Desc: 'BLIND / SPADE' },
                             { Config_Code: 'FUSE', Config_Desc: 'FUSE' },
                             { Config_Code: 'SPADE_INS', Config_Desc: 'SPADE INSERTED' },
                             { Config_Code: 'LOCKBOX_LR', Config_Desc: 'LOCKBOX/HASP (L/R)' }
@@ -1113,12 +1237,13 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                       </label>
 
                       <label>
-                        <span className="text-[11px] font-medium text-slate-600">De-Isolated State *</span>
+                        <span className="text-[11px] font-medium text-slate-600">De-Isolated State</span>
                         <select
-                          value={point.DeIsolatedState || 'NORMAL'}
+                          value={point.DeIsolatedState || ''}
                           onChange={(e) => handlePointChange(idx, 'DeIsolatedState', e.target.value)}
                           className="mt-1 block w-full rounded border border-slate-300 bg-white p-2 font-mono text-xs"
                         >
+                          <option value="">-- None / Initial (Empty) --</option>
                           {(deisolatedStates.length > 0 ? deisolatedStates : [
                             { Config_Code: 'NORMAL', Config_Desc: 'NORMAL' },
                             { Config_Code: 'RESTORED', Config_Desc: 'RESTORED' },
@@ -1162,7 +1287,8 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                       </label>
                     </div>
                   </div>
-                ))}
+                ))
+              )}
               </div>
             </div>
 
@@ -1187,6 +1313,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
               </button>
             </div>
           </div>
+          </SectionCard>
         </form>
       )}
 
@@ -1194,79 +1321,196 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       {saveUncertain && <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-4 text-sm">SAP save outcome is unconfirmed. Check existing certificates and audit in SAP before another save.</p>}
       {/* MODE / MODAL: EDIT CERTIFICATE & LINK PERMIT */}
       {showEditModal && editingIso && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b pb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-[#006398]">
+            <div className="px-6 py-4 border-b border-slate-200/90 bg-gradient-to-r from-slate-50 via-sky-50/20 to-white flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-[#006398] text-white flex items-center justify-center shadow-xs shrink-0">
                   <span className="material-symbols-outlined text-[20px]">edit_document</span>
                 </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
-                    Edit Isolation Certificate
-                    <span className="font-mono text-xs text-[#006398] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-display font-bold text-base text-slate-900 tracking-tight">
+                      Edit Isolation Certificate
+                    </h3>
+                    <span className="font-mono text-xs font-bold text-[#006398] bg-sky-50 px-2.5 py-0.5 rounded-md border border-sky-200">
                       {editingIso.IsolationNo}
                     </span>
-                  </h3>
-                  <p className="text-xs text-slate-500 font-mono">
-                    Edit certificate remarks in SAP
-                  </p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1.5 font-medium">
+                      <span className={`w-2 h-2 rounded-full ${
+                        editingIso.Status === 'APPR'
+                          ? 'bg-emerald-500'
+                          : editingIso.Status === 'CRTD'
+                          ? 'bg-amber-500'
+                          : 'bg-[#006398]'
+                      }`} />
+                      <span>{editingIso.Status === 'CRTD' ? 'CRTD · Created' :
+                             editingIso.Status === 'APPR' ? 'APPR · Approved' :
+                             editingIso.Status || 'CRTD'}</span>
+                    </span>
+                    <span className="text-slate-300">·</span>
+                    <span className="truncate">Permit Link & Scope</span>
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 transition"
+                aria-label="Close modal"
+                className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all shadow-2xs shrink-0"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
-              {/* Permit Number Field */}
-              <p className="text-sm">Linked permit: {editingIso.PermitNo || 'Unassigned'} · Status: {editingIso.Status}. SAP controls status and permit linkage is immutable.</p>
-              {/* Remarks Field */}
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-800">Certificate Remarks / Scope</label>
-                <textarea
-                  rows={3}
-                  maxLength={255}
-                  placeholder="Enter isolation notes, equipment details, or permit reference..."
-                  value={editRemarks}
-                  onChange={(e) => setEditRemarks(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#006398]/20 focus:border-[#006398]"
-                />
+            <form onSubmit={handleSaveEdit} className="flex flex-col flex-1 min-h-0 m-0">
+              <div className="p-6 space-y-4 bg-white overflow-y-auto flex-1">
+                {/* Linked Work Permit Field */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="iso-permit-no" className="font-bold text-xs text-slate-800 font-sans flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px] text-[#006398]">link</span>
+                      <span>Linked Work Permit Number</span>
+                      <span className="text-[10px] font-mono text-slate-400 font-normal">(PermitNo)</span>
+                    </label>
+                    {editPermitNo && (
+                      <button
+                        type="button"
+                        onClick={() => setEditPermitNo('')}
+                        className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 hover:underline flex items-center gap-0.5 transition"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">link_off</span>
+                        Unlink Permit
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex rounded-xl border border-slate-300 bg-white overflow-hidden shadow-2xs focus-within:ring-3 focus-within:ring-[#006398]/15 focus-within:border-[#006398] transition">
+                    <div className="flex items-center px-3 bg-slate-50 border-r border-slate-200 text-slate-500 font-mono text-xs select-none">
+                      <span className="text-slate-400 font-bold">PTW#</span>
+                    </div>
+                    <input
+                      id="iso-permit-no"
+                      type="text"
+                      maxLength={10}
+                      placeholder="e.g. PTW0000016"
+                      value={editPermitNo}
+                      onChange={(e) => setEditPermitNo(e.target.value.toUpperCase())}
+                      className="flex-1 px-3 py-2 text-xs sm:text-sm font-mono tracking-wider outline-none uppercase font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal"
+                    />
+                    {editPermitNo && (
+                      <button
+                        type="button"
+                        onClick={() => setEditPermitNo('')}
+                        className="px-3 text-slate-400 hover:text-rose-600 transition flex items-center"
+                        title="Clear permit"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">close</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-sans">
+                    Enter the 10-character SAP Work Permit number, or clear to save without a linked permit.
+                  </p>
+                </div>
+
+                {/* Description Field */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="iso-description" className="font-bold text-xs text-slate-800 font-sans flex items-center gap-1.5">
+                      <span>Isolation Description</span>
+                      <span className="text-[10px] font-mono text-slate-400 font-normal">(description)</span>
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[11px] font-mono font-semibold ${
+                        editDescription.length > 240 ? 'text-rose-600' : 'text-slate-500'
+                      }`}>
+                        {editDescription.length}
+                      </span>
+                      <span className="text-[11px] text-slate-300">/</span>
+                      <span className="text-[11px] font-mono text-slate-400">255</span>
+                    </div>
+                  </div>
+                  <input
+                    id="iso-description"
+                    type="text"
+                    maxLength={255}
+                    placeholder="Enter short description of the isolation..."
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:ring-3 focus:ring-[#006398]/15 focus:border-[#006398] focus:outline-none transition-all font-sans"
+                  />
+                </div>
+
+                {/* Remarks Field */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="iso-remarks" className="font-bold text-xs text-slate-800 font-sans flex items-center gap-1.5">
+                      <span>Certificate Remarks / Scope</span>
+                      <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[11px] font-mono font-semibold ${
+                        editRemarks.length > 240 ? 'text-rose-600' : 'text-slate-500'
+                      }`}>
+                        {editRemarks.length}
+                      </span>
+                      <span className="text-[11px] text-slate-300">/</span>
+                      <span className="text-[11px] font-mono text-slate-400">255</span>
+                    </div>
+                  </div>
+                  <textarea
+                    id="iso-remarks"
+                    rows={3}
+                    maxLength={255}
+                    placeholder="Enter isolation notes, equipment details, or permit reference..."
+                    value={editRemarks}
+                    onChange={(e) => setEditRemarks(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:ring-3 focus:ring-[#006398]/15 focus:border-[#006398] focus:outline-none transition-all resize-none font-sans leading-relaxed"
+                  />
+                  <p className="text-[11px] text-slate-400 font-sans">
+                    Provide equipment tagging, boundary details, and isolation methods for SAP auditing.
+                  </p>
+                </div>
               </div>
 
-              {/* Form Action Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold transition"
-                >
-                  Cancel
-                </button>
+              {/* Dedicated Solid Footer */}
+              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-sans">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-medium text-slate-600">OData V4 Online</span>
+                </div>
 
-                <button
-                  type="submit"
-                  disabled={isSavingEdit || saveUncertain}
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#006398] hover:bg-[#004f7a] text-white font-bold shadow-xs disabled:opacity-50 transition active:scale-[0.98]"
-                >
-                  {isSavingEdit ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Saving to SAP...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-[16px]">save</span>
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs hover:shadow-xs transition active:scale-[0.98]"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isSavingEdit || saveUncertain}
+                    className="inline-flex items-center gap-1.5 px-4.5 py-2 rounded-xl bg-[#006398] hover:bg-[#004f7a] text-white text-xs font-bold shadow-xs hover:shadow-sm disabled:opacity-50 transition active:scale-[0.98]"
+                  >
+                    {isSavingEdit ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving to SAP...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[16px]">save</span>
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

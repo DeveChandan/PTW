@@ -20,5 +20,5 @@ export { permitHolderApi, default as permitHolderApiDefault } from './modules/pe
 export { gasTesterApi, default as gasTesterApiDefault, DEFAULT_GAS_THRESHOLDS } from './modules/gasTester.api';
 export { isolationApi, default as isolationApiDefault } from './modules/isolation.api';
 export { adminApi, default as adminApiDefault } from './modules/admin.api';
-export { configApi, default as configApiDefault } from './modules/config.api';
-export { checklistApi, default as checklistApiDefault, toSapChecklistPermitType } from './modules/checklist.api';
+export { configApi, default as configApiDefault, FALLBACK_CONFIG_DATA } from './modules/config.api';
+export { checklistApi, default as checklistApiDefault, toSapChecklistPermitType, toSapPermitType } from './modules/checklist.api';

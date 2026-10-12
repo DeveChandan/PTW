@@ -21,7 +21,8 @@ export const permitCreateApi = {
       });
     } catch (error: any) {
       if (!error.response && !error.beforeSend || error.response?.status >= 500) {
-        throw new PermitCreateUnconfirmedError('The SAP save result could not be confirmed. Check SAP for an existing permit before starting another request.');
+        const detail = error?.message ? `: ${error.message}` : '';
+        throw new PermitCreateUnconfirmedError(`The SAP save result could not be confirmed${detail}. Check SAP for an existing permit before starting another request.`);
       }
       throw error;
     }

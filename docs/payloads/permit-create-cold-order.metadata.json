@@ -33,7 +33,7 @@
   "GasTestFreqHr": "",
   "Status": "CRTD",
   "RefPermitNo": "",
-  "LotoRequired": "N",
+  "LotoRequired": " ",
   "LotoCertNo": "",
   "IsolationRequired": " ",
   "IsolationRefType": "EQUIP",

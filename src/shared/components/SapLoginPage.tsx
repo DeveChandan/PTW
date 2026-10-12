@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSapAuth } from '../../core/auth/sapAuthContext';
+import { toast } from '../context/ToastContext';
 import { 
   ShieldCheck, 
   Lock, 
@@ -18,7 +19,7 @@ export const SapLoginPage: React.FC = () => {
   const { login, loading, error, getRememberedUserId } = useSapAuth();
 
   const [userId, setUserId] = useState<string>('VERTIF-V');
-  const [password, setPassword] = useState<string>('Vertif@2027@2027');
+  const [password, setPassword] = useState<string>('November@2026@2026');
   const [client, setClient] = useState<string>('200');
   const [language, setLanguage] = useState<string>('EN');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -34,26 +35,41 @@ export const SapLoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login({
+    if (!userId.trim()) {
+      toast.warning('SAP User ID is required.', { title: 'Mandatory Field Missing' });
+      return;
+    }
+    const success = await login({
       userId,
       password,
       client,
       language,
       rememberUser,
     });
+    if (success) {
+      toast.success(`Welcome back, ${userId.toUpperCase()}!`, { title: 'Authentication Successful' });
+    } else {
+      toast.error(error || 'Authentication failed. Please verify credentials.', { title: 'Sign-in Failed' });
+    }
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#f8f9ff] text-[#0b1c30] flex flex-col justify-between font-sans select-none relative overflow-x-hidden">
-      {/* Subtle modern background grid */}
+    <div className="min-h-screen w-screen text-[#0b1c30] flex flex-col justify-between font-sans select-none relative overflow-x-hidden">
+      {/* Dynamic Ambient Logo Brand Glow (Blue & Green) - Balanced Light Shade */}
+      <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-gradient-to-br from-[#006398]/13 to-sky-400/08 blur-[140px] pointer-events-none transform-gpu" />
+      <div className="absolute -top-32 -right-32 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-[#059669]/09 to-emerald-400/05 blur-[140px] pointer-events-none transform-gpu" />
+      <div className="absolute bottom-0 right-10 w-[550px] h-[550px] rounded-full bg-gradient-to-bl from-[#006398]/10 to-sky-300/05 blur-[140px] pointer-events-none transform-gpu" />
+      <div className="absolute bottom-10 left-10 w-[520px] h-[520px] rounded-full bg-gradient-to-tr from-[#059669]/08 to-emerald-300/05 blur-[140px] pointer-events-none transform-gpu" />
+
+      {/* Subtle modern brand background grid */}
       <div 
-        className="absolute inset-0 pointer-events-none opacity-40"
+        className="absolute inset-0 pointer-events-none opacity-[0.18]"
         style={{
           backgroundImage: `
-            linear-gradient(to right, rgba(148, 163, 184, 0.15) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(148, 163, 184, 0.15) 1px, transparent 1px)
+            linear-gradient(to right, rgba(0, 99, 152, 0.06) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(5, 150, 105, 0.04) 1px, transparent 1px)
           `,
-          backgroundSize: '32px 32px'
+          backgroundSize: '36px 36px'
         }}
       />
 
@@ -99,17 +115,17 @@ export const SapLoginPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Centered Minimalist Login Workspace */}
+      {/* Main Centered Minimalist Login Workspace with Sculpted Depth */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 z-10 my-4">
-        <div className="w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-[0_12px_36px_-10px_rgba(15,23,42,0.08)] overflow-hidden transition-all">
+        <div className="w-full max-w-md bg-gradient-to-b from-white via-[#fcfdff] to-sky-50/25 border border-slate-200/90 rounded-3xl shadow-[0_4px_6px_rgba(15,23,42,0.02),0_20px_48px_-8px_rgba(0,99,152,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] overflow-hidden transition-all relative">
           
           {/* Card Header with GFL Logo */}
-          <div className="px-6 sm:px-8 pt-7 pb-6 text-center border-b border-slate-100">
-            <div className="inline-flex p-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl mb-3 shadow-sm items-center justify-center">
+          <div className="px-6 sm:px-8 pt-7 pb-6 text-center border-b border-slate-100/90 bg-gradient-to-b from-white to-sky-50/20">
+            <div className="inline-flex p-3 bg-gradient-to-br from-white to-sky-50 border border-sky-100/90 rounded-2xl mb-3 shadow-[0_4px_12px_rgba(0,99,152,0.08),inset_0_1px_0_rgba(255,255,255,1)] items-center justify-center">
               <img
                 src="https://gfl.co.in/assets/images/New_GFL-Logo29.webp"
                 alt="GFL Logo"
-                className="h-9 w-auto object-contain"
+                className="h-10 w-auto object-contain"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = './assets/GFL-Logo.webp';
                 }}
@@ -259,7 +275,7 @@ export const SapLoginPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-[#006398] hover:bg-[#004f7a] text-white font-display font-semibold text-sm rounded-xl shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-gradient-to-r from-[#006398] to-[#004f7a] hover:from-[#005482] hover:to-[#004166] text-white font-display font-semibold text-sm rounded-xl shadow-[0_4px_14px_rgba(0,99,152,0.3),inset_0_1px_0_rgba(255,255,255,0.25)] hover:shadow-[0_6px_20px_rgba(0,99,152,0.4)] transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -276,8 +292,8 @@ export const SapLoginPage: React.FC = () => {
             </div>
           </form>
 
-          {/* Discreet Help Strip */}
-          <div className="px-6 sm:px-8 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+          {/* Discreet Help Strip with Light Tint */}
+          <div className="px-6 sm:px-8 py-3.5 bg-gradient-to-r from-slate-50 via-slate-50 to-sky-50/40 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
             <span className="flex items-center gap-1.5">
               <PhoneCall className="w-3 h-3 text-[#006398]" />
               <span>EHS Hotline: <strong className="text-slate-700 font-mono">Ext. 4499</strong></span>

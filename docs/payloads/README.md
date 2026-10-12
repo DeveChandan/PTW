@@ -47,7 +47,7 @@ This is the default service path; VITE_ODATA_BASE_URL can override it. Authentic
 | No | Yes | INTD |
 | Yes | Yes | INTD |
 
-GasTestRequired is frontend-only. Do not send it as a header field. The transmitted choice is a single _Safety row with Category=PTW, ItemCode=GREQ, Response=YES/NO. GasTestFreqHr is empty when No. IsolationRequired is a header X/blank flag, and IsolationStatus is INTD when Yes, empty when No. Empty _Isolation is omitted.
+GasTestRequired is frontend-only. Do not send it as a header field. The transmitted choice is a single _Safety row with Category=PTW, ItemCode=GREQ, Response=YES/NO. GasTestFreqHr is empty when No. IsolationRequired is a header X/blank flag, LotoRequired is an X/blank flag ('X' for Yes, ' ' for No), and IsolationStatus is CRTD when Yes, empty when No. Empty _Isolation is omitted.
 
 PersonsQty, Permit_No, child PermitNo, creation/change audit fields and LastChangedAt are removed. _GasTest, _Approval, _AuditLog, _Attachment and _ShiftRenewal are excluded from creation. Header VerifiedBy/ApprovedBy/IssuedBy and their dates remain empty/null in the UI payload; they do not represent signatures.
 

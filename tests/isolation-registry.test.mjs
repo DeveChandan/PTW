@@ -26,17 +26,37 @@ test('certificate create posts nested items once and only returns SAP numbering'
   await assert.rejects(()=>isolationApi.create({PermitNo:'P1',_Item:[{ReferenceType:'EQUI',ReferenceId:'E1',IsolationPoint:'P1',IsolType:'MECH',IsolMethod:'VALVE'}]}),/unconfirmed/);
  }finally{odataClient.post=original;}
 });
-test('remarks patch requires ETag and rejects immutable linkage or computed status',async()=>{
+test('update allows PermitNo/Remarks, passes ETag or wildcard fallback and rejects immutable fields',async()=>{
  const original=odataClient.patch;let calls=0;
  try{
-  odataClient.patch=async(url,body,etag)=>{calls++;assert.equal(etag,'W/"1"');assert.deepEqual(body,{Remarks:'Reviewed'});return {data:{IsolationNo:'I1'}};};
+  odataClient.patch=async(url,body,etag)=>{calls++;assert.equal(etag,'W/"1"');return {data:{IsolationNo:'I1',...body}};};
   await assert.rejects(()=>isolationApi.update('I1',{Status:'ISOL'},'W/"1"'),/workflow actions/);
-  await assert.rejects(()=>isolationApi.update('I1',{PermitNo:'P2'},'W/"1"'),/immutable/);
-  await assert.rejects(()=>isolationApi.update('I1',{Remarks:'Reviewed'}),/ETag/);
-  await isolationApi.update('I1',{Remarks:'Reviewed'},'W/"1"');assert.equal(calls,1);
+  await assert.rejects(()=>isolationApi.update('I1',{IsolationNo:'I2'},'W/"1"'),/immutable/);
+  await assert.rejects(()=>isolationApi.update('I1',{PermitNo:'TOOLONGPERMITNO'},'W/"1"'),/at most 10/);
+  const updated=await isolationApi.update('I1',{PermitNo:'PTW0000002',Remarks:'Reviewed'},'W/"1"');
+  assert.equal(updated.PermitNo,'PTW0000002');
+  assert.equal(updated.Remarks,'Reviewed');
+  assert.equal(calls,1);
+  odataClient.patch=async(url,body,etag)=>{calls++;assert.equal(etag,'*');return {data:{IsolationNo:'I1',...body}};};
+  const updatedFallback=await isolationApi.update('I1',{Remarks:'Fallback OK'});
+  assert.equal(updatedFallback.Remarks,'Fallback OK');
+  assert.equal(calls,2);
  }finally{odataClient.patch=original;}
 });
-test('GasTest create is blocked before a forbidden POST',async()=>{
+test('GasTest create posts valid payload to GasTest entity and propagates SAP errors',async()=>{
  const original=odataClient.post;let calls=0;
- try{odataClient.post=async()=>{calls++;};await assert.rejects(()=>gasTesterApi.create({PermitNo:'P1'}),/read-only/);assert.equal(calls,0);}finally{odataClient.post=original;}
+ try{
+  odataClient.post=async(url,body,config)=>{
+   calls++;
+   assert.equal(url,'GasTest');
+   assert.equal(body.SAP__Messages,undefined);
+   assert.equal(config.headers.Prefer,'return=representation');
+   return {data:{...body,PermitNo:'P1',TestSeq:'1'}};
+  };
+  const result=await gasTesterApi.create({PermitNo:'P1',TestSeq:'1',TestType:'INITIAL'});
+  assert.equal(result.PermitNo,'P1');
+  assert.equal(calls,1);
+  odataClient.post=async()=>{throw new Error('SAP POST failed');};
+  await assert.rejects(()=>gasTesterApi.create({PermitNo:'P1'}),/SAP POST failed/);
+ }finally{odataClient.post=original;}
 });

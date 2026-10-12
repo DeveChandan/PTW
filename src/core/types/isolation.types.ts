@@ -41,6 +41,7 @@ export interface SapIsolationHeader {
   NormalizedTime: string;
   Remarks: string;
   LastChangedAt: string | null;
+  description?: string;
   SAP__Messages?: any[];
   _Item: SapIsolationItem[];
 }

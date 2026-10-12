@@ -10,18 +10,54 @@ import { PermitDisplayWorkspace } from './features/permits/PermitDisplayWorkspac
 import { IsolationWorkspace } from './features/isolation/IsolationWorkspace';
 import { GasTesterWorkspace } from './features/gastest/GasTesterWorkspace';
 import { ReportModule } from './features/dashboard/ReportModule';
+import { OfflineNotificationBanner } from './shared/components/OfflineNotificationBanner';
+import { SapReauthModal } from './shared/components/SapReauthModal';
 
 export const App: React.FC = () => {
-  const { isAuthenticated, isModuleUnlocked, user, loading, isSessionRestoring } = useSapAuth();
-  const [selectedModule, setSelectedModule] = useState<ModuleId | null>(null);
+  const {
+    isAuthenticated,
+    isModuleUnlocked,
+    user,
+    loading,
+    isSessionRestoring,
+    isReauthRequired,
+    reauthenticate,
+    cancelReauth,
+    error
+  } = useSapAuth();
+
+  // Restore active workspace module from sessionStorage to survive page reloads and reauth
+  const [selectedModule, setSelectedModuleState] = useState<ModuleId | null>(() => {
+    try {
+      return (sessionStorage.getItem('gfl_ptw_active_module') as ModuleId) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setSelectedModule = (mod: ModuleId | null) => {
+    setSelectedModuleState(mod);
+    try {
+      if (mod) {
+        sessionStorage.setItem('gfl_ptw_active_module', mod);
+      } else {
+        sessionStorage.removeItem('gfl_ptw_active_module');
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   // 0. Session Restoration Screen (Prevents login flicker on browser reload)
   if (isSessionRestoring) {
     return (
-      <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-[#f8f9ff] select-none">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-9 h-9 border-3 border-[#006398] border-t-transparent rounded-full animate-spin"></div>
-          <span className="font-mono text-xs text-slate-500 font-semibold tracking-wider uppercase">
+      <div className="min-h-screen w-screen flex flex-col items-center justify-center select-none relative overflow-hidden">
+        {/* Ambient Glow Orbs */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#006398]/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-[#059669]/15 blur-3xl pointer-events-none" />
+        <div className="flex flex-col items-center gap-3.5 relative z-10">
+          <div className="w-10 h-10 border-3 border-[#006398] border-t-[#059669] rounded-full animate-spin shadow-md"></div>
+          <span className="font-mono text-xs text-slate-600 font-bold tracking-wider uppercase">
             Restoring SAP User Session...
           </span>
         </div>
@@ -40,15 +76,47 @@ export const App: React.FC = () => {
 
   // 2. Authenticated Application Shell (Full width, No left row sidebar)
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8f9ff] text-[#0b1c30]">
+    <div className="min-h-screen flex flex-col text-[#0b1c30] relative selection:bg-[#006398] selection:text-white">
+      {/* Ambient Glows */}
+      <div className="no-print fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-gradient-to-br from-[#006398]/12 to-sky-400/08 blur-[140px] transform-gpu" />
+        <div className="absolute -top-32 -right-32 w-[650px] h-[650px] rounded-full bg-gradient-to-bl from-[#059669]/08 to-emerald-400/05 blur-[140px] transform-gpu" />
+        <div className="absolute top-1/3 -right-48 w-[550px] h-[550px] rounded-full bg-gradient-to-bl from-[#006398]/09 to-sky-300/05 blur-[140px] transform-gpu" />
+        <div className="absolute bottom-10 -left-40 w-[600px] h-[600px] rounded-full bg-gradient-to-tr from-[#059669]/07 to-emerald-300/04 blur-[140px] transform-gpu" />
+        <div
+          className="absolute inset-0 opacity-[0.16]"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, rgba(0, 99, 152, 0.06) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(5, 150, 105, 0.04) 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px'
+          }}
+        />
+      </div>
+
       {/* Top Corporate Command Header */}
       <StitchHeader
         onGoHome={() => setSelectedModule(null)}
         isHome={selectedModule === null}
       />
 
-      {/* Main Content Area: Padding top for fixed header */}
-      <main className="flex-1 pt-16 min-h-[calc(100vh-4rem)]">
+      {/* Real-time Network Disconnection Notification */}
+      <div className="no-print fixed top-16 inset-x-0 z-40">
+        <OfflineNotificationBanner />
+      </div>
+
+      {/* In-Place Non-Destructive SAP Re-authentication Modal */}
+      <SapReauthModal
+        isOpen={isReauthRequired}
+        user={user}
+        onReauth={reauthenticate}
+        onLogout={cancelReauth}
+        error={error}
+      />
+
+      {/* Main Content Area: Padding top for fixed header (zeroed during print) */}
+      <main className="flex-1 pt-16 min-h-[calc(100vh-4rem)] print:pt-0 print:p-0 print:m-0 print:min-h-0">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-96 gap-3 text-gray-500">
             <div className="w-8 h-8 border-2 border-[#006398] border-t-transparent rounded-full animate-spin"></div>
@@ -62,11 +130,11 @@ export const App: React.FC = () => {
           />
         ) : !isModuleUnlocked(selectedModule) ? (
           /* Role Gate Shield: Displays if direct access to locked module is attempted */
-          <div className="max-w-xl mx-auto mt-20 bg-white border border-red-200 rounded-2xl p-8 text-center shadow-lg">
-            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
+          <div className="max-w-xl mx-auto mt-20 bg-gradient-to-b from-white via-white to-red-50/50 border border-red-200/90 rounded-3xl p-8 sm:p-10 text-center shadow-[0_16px_40px_-8px_rgba(220,38,38,0.12),inset_0_1px_0_0_rgba(255,255,255,1)]">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-50 to-white text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-200 shadow-sm">
               <span className="material-symbols-outlined text-[36px]">shield_lock</span>
             </div>
-            <h2 className="font-display font-bold text-lg text-gray-900">Module Access Restricted</h2>
+            <h2 className="font-display font-bold text-xl text-slate-900">Module Access Restricted</h2>
             <p className="text-xs text-gray-600 mt-2 leading-relaxed">
               Current SAP User <strong className="text-gray-900 font-mono">{user?.id}</strong> has role(s):{' '}
               <span className="text-[#006398] font-mono font-bold bg-blue-50 px-1.5 py-0.5 rounded">

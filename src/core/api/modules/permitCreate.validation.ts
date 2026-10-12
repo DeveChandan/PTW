@@ -1,11 +1,20 @@
 import { initialPermitStatus, gasRequirementRow } from '../../ptw/prerequisites';
 import schema from '../permitCreateSchema.json';
-import { validateSitePermit } from '../../ptw/siteProcedure';
+import { validateSitePermit, toSapPermitType, toNatwCode, toEquipCode } from '../../ptw/siteProcedure';
 import { PermitDeepInsertPayload } from '../../types/ptw.types';
 
 interface Property { type: string; maxLength: string | null; precision: string | null; scale: string | null; nullable: boolean }
 const entities = schema as Record<string, Record<string, Property>>;
-const children: Record<string, string> = { _Worker: 'WorkerType', _PPE: 'PPEType', _Safety: 'SafetyType', _HazardControl: 'HazardControlType' };
+const children: Record<string, string> = {
+  _Worker: 'WorkerType',
+  _PPE: 'PPEType',
+  _Safety: 'SafetyType',
+  _HazardControl: 'HazardControlType',
+  _WorkType: 'WorkTypeType',
+  _CHK: 'CHKType',
+  _Equipment: 'EquipmentType',
+  _NATW: 'NATWType'
+};
 const serverFields = new Set(['Permit_No', 'PermitNo', 'SAP__Messages', 'Ernam', 'Erdat', 'Erzet', 'Aenam', 'Aedat', 'Aezet', 'LastChangedAt', 'PersonsQty']);
 
 function serialize(entity: string, value: Record<string, unknown>): Record<string, unknown> {
@@ -45,18 +54,117 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
   if (end.getTime() <= Date.now()) throw new Error('The permit validity period has already ended.');
   if (!payload._Worker?.length || payload.PersonsQty !== payload._Worker.length) throw new Error('Add the actual crew and make the crew quantity match the worker list.');
   if (!payload._HazardControl?.length) throw new Error('Add the work hazards and required controls.');
-  if (payload.LotoRequired === 'Y' && !['Y', 'X'].includes(payload.IsolationRequired)) throw new Error('LOTO requires isolation. Select Yes for isolation.');
+  const isGas = payload.GasTestRequired === 'Y' || payload.GasTestRequired === 'X';
+  const isIso = payload.IsolationRequired === 'Y' || payload.IsolationRequired === 'X';
+  const isLoto = payload.LotoRequired === 'Y' || payload.LotoRequired === 'X';
+  if (isLoto && !isIso) throw new Error('LOTO requires isolation. Select Yes for isolation.');
   if (payload._Isolation?.length) throw new Error('Create isolation certificates with their _Item points in the isolation module after the permit is created.');
   const status = initialPermitStatus(payload.IsolationRequired, payload.GasTestRequired || '');
-  if (payload.GasTestRequired === 'Y' && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours.');
+  if (isGas && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours.');
   validateSitePermit(payload);
-  const isIso = payload.IsolationRequired === 'Y' || payload.IsolationRequired === 'X';
-  payload = { ...payload, ExecDept: payload.ExecDept.trim(), GasTestFreqHr: payload.GasTestRequired === 'Y' ? payload.GasTestFreqHr : '',
+  const sapType = toSapPermitType(payload.PermitType) || payload.PermitType;
+
+  // Derive _WorkType when multiple categories are selected if not already supplied
+  let effectiveWorkTypes = payload._WorkType;
+  if (!effectiveWorkTypes && payload._Safety?.length) {
+    const typeItems = payload._Safety
+      .filter(row => row.Category === 'PTW' && row.ItemCode === 'TYPE')
+      .map(row => row.Remarks?.trim())
+      .filter(Boolean);
+    if (typeItems.length > 1) {
+      const primarySap = sapType;
+      const additionalSaps = typeItems
+        .map(t => toSapPermitType(t) || t)
+        .filter(t => Boolean(t) && t !== primarySap);
+      if (additionalSaps.length > 0) {
+        effectiveWorkTypes = [primarySap, ...additionalSaps].map((code, idx) => ({
+          SeqNo: String(idx + 1),
+          WorkType: code
+        }));
+      }
+    }
+  }
+
+  // Derive _NATW child table items if not explicitly provided
+  let effectiveNatw = payload._NATW;
+  if (effectiveNatw === undefined && payload._Safety?.length) {
+    const natwRows = payload._Safety.filter(row => row.Category === 'PTW' && row.ItemCode === 'NATR');
+    if (natwRows.length > 0) {
+      effectiveNatw = natwRows.map((row, idx) => ({
+        ItemNo: String(idx + 1),
+        NatwCode: toNatwCode(row.Remarks || row.ValueText),
+        NatwDesc: (row.Remarks || row.ValueText || '').slice(0, 255),
+        OtherText: (row.Remarks === 'Other' ? (payload._Safety?.find(r => r.ItemCode === 'NOTE')?.Remarks || '') : '').slice(0, 255)
+      }));
+    }
+  }
+
+  // Derive _Equipment child table items if not explicitly provided
+  let effectiveEquipment = payload._Equipment;
+  if (effectiveEquipment === undefined && payload._Safety?.length) {
+    const equipRows = payload._Safety.filter(row => row.Category === 'PTW' && row.ItemCode === 'TOOL');
+    if (equipRows.length > 0) {
+      effectiveEquipment = equipRows.map((row, idx) => ({
+        ItemNo: String(idx + 1),
+        EquipCode: toEquipCode(row.Remarks || row.ValueText),
+        EquipDesc: (row.Remarks || row.ValueText || '').slice(0, 255),
+        OtherText: (row.Remarks === 'Other' ? (payload._Safety?.find(r => r.ItemCode === 'NOTE')?.Remarks || '') : '').slice(0, 255)
+      }));
+    }
+  }
+
+  // Compile _Safety rows, preserving gas requirement row and converting any payload._CHK items
+  // into _Safety rows so both _CHK and _Safety hold the checklist responses
+  const safetyRows = [...(payload._Safety || []).filter(row => !(row.Category === 'PTW' && row.ItemCode === 'GREQ'))];
+  if (Array.isArray(payload._CHK) && payload._CHK.length > 0) {
+    const existingSafetyKeys = new Set(safetyRows.map(r => `${r.Category || ''}_${r.ItemCode || ''}_${r.ReferenceNo || ''}`));
+
+    for (const chk of payload._CHK) {
+      if (!chk || typeof chk !== 'object') continue;
+      const qId = String(chk.QuestionnaireId || (chk as any).QuestionaireId || '').trim();
+      const pType = String(chk.PermitType || '').trim();
+      const ans = String(chk.Answer || (chk as any).response || '').trim().toUpperCase();
+      const sapCat = (toSapPermitType(pType) || pType || sapType || 'GEN').substring(0, 6).toUpperCase();
+      const itemCode = (qId.startsWith('Q') ? qId : `Q${qId}`).slice(0, 4);
+      const matchKey = `${sapCat}_${itemCode}_${qId.substring(0, 30)}`;
+      if (!existingSafetyKeys.has(matchKey)) {
+        existingSafetyKeys.add(matchKey);
+        safetyRows.push({
+          PermitNo: '',
+          ItemNo: '',
+          Category: sapCat,
+          ItemCode: itemCode || 'Q001',
+          Response: ans.slice(0, 3) || 'NO',
+          ValueText: (chk.Remarks || `Checklist item ${qId}`).trim().slice(0, 100) || `Checklist item ${qId}`,
+          ValueNum: 0,
+          Unit: '',
+          ReferenceNo: qId.substring(0, 30),
+          ResponsibleUser: (payload.SupvName || '').slice(0, 12),
+          VerifiedBy: '',
+          VerifiedAt: null,
+          Remarks: (chk.Remarks || '').slice(0, 255)
+        });
+      }
+    }
+  }
+  safetyRows.push(gasRequirementRow(isGas ? 'Y' : 'N'));
+
+  payload = { ...payload, ExecDept: payload.ExecDept.trim(),
+    PermitType: sapType,
+    GasTestFreqHr: isGas ? payload.GasTestFreqHr : '',
+    GasTestRequired: isGas ? 'X' : ' ',
     IsolationRequired: isIso ? 'X' : ' ',
-    IsolationStatus: isIso ? 'INTD' : '',
+    IsolationStatus: isIso ? 'CRTD' : '',
+    ...(payload.LotoRequired !== undefined ? { LotoRequired: isLoto ? 'X' : ' ' } : {}),
     _Isolation: isIso ? payload._Isolation : [],
-    _Safety: [...(payload._Safety || []).filter(row => !(row.Category === 'PTW' && row.ItemCode === 'GREQ')), gasRequirementRow(payload.GasTestRequired || '')] };
+    _Safety: safetyRows,
+    _WorkType: effectiveWorkTypes,
+    _CHK: payload._CHK || [],
+    _Equipment: effectiveEquipment,
+    _NATW: effectiveNatw
+  };
   const body = serialize('PermitInfoType', payload as unknown as Record<string, unknown>);
+  body.PermitType = sapType;
   body.Status = status;
   for (const [navigation, entity] of Object.entries(children)) {
     const rows = (payload as unknown as Record<string, unknown>)[navigation];
@@ -64,12 +172,52 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
     const keys = new Set<string>();
     body[navigation] = rows.map((row, index) => {
       if (!row || typeof row !== 'object') throw new Error(`${navigation} contains an invalid row.`);
-      const source = { ...row, ItemNo: String(index + 1) };
+      const raw = row as Record<string, unknown>;
+      const sapWorkType = navigation === '_WorkType'
+        ? (toSapPermitType(String(raw.WorkType || '')) || String(raw.WorkType || '').trim())
+        : undefined;
+      const sapChkPermitType = navigation === '_CHK'
+        ? (toSapPermitType(String(raw.PermitType || '')) || String(raw.PermitType || '').trim())
+        : undefined;
+      const source: Record<string, any> = {
+        ...raw,
+        ItemNo: String(index + 1),
+        SeqNo: String(index + 1),
+        ...(sapWorkType !== undefined ? { WorkType: sapWorkType } : {}),
+        ...(sapChkPermitType !== undefined ? { PermitType: sapChkPermitType } : {}),
+        ...(navigation === '_CHK' ? {
+          QuestionnaireId: String(raw.QuestionnaireId || (raw as any).QuestionaireId || '').trim(),
+          Answer: String(raw.Answer || (raw as any).response || '').trim().toUpperCase(),
+          Remarks: String(raw.Remarks || (raw as any).remarks || '').trim()
+        } : {}),
+        ...(navigation === '_Equipment' ? {
+          EquipCode: String(raw.EquipCode || toEquipCode(String(raw.EquipDesc || ''))).trim().slice(0, 10),
+          EquipDesc: String(raw.EquipDesc || '').trim().slice(0, 255),
+          OtherText: String(raw.OtherText || '').trim().slice(0, 255)
+        } : {}),
+        ...(navigation === '_NATW' ? {
+          NatwCode: String(raw.NatwCode || toNatwCode(String(raw.NatwDesc || ''))).trim().slice(0, 10),
+          NatwDesc: String(raw.NatwDesc || '').trim().slice(0, 255),
+          OtherText: String(raw.OtherText || '').trim().slice(0, 255)
+        } : {})
+      };
       if (navigation === '_Worker' && (!source.WorkerName?.trim() || (source.WorkerTypeCode === 'EMP' && !source.EmpId?.trim()) || (source.WorkerTypeCode === 'CONT' && !source.ContractorName?.trim()))) throw new Error('Each worker needs a name and employee ID or contractor company.');
       if (navigation === '_HazardControl' && (!source.HazardDesc?.trim() || !source.ControlDesc?.trim())) throw new Error('Each hazard needs a description and control.');
       if (navigation === '_PPE' && (!source.PpeCode?.trim() || !source.PpeDesc?.trim())) throw new Error('Each PPE item needs its real code and description.');
       if (navigation === '_Safety' && (!source.ItemCode?.trim() || !source.ValueText?.trim())) throw new Error('Each safety check needs a code and description.');
-      const key = String(source.ItemNo);
+      if (navigation === '_WorkType' && !source.WorkType?.trim()) throw new Error('Each work type record needs a valid category code.');
+      if (navigation === '_Equipment' && (!source.EquipCode?.trim() || !source.EquipDesc?.trim())) throw new Error('Each equipment item needs a valid code and description.');
+      if (navigation === '_NATW' && (!source.NatwCode?.trim() || !source.NatwDesc?.trim())) throw new Error('Each nature of work item needs a valid code and description.');
+      if (navigation === '_CHK') {
+        if (!source.QuestionnaireId?.trim()) throw new Error('Each checklist response requires a QuestionnaireId.');
+        if (!source.PermitType?.trim()) throw new Error('Each checklist response requires a PermitType.');
+        if (!source.Answer?.trim()) throw new Error('Each checklist response requires an Answer.');
+      }
+      const key = navigation === '_CHK'
+        ? `${source.PermitType}_${source.QuestionnaireId}`
+        : navigation === '_WorkType'
+        ? source.SeqNo
+        : source.ItemNo;
       if (keys.has(key)) throw new Error(`Duplicate ${navigation} item.`);
       keys.add(key);
       return serialize(entity, source);

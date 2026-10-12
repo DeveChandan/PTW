@@ -5,6 +5,7 @@ import { readGasRequirement } from '../../core/ptw/prerequisites';
 import { backendWorkflowApi, WorkflowUnconfirmedError } from '../../core/api/modules/backendWorkflow.api';
 import { sitePermitApi } from '../../core/api/modules/sitePermit.api';
 import { CertificateActions } from '../isolation/CertificateActions';
+import { toast } from '../../shared/context/ToastContext';
 
 export function PrerequisitePanel({ permit, module, user, onUpdated, onBusyChange }: { permit: PermitDeepInsertResponse; module: ModuleId; user: SapUser | null; onUpdated: (permit: PermitDeepInsertResponse) => void; onBusyChange: (busy: boolean) => void }) {
   const [confirmed, setConfirmed] = useState(false);
@@ -15,7 +16,7 @@ export function PrerequisitePanel({ permit, module, user, onUpdated, onBusyChang
   const gasRequired = readGasRequirement(permit);
   const eligible = !!user?.roles.some(role => ['ZPTW_GAS_TESTER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ADMIN'].includes(role));
   const finalize = async () => {
-    if (lock.current || uncertain || !confirmed || !eligible || !permit._GasTest?.length || gasRequired !== 'Y') return;
+    if (lock.current || uncertain || !confirmed || !eligible || !permit._GasTest?.length || (gasRequired !== 'Y' && gasRequired !== 'X')) return;
     lock.current = true; setBusy(true); onBusyChange(true); setMessage('');
     let actionConfirmed = false;
     try {
@@ -24,9 +25,13 @@ export function PrerequisitePanel({ permit, module, user, onUpdated, onBusyChang
       const latest = await sitePermitApi.read(permit.Permit_No);
       onUpdated(latest);
       setConfirmed(false);
-      setMessage(`SAP confirmed gas finalization. Permit status: ${latest.Status}.`);
+      const okMsg = `SAP confirmed gas finalization. Permit status: ${latest.Status}.`;
+      setMessage(okMsg);
+      toast.success(okMsg, { title: 'Gas Finalized' });
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'Unable to finalize gas testing.');
+      const errMsg = reason instanceof Error ? reason.message : 'Unable to finalize gas testing.';
+      setMessage(errMsg);
+      toast.error(errMsg, { title: 'Gas Finalization Error' });
       if (actionConfirmed || reason instanceof WorkflowUnconfirmedError) setUncertain(true);
     } finally { lock.current = false; setBusy(false); onBusyChange(false); }
   };
@@ -39,7 +44,7 @@ export function PrerequisitePanel({ permit, module, user, onUpdated, onBusyChang
     {module === 'gas-tester' && <>
       <p className="text-sm text-amber-900">Gas records are read from SAP. New readings require a backend measurement-entry API; the current service supports finalizing existing tests.</p>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={confirmed} disabled={busy || uncertain || !eligible} onChange={event => setConfirmed(event.target.checked)} />I reviewed the saved gas tests below and confirm they are ready for SAP validation.</label>
-      <button type="button" disabled={busy || uncertain || !eligible || !confirmed || permit.Status !== 'INTD' || gasRequired !== 'Y' || !permit._GasTest?.length || !permit['@odata.etag']} onClick={() => void finalize()} className="rounded bg-[#006398] px-4 py-2 text-sm text-white disabled:opacity-40">Finalize saved gas tests</button>
+      <button type="button" disabled={busy || uncertain || !eligible || !confirmed || permit.Status !== 'INTD' || (gasRequired !== 'Y' && gasRequired !== 'X') || !permit._GasTest?.length || !permit['@odata.etag']} onClick={() => void finalize()} className="rounded bg-[#006398] px-4 py-2 text-sm text-white disabled:opacity-40">Finalize saved gas tests</button>
       {!permit['@odata.etag'] && <p className="text-sm text-amber-900">SAP must return the current permit ETag before finalization.</p>}
     </>}
     {uncertain && <p className="text-sm text-amber-900">Check the action outcome in SAP before further changes.</p>}

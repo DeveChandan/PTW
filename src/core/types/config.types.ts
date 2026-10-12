@@ -4,6 +4,7 @@ export type ConfigType =
   | 'PERMIT_TYPE' 
   | 'WORKER_TYPE' 
   | 'DEPARTMENT'
+  | 'PLANT'
   | 'ISOLATION_TYPE'
   | 'ISOLATED_STATE'
   | 'ISOL_METHOD'

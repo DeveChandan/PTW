@@ -32,6 +32,129 @@ test('every procedure category and combined work fits the SAP creation schema wi
   }
 });
 
+test('confined space entry maps CONF to CSE in outbound SAP payload and accepts CSE directly', () => {
+  const plan = completePlan();
+  const bodyConf = preparePermitCreate(payload('CONF', plan));
+  assert.equal(bodyConf.PermitType, 'CSE');
+
+  const bodyCse = preparePermitCreate(payload('CSE', plan));
+  assert.equal(bodyCse.PermitType, 'CSE');
+  assert.throws(() => preparePermitCreate({ ...payload('CSE', plan), IsolationRequired: 'N' }), /positive isolation/);
+  assert.throws(() => preparePermitCreate({ ...payload('CSE', plan), GasTestFreqHr: '8' }), /two hours/);
+});
+
+test('primary permit type and multiple additional work categories are mapped to SAP child table _WorkType', () => {
+  // Single category (primary only, no additional categories): _WorkType is omitted
+  const singlePlan = completePlan();
+  const singleBody = preparePermitCreate(payload('HOT', singlePlan));
+  assert.equal(singleBody.PermitType, 'HOT');
+  assert.equal(singleBody._WorkType, undefined);
+
+  // Multiple categories selected in Section A: primary HOT, additional CONF (CSE) and EXCV
+  const multiPlan = completePlan();
+  multiPlan.additionalTypes = ['CONF', 'EXCV'];
+  const multiBody = preparePermitCreate(payload('HOT', multiPlan));
+  assert.equal(multiBody.PermitType, 'HOT');
+  assert.ok(Array.isArray(multiBody._WorkType));
+  assert.equal(multiBody._WorkType.length, 3);
+  assert.deepEqual(multiBody._WorkType, [
+    { SeqNo: '1', WorkType: 'HOT' },
+    { SeqNo: '2', WorkType: 'CSE' },
+    { SeqNo: '3', WorkType: 'EXCV' }
+  ]);
+
+  // Explicit payload._WorkType takes precedence with sequential SeqNo
+  const explicitBody = preparePermitCreate({
+    ...payload('COLD', singlePlan),
+    _WorkType: [
+      { WorkType: 'COLD' },
+      { WorkType: 'ELEC' }
+    ]
+  });
+  assert.equal(explicitBody.PermitType, 'COLD');
+  assert.deepEqual(explicitBody._WorkType, [
+    { SeqNo: '1', WorkType: 'COLD' },
+    { SeqNo: '2', WorkType: 'ELEC' }
+  ]);
+});
+
+test('compliance checklist responses across categories are validated and serialized into SAP child table _CHK', () => {
+  const plan = completePlan();
+
+  // Omitted when empty
+  const emptyBody = preparePermitCreate(payload('HOT', plan));
+  assert.equal(emptyBody._CHK, undefined);
+
+  // Serialized with uppercase answer, mapped SAP permit type, and trimmed fields
+  const bodyWithChk = preparePermitCreate({
+    ...payload('HOT', plan),
+    _CHK: [
+      {
+        QuestionnaireId: 'Q001',
+        PermitType: 'HOT',
+        Answer: 'YES',
+        Remarks: 'Fire blankets inspected'
+      },
+      {
+        QuestionnaireId: 'Q002',
+        PermitType: 'CONF', // Maps to CSE
+        Answer: 'no', // Normalizes to NO
+        Remarks: 'Forced air blower pending'
+      },
+      {
+        QuestionnaireId: 'Q003',
+        PermitType: 'CSE',
+        Answer: 'NA',
+        Remarks: ''
+      }
+    ]
+  });
+
+  assert.ok(Array.isArray(bodyWithChk._CHK));
+  assert.equal(bodyWithChk._CHK.length, 3);
+  assert.deepEqual(bodyWithChk._CHK, [
+    {
+      QuestionnaireId: 'Q001',
+      PermitType: 'HOT',
+      Answer: 'YES',
+      Remarks: 'Fire blankets inspected'
+    },
+    {
+      QuestionnaireId: 'Q002',
+      PermitType: 'CSE',
+      Answer: 'NO',
+      Remarks: 'Forced air blower pending'
+    },
+    {
+      QuestionnaireId: 'Q003',
+      PermitType: 'CSE',
+      Answer: 'NA',
+      Remarks: ''
+    }
+  ]);
+
+  // Validation: Missing QuestionnaireId rejected
+  assert.throws(() => preparePermitCreate({
+    ...payload('HOT', plan),
+    _CHK: [{ QuestionnaireId: '', PermitType: 'HOT', Answer: 'YES', Remarks: '' }]
+  }), /QuestionnaireId/);
+
+  // Validation: Missing Answer rejected
+  assert.throws(() => preparePermitCreate({
+    ...payload('HOT', plan),
+    _CHK: [{ QuestionnaireId: 'Q001', PermitType: 'HOT', Answer: '', Remarks: '' }]
+  }), /Answer/);
+
+  // Validation: Duplicate composite key (PermitType + QuestionnaireId) rejected
+  assert.throws(() => preparePermitCreate({
+    ...payload('HOT', plan),
+    _CHK: [
+      { QuestionnaireId: 'Q001', PermitType: 'HOT', Answer: 'YES', Remarks: '' },
+      { QuestionnaireId: 'Q001', PermitType: 'HOT', Answer: 'NO', Remarks: '' }
+    ]
+  }), /Duplicate _CHK/);
+});
+
 test('initial site validity checks eight-hour and actual shift boundaries, including midnight', () => {
   assert.doesNotThrow(() => preparePermitCreate(payload()));
   assert.throws(() => preparePermitCreate({ ...payload(), ValidToT: '16:01' }), /eight hours/);
@@ -121,12 +244,54 @@ test('SAP record read uses metadata field names and escapes OData literals', asy
     assert.match(decodeURIComponent(calls[1]), /PermitInfo\('P''1'\)/);
     assert.ok(!new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_GasTest'));
     assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_Isolation($expand=_Item)'));
+    assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_WorkType'));
+    assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_CHK'));
+    assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_Equipment'));
+    assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_NATW'));
     assert.equal(calls[2], 'GasTest');
     assert.doesNotMatch(calls[1], /GasTests|Hazards|PpeItems/);
     odataClient.get = async () => ({ data: {} });
     await assert.rejects(sitePermitApi.list('', ''), /permit list/);
     await assert.rejects(sitePermitApi.read('P1'), /requested permit/);
   } finally { odataClient.get = original; }
+});
+
+test('nature of work and tools/equipment are serialized into SAP child tables _NATW and _Equipment with unique ItemNo keys', () => {
+  const plan = completePlan();
+  plan.nature = ['Welding / gas cutting', 'Opening line / equipment'];
+  plan.tools = ['Welding machine', 'Gas cylinders / cutting set'];
+  const body = preparePermitCreate(payload('HOT', plan));
+
+  assert.ok(Array.isArray(body._NATW));
+  assert.equal(body._NATW.length, 2);
+  assert.deepEqual(body._NATW, [
+    { ItemNo: '1', NatwCode: 'WELD', NatwDesc: 'Welding / gas cutting', OtherText: '' },
+    { ItemNo: '2', NatwCode: 'OPEN_LINE', NatwDesc: 'Opening line / equipment', OtherText: '' }
+  ]);
+
+  assert.ok(Array.isArray(body._Equipment));
+  assert.equal(body._Equipment.length, 2);
+  assert.deepEqual(body._Equipment, [
+    { ItemNo: '1', EquipCode: 'WELD_MCH', EquipDesc: 'Welding machine', OtherText: '' },
+    { ItemNo: '2', EquipCode: 'GAS_CYL', EquipDesc: 'Gas cylinders / cutting set', OtherText: '' }
+  ]);
+
+  // Explicit payload with single item and custom text
+  const explicitBody = preparePermitCreate({
+    ...payload('HOT', completePlan()),
+    _NATW: [
+      { NatwCode: 'WELD', NatwDesc: 'Welding / gas cutting', OtherText: 'Field pipe weld' }
+    ],
+    _Equipment: [
+      { EquipCode: 'WELD_MCH', EquipDesc: 'Welding machine', OtherText: 'Inverter 400A' }
+    ]
+  });
+  assert.equal(explicitBody._NATW.length, 1);
+  assert.equal(explicitBody._NATW[0].ItemNo, '1');
+  assert.equal(explicitBody._NATW[0].OtherText, 'Field pipe weld');
+  assert.equal(explicitBody._Equipment.length, 1);
+  assert.equal(explicitBody._Equipment[0].ItemNo, '1');
+  assert.equal(explicitBody._Equipment[0].OtherText, 'Inverter 400A');
 });
 
 test('legacy gas writes cannot silently persist a manufactured pass flag', async () => {

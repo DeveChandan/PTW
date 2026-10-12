@@ -29,7 +29,7 @@ Merge these fields into the existing deep-create payload (this fragment is not a
 {
   "ExecDept": "Mechanical Maintenance",
   "IsolationRequired": "Y",
-  "IsolationStatus": "INTD",
+  "IsolationStatus": "CRTD",
   "GasTestFreqHr": "2",
   "Status": "INTD",
   "_Safety": [{

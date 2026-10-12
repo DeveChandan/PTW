@@ -32,29 +32,29 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
       )}
 
       {/* Module Title & Role Verification Banner */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-white via-sky-50/25 to-blue-50/40 border border-slate-200/80 rounded-3xl p-6 shadow-[0_2px_4px_rgba(15,23,42,0.03),0_12px_28px_-6px_rgba(0,99,152,0.08),inset_0_1px_0_0_rgba(255,255,255,1)] mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#006398] shadow-sm shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-white border border-sky-200/80 flex items-center justify-center text-[#006398] shadow-[0_4px_12px_-2px_rgba(0,99,152,0.15),inset_0_1px_0_rgba(255,255,255,1)] shrink-0">
             <span className="material-symbols-outlined text-[32px]">{module.icon}</span>
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="font-display font-bold text-2xl text-gray-900 tracking-tight">
+              <h1 className="font-display font-bold text-2xl text-slate-900 tracking-tight">
                 {module.title}
               </h1>
-              <span className="text-xs font-mono font-bold bg-blue-50 text-[#006398] border border-blue-200 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-mono font-bold bg-sky-50 text-[#006398] border border-sky-200 px-2 py-0.5 rounded-full shadow-xs">
                 {module.badge}
               </span>
             </div>
-            <p className="text-xs text-gray-500 font-sans">
+            <p className="text-xs text-slate-500 font-sans">
               {module.subtitle}
             </p>
           </div>
         </div>
 
         <div className="flex flex-col sm:items-end font-mono text-xs">
-          <span className="text-gray-500 text-[11px]">SAP Authorization:</span>
-          <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg mt-0.5 flex items-center gap-1.5">
+          <span className="text-slate-500 text-[11px]">SAP Authorization:</span>
+          <span className="font-bold text-emerald-700 bg-gradient-to-r from-emerald-50 to-emerald-100/50 border border-emerald-200/90 px-3 py-1 rounded-xl mt-0.5 flex items-center gap-1.5 shadow-xs">
             <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse"></span>
             AUTHORIZED FOR {user?.id || 'SAP USER'}
           </span>
@@ -62,7 +62,7 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
       </div>
 
       {/* Primary Coming Soon Showcase Card */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-10 shadow-lg text-center flex flex-col items-center">
+      <div className="bg-gradient-to-b from-white via-white to-slate-50/60 border border-slate-200/80 rounded-3xl p-10 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,1)] text-center flex flex-col items-center">
         {/* Animated Badge Icon */}
         <div className="relative mb-6">
           <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-50 to-indigo-50 border border-blue-200 flex items-center justify-center text-[#006398] shadow-inner">

@@ -238,6 +238,13 @@
       "scale": null,
       "nullable": false
     },
+    "GasTestRequired": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
     "Status": {
       "type": "Edm.String",
       "maxLength": "4",
@@ -927,6 +934,13 @@
       "scale": null,
       "nullable": true
     },
+    "description": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
     "SAP__Messages": {
       "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
       "maxLength": null,
@@ -1079,6 +1093,147 @@
     "SAP__Messages": {
       "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
       "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "WorkTypeType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SeqNo": {
+      "type": "Edm.String",
+      "maxLength": "3",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "WorkType": {
+      "type": "Edm.String",
+      "maxLength": "32",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SAP__Messages": {
+      "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "CHKType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "QuestionnaireId": {
+      "type": "Edm.String",
+      "maxLength": "6",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "PermitType": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Answer": {
+      "type": "Edm.String",
+      "maxLength": "3",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Remarks": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "EquipmentType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ItemNo": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "EquipCode": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "EquipDesc": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "OtherText": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "NATWType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ItemNo": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "NatwCode": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "NatwDesc": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "OtherText": {
+      "type": "Edm.String",
+      "maxLength": "255",
       "precision": null,
       "scale": null,
       "nullable": false

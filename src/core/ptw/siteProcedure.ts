@@ -21,6 +21,65 @@ export const isSupportedCategory = (type: string): boolean =>
 export const NATURE_OF_WORK = ['Welding / gas cutting', 'Hot tapping', 'Opening line / equipment', 'Excavation', 'Civil work', 'Insulation', 'Material handling', 'Painting', 'Electrical systems', 'Fire network', 'Mechanical lockout', 'Fragile roof', 'Road closure', 'Hydro-jetting', 'Instrumentation', 'Radiation sources', 'Grinding / drilling / cutting', 'Online sealing', 'Other'];
 export const TOOLS = ['Welding machine', 'Gas cylinders / cutting set', 'Man lift', 'Non-sparking tools', 'Mobile crane / winch', 'Crane / Farana / HEMM', 'Lifting tools and tackles', 'Portable electric tools', 'Scaffold', 'Ladders', 'Grinding / cutting / drilling set', 'Civil hand tools', 'Hydraulic tools', 'Pneumatic tools', 'Lifeline', 'Mechanical hand tools', 'Electrical insulated tools', 'Other'];
 
+export const NATURE_CODE_MAP: Record<string, string> = {
+  'Welding / gas cutting': 'WELD',
+  'Hot tapping': 'HOT_TAP',
+  'Opening line / equipment': 'OPEN_LINE',
+  'Excavation': 'EXCV',
+  'Civil work': 'CIVIL',
+  'Insulation': 'INSUL',
+  'Material handling': 'MAT_HDL',
+  'Painting': 'PAINT',
+  'Electrical systems': 'ELEC_SYS',
+  'Fire network': 'FIRE_NET',
+  'Mechanical lockout': 'MECH_LO',
+  'Fragile roof': 'FRAG_ROOF',
+  'Road closure': 'ROAD_CLS',
+  'Hydro-jetting': 'HYDRO_JET',
+  'Instrumentation': 'INST',
+  'Radiation sources': 'RAD_SRC',
+  'Grinding / drilling / cutting': 'GRIND_CUT',
+  'Online sealing': 'ONL_SEAL',
+  'Other': 'OTHER'
+};
+
+export const TOOL_CODE_MAP: Record<string, string> = {
+  'Welding machine': 'WELD_MCH',
+  'Gas cylinders / cutting set': 'GAS_CYL',
+  'Man lift': 'MAN_LIFT',
+  'Non-sparking tools': 'NON_SPARK',
+  'Mobile crane / winch': 'CRANE_WIN',
+  'Crane / Farana / HEMM': 'FARANA',
+  'Lifting tools and tackles': 'LIFT_TKL',
+  'Portable electric tools': 'PORT_ELEC',
+  'Scaffold': 'SCAFFOLD',
+  'Ladders': 'LADDER',
+  'Grinding / cutting / drilling set': 'GRIND_SET',
+  'Civil hand tools': 'CIVIL_TLS',
+  'Hydraulic tools': 'HYD_TLS',
+  'Pneumatic tools': 'PNEU_TLS',
+  'Lifeline': 'LIFELINE',
+  'Mechanical hand tools': 'MECH_TLS',
+  'Electrical insulated tools': 'ELEC_TLS',
+  'Other': 'OTHER'
+};
+
+export function toNatwCode(desc: string): string {
+  if (!desc) return '';
+  const trimmed = desc.trim();
+  if (NATURE_CODE_MAP[trimmed]) return NATURE_CODE_MAP[trimmed];
+  const clean = trimmed.toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_').slice(0, 10);
+  return clean || 'NATW';
+}
+
+export function toEquipCode(desc: string): string {
+  if (!desc) return '';
+  const trimmed = desc.trim();
+  if (TOOL_CODE_MAP[trimmed]) return TOOL_CODE_MAP[trimmed];
+  const clean = trimmed.toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_').slice(0, 10);
+  return clean || 'EQUIP';
+}
+
 export interface Preparation { code: string; label: string; applies?: string[]; page: number }
 export const PREPARATIONS: Preparation[] = [
   { code: 'F001', label: 'Joint site visit and signed JSA', page: 12 },
@@ -64,13 +123,13 @@ export const PLAN_FIELDS = [
   { code: 'AP03', label: 'Proposed Approver III SAP user ID', user: true },
   { code: 'DIST', label: 'Affected safety district / countersignature reference' },
   { code: 'FWAT', label: 'Fire watch name and contact', applies: ['HOT'] },
-  { code: 'STBY', label: 'Standby person name and contact', applies: ['CONF'] },
-  { code: 'RESC', label: 'Rescue plan / arrangements reference', applies: ['CONF'], reference: true },
-  { code: 'DRAW', label: 'Isolation drawing reference', applies: ['CONF', 'LINE'], reference: true },
-  { code: 'RIGP', label: 'Rigging plan and approval reference', applies: ['RIGG'], reference: true },
-  { code: 'LOAD', label: 'Lifting load in metric tonnes', applies: ['RIGG'] },
+  { code: 'STBY', label: 'Standby person name and contact', applies: ['CONF', 'CSE'] },
+  { code: 'RESC', label: 'Rescue plan / arrangements reference', applies: ['CONF', 'CSE'], reference: true },
+  { code: 'DRAW', label: 'Isolation drawing reference', applies: ['CONF', 'CSE', 'LINE', 'LBRK'], reference: true },
+  { code: 'RIGP', label: 'Rigging plan and approval reference', applies: ['RIGG', 'RIG'], reference: true },
+  { code: 'LOAD', label: 'Lifting load in metric tonnes', applies: ['RIGG', 'RIG'] },
   { code: 'DEPT', label: 'Excavation depth in metres', applies: ['EXCV'] },
-  { code: 'CHEM', label: 'Chemicals / contents of line or equipment', applies: ['LINE', 'CONF'] },
+  { code: 'CHEM', label: 'Chemicals / contents of line or equipment', applies: ['LINE', 'LBRK', 'CONF', 'CSE'] },
   { code: 'RADP', label: 'Supporting radiation permit reference', applies: ['RAD'], reference: true },
   { code: 'OTHR', label: 'Other work scope and controls', applies: ['OTHER'], required: true },
   { code: 'NOTE', label: 'Other tools / nature of work and preparation notes' },
@@ -88,7 +147,16 @@ export const emptySitePlan = (): SitePlan => ({ additionalTypes: [], nature: [],
 export const selectedTypes = (primary: string, plan: SitePlan) => [...new Set([primary, ...plan.additionalTypes].filter(Boolean))];
 export const preparationsFor = (types: string[]) => PREPARATIONS.filter(item => !item.applies || item.applies.some(type => types.includes(type)));
 export const fieldsFor = (types: string[]) => PLAN_FIELDS.filter(item => !('applies' in item) || item.applies.some(type => types.includes(type)));
-export const requiresGasPlan = (types: string[]) => types.some(type => ['HOT', 'CONF'].includes(type));
+export const requiresGasPlan = (types: string[]) => types.some(type => ['HOT', 'CONF', 'CSE'].includes(type));
+
+export function toSapPermitType(type: string): string {
+  if (!type) return '';
+  const trimmed = type.trim();
+  const match = PERMIT_CATEGORIES.find(
+    c => c.code.toUpperCase() === trimmed.toUpperCase() || c.sapCode.toUpperCase() === trimmed.toUpperCase()
+  );
+  return match ? match.sapCode : trimmed;
+}
 
 /** Planning guidance from p.18, never an authorization decision. */
 export function approvalGuidance(types: string[], time: string): string[] {
@@ -97,7 +165,7 @@ export function approvalGuidance(types: string[], time: string): string[] {
   const night = minutes >= 23 * 60 || minutes < 9 * 60;
   const evening = minutes >= 17 * 60 + 30;
   return types.map(type => {
-    const name = PERMIT_CATEGORIES.find(item => item.code === type)?.label || type;
+    const name = PERMIT_CATEGORIES.find(item => item.code === type || item.sapCode === type)?.label || type;
     if (type === 'COLD') return `${name}: no Approver I/II signature in p.18; issuer, acceptor and operator duties still apply.`;
     if (type === 'CONF' || type === 'CSE') return `${name}: ${night ? 'Approver III; notify Dy Unit Head / Unit Head per p.9' : 'Approvers I and II'}. Non-working-day rules and gas limits require confirmation.`;
     if (type === 'HOT') return `${name}: ${night ? 'Approver II' : 'Approvers I and II'} (p.18). Record authorized substitution evidence where applicable.`;
@@ -160,7 +228,7 @@ export function validateSitePermit(payload: PermitDeepInsertPayload): void {
   const shiftEnd = siteTime(shiftDate, shiftTime || '');
   if (![start, end, shiftEnd].every(Number.isFinite) || end <= start || shiftEnd <= start) throw new Error('Enter valid site times and a shift end after work starts.');
   if (end > Math.min(start + 8 * 3600000, shiftEnd)) throw new Error('Initial validity must end within eight hours or at shift end, whichever is earlier. Request an authorized extension separately.');
-  if (requiresGasPlan(types) && payload.GasTestRequired !== 'Y') throw new Error('Hot work / confined-space planning requires gas testing. Select Yes.');
+  if (requiresGasPlan(types) && payload.GasTestRequired !== 'Y' && payload.GasTestRequired !== 'X') throw new Error('Hot work / confined-space planning requires gas testing. Select Yes.');
   if (requiresGasPlan(types) && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours for hot work / confined space.');
   if ((types.includes('CONF') || types.includes('CSE')) && payload.IsolationRequired !== 'Y' && payload.IsolationRequired !== 'X') throw new Error('Confined-space planning requires positive isolation. Add the isolation plan.');
   for (const item of preparationsFor(types)) {

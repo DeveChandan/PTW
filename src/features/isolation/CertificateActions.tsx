@@ -4,6 +4,7 @@ import type { SapIsolationHeader } from '../../core/types/isolation.types';
 import { backendWorkflowApi, WorkflowUnconfirmedError, type IsolationAction } from '../../core/api/modules/backendWorkflow.api';
 import { isolationApi } from '../../core/api/modules/isolation.api';
 import { sitePermitApi } from '../../core/api/modules/sitePermit.api';
+import { toast } from '../../shared/context/ToastContext';
 
 export function CertificateActions({ certificate, user, onUpdated }: { certificate: SapIsolationHeader; user: SapUser | null; onUpdated: (certificate: SapIsolationHeader) => void }) {
   const [confirmed, setConfirmed] = useState(false);
@@ -25,9 +26,13 @@ export function CertificateActions({ certificate, user, onUpdated }: { certifica
       const latest = await isolationApi.read(certificate.IsolationNo);
       if (!latest) throw new Error('Reload the certificate from SAP.');
       onUpdated(latest); setConfirmed(false);
-      setMessage(action ? `SAP confirmed ${action}. Certificate status: ${latest.Status}. Reload the linked permit to check its workflow status.` : 'Current SAP certificate loaded.');
+      const okMsg = action ? `SAP confirmed ${action}. Certificate status: ${latest.Status}.` : 'Current SAP certificate loaded.';
+      setMessage(okMsg);
+      toast.success(okMsg, { title: 'Certificate Updated' });
     } catch (reason) {
-      setMessage(reason instanceof Error ? reason.message : 'SAP workflow action failed.');
+      const errMsg = reason instanceof Error ? reason.message : 'SAP workflow action failed.';
+      setMessage(errMsg);
+      toast.error(errMsg, { title: 'Isolation Action Failed' });
       if (actionConfirmed || reason instanceof WorkflowUnconfirmedError) setUncertain(true);
     } finally { lock.current = false; setBusy(false); }
   };

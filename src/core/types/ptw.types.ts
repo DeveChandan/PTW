@@ -98,19 +98,19 @@ export interface PermitInfoRecord {
   ValidToD: string | null; // Valid To Date (YYYY-MM-DD)
   ValidToT: string; // Valid To Time (HH:mm:ss)
 
-  GasTestRequired?: string; // UI choice; serialized as PTW/GREQ in _Safety, not a SAP header property
+  GasTestRequired?: 'X' | ' ' | IndicatorYN | string; // Gas Testing Required ABAP Flag ('X'/' ')
   GasTestFreqHr: string; // Gas Test Frequency in Hours (01, 02, etc.), MaxLength 2
   Status: string; // Permit Lifecycle Status (CRTD, SUBM, APPR, etc.), MaxLength 4
 
   RefPermitNo: string; // Reference Permit Number, MaxLength 10
 
-  LotoRequired: IndicatorYN | string; // LOTO Required ('Y'/'N'), MaxLength 1
+  LotoRequired: 'X' | ' ' | IndicatorYN | string; // LOTO Required ABAP Flag ('X'/' '), MaxLength 1
   LotoCertNo: string; // LOTO Certificate Number, MaxLength 20
 
   IsolationRequired: 'X' | ' ' | IndicatorYN | string; // Isolation Required ('X'/' '), MaxLength 1
   IsolationRefType: string; // Isolation Reference Type (EQUIP, etc.), MaxLength 6
   IsolationNo: string; // Isolation Certificate Number, MaxLength 20
-  IsolationStatus: string; // Isolation Status, MaxLength 4
+  IsolationStatus: string; // Isolation Status ('CRTD' when isolation required), MaxLength 4
 
   PermitIssuer: string; // Permit Issuer, MaxLength 40
   SuspendReason: string; // Suspension Reason, MaxLength 255
@@ -356,6 +356,51 @@ export interface AuditLogRecord {
   SAP__Messages?: SapMessageItem[];
 }
 
+/**
+ * WorkTypeType (SAP child table _WorkType)
+ */
+export interface WorkTypeRecord {
+  PermitNo?: string; // Key, MaxLength 10
+  SeqNo?: string; // Key, Sequence Number ("1", "2"), MaxLength 3
+  WorkType: string; // Permit Type code ("HOT", "CSE", "COLD", etc.), MaxLength 32
+  SAP__Messages?: SapMessageItem[];
+}
+
+/**
+ * CHKType (SAP child table _CHK)
+ */
+export interface ChkRecord {
+  PermitNo?: string; // Key, MaxLength 10
+  QuestionnaireId: string; // Key, MaxLength 6
+  PermitType: string; // MaxLength 10
+  Answer: string; // MaxLength 3 ("YES", "NO", "NA")
+  Remarks: string; // MaxLength 255
+}
+
+/**
+ * EquipmentType (SAP child table _Equipment)
+ */
+export interface EquipmentRecord {
+  PermitNo?: string; // Key, MaxLength 10
+  ItemNo?: string; // Key, MaxLength 4
+  EquipCode: string; // MaxLength 10
+  EquipDesc: string; // MaxLength 255
+  OtherText?: string; // MaxLength 255
+  SAP__Messages?: SapMessageItem[];
+}
+
+/**
+ * NATWType (SAP child table _NATW)
+ */
+export interface NatwRecord {
+  PermitNo?: string; // Key, MaxLength 10
+  ItemNo?: string; // MaxLength 4
+  NatwCode: string; // MaxLength 10
+  NatwDesc: string; // MaxLength 255
+  OtherText?: string; // MaxLength 255
+  SAP__Messages?: SapMessageItem[];
+}
+
 // --------------------------------------------------------------------------
 // 2. Deep Insert Complete Payload & Response Schema
 // --------------------------------------------------------------------------
@@ -374,6 +419,10 @@ export interface PermitDeepInsertPayload extends PermitInfoRecord {
   _Approval?: ApprovalRecord[];
   _ShiftRenewal?: ShiftRenewalRecord[];
   _AuditLog?: AuditLogRecord[];
+  _WorkType?: WorkTypeRecord[];
+  _CHK?: ChkRecord[];
+  _Equipment?: EquipmentRecord[];
+  _NATW?: NatwRecord[];
 }
 
 /**
@@ -381,6 +430,10 @@ export interface PermitDeepInsertPayload extends PermitInfoRecord {
  */
 export interface PermitDeepInsertResponse extends Omit<PermitDeepInsertPayload, '_Isolation'> {
   _Isolation?: SapIsolationHeader[];
+  _WorkType?: WorkTypeRecord[];
+  _CHK?: ChkRecord[];
+  _Equipment?: EquipmentRecord[];
+  _NATW?: NatwRecord[];
   /** Client-enriched collection fetched from GasTest, not a PermitInfo navigation. */
   '@odata.context'?: string;
   '@odata.metadataEtag'?: string;

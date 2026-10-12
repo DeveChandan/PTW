@@ -1,20 +1,14 @@
 import { odataClient } from '../odataClient';
 import { ODATA_ENTITIES } from '../odataEndpoints';
 import { SapChecklistItem, SapChecklistResponse } from '../../types/checklist.types';
-import { PERMIT_CATEGORIES } from '../../ptw/siteProcedure';
+import { toSapPermitType } from '../../ptw/siteProcedure';
 
 /**
  * Maps any UI permit category code (e.g. 'HGHT', 'CONF') or SAP code ('W@H', 'CSE')
  * to the exact SAP PermitType code expected by the Checklist OData service.
  */
-export function toSapChecklistPermitType(permitType: string): string {
-  if (!permitType) return '';
-  const trimmed = permitType.trim();
-  const match = PERMIT_CATEGORIES.find(
-    c => c.code.toUpperCase() === trimmed.toUpperCase() || c.sapCode.toUpperCase() === trimmed.toUpperCase()
-  );
-  return match ? match.sapCode : trimmed;
-}
+export const toSapChecklistPermitType = toSapPermitType;
+export { toSapPermitType };
 
 /**
  * Production verified fallback / offline questionnaire seed data
@@ -352,6 +346,26 @@ export const FALLBACK_CHECKLISTS: Record<string, SapChecklistItem[]> = {
       Category: 'FACILITIES',
       Question: 'FACILITIES AVAILABLE FOR CSE: MULTI-GAS DETECTORS FOR O2, LEL, CO, H2S AND CL2; ONLINE AIRLINE RESPIRATORS; SCBA SETS IN THE PLANT CONTROL ROOM/KEY LOCATIONS; TRAINED FIRST-AIDERS.'
     }
+  ],
+  'HOT': [
+    { QuestionaireId: '51', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'SURROUNDINGS', Question: 'IS A 10-METER RADIUS AROUND THE HOT WORK AREA CLEARED OF ALL COMBUSTIBLE AND FLAMMABLE MATERIALS?' },
+    { QuestionaireId: '52', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'FIRE PROTECTION', Question: 'ARE FIRE EXTINGUISHERS (DCP/CO2/FOAM) AND PRESSURIZED FIRE WATER HOSE READILY AVAILABLE AT THE WORK SITE?' },
+    { QuestionaireId: '53', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'FIRE WATCH', Question: 'IS A DEDICATED AND TRAINED FIRE WATCH ASSIGNED TO MONITOR THE HOT WORK DURING AND FOR 30 MINUTES AFTER COMPLETION?' },
+    { QuestionaireId: '54', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'SPARK CONTAINMENT', Question: 'ARE FIRE BLANKETS / METALLIC SPARK ARRESTORS PROPERLY INSTALLED TO CONTAIN FLYING SPARKS AND SLAG?' },
+    { QuestionaireId: '55', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'GAS TESTING', Question: 'HAS ATMOSPHERIC GAS TESTING BEEN CONDUCTED AND CONFIRMED 0% LEL FOR FLAMMABLE GASES/VAPORS PRIOR TO SPARK CREATION?' },
+    { QuestionaireId: '56', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'EQUIPMENT', Question: 'ARE WELDING CABLES, HOLDER, RETURN CLAMP, AND RETURN LEADS IN SOUND CONDITION WITH NO DAMAGED INSULATION?' },
+    { QuestionaireId: '57', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'EQUIPMENT', Question: 'IS THE WELDING MACHINE PROPERLY GROUNDED WITH DOUBLE EARTHING AND CONNECTED THROUGH A FUNCTIONING ELCB/RCCB?' },
+    { QuestionaireId: '58', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'GAS CYLINDERS', Question: 'ARE OXYGEN AND ACETYLENE CYLINDERS SECURED UPRIGHT IN A TROLLEY WITH FLASHBACK ARRESTORS AT BOTH TORCH AND REGULATOR ENDS?' },
+    { QuestionaireId: '59', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'DRAINS', Question: 'ARE ALL SEWERS, DRAINS, AND SUMPS WITHIN A 15-METER RADIUS COVERED WITH FIRE-RESISTANT BLANKETS AND WETTED?' },
+    { QuestionaireId: '60', PermitType: 'HOT', Type: 'CHECKLIST', Sequence: '', Category: 'PPE', Question: 'ARE WELDERS AND HELPERS WEARING APPROVED LEATHER WELDING APRON, SLEEVES, GLOVES, AND PROPER EYE SHIELD/HELMET?' }
+  ],
+  'ELEC': [
+    { QuestionaireId: '71', PermitType: 'ELEC', Type: 'CHECKLIST', Sequence: '', Category: 'ISOLATION', Question: 'HAS THE ELECTRICAL SYSTEM BEEN POSITIVELY ISOLATED, SWITCHED OFF, RACKED OUT, AND LOCKED OUT (LOTO)?' },
+    { QuestionaireId: '72', PermitType: 'ELEC', Type: 'CHECKLIST', Sequence: '', Category: 'ZERO ENERGY', Question: 'HAS ZERO VOLTAGE BEEN VERIFIED USING A CALIBRATED TEST INSTRUMENT ON ALL PHASES AND NEUTRAL?' },
+    { QuestionaireId: '73', PermitType: 'ELEC', Type: 'CHECKLIST', Sequence: '', Category: 'EARTHING', Question: 'IS TEMPORARY PROTECTIVE DISCHARGE AND PORTABLE EARTH APPLIED TO DISCHARGE RESIDUAL ELECTRICAL ENERGY?' },
+    { QuestionaireId: '74', PermitType: 'ELEC', Type: 'CHECKLIST', Sequence: '', Category: 'TOOLS', Question: 'ARE INSULATED HAND TOOLS (TESTED TO 1000V) AND RUBBER INSULATING MATS (IS 15652) USED FOR THE JOB?' },
+    { QuestionaireId: '75', PermitType: 'ELEC', Type: 'CHECKLIST', Sequence: '', Category: 'PPE', Question: 'ARE ELECTRICAL-RATED SAFETY SHOES, DIELECTRIC GLOVES, AND ARC FLASH SUIT/FACE SHIELD PROVIDED AS PER HAZARD RATING?' },
+    { QuestionaireId: '76', PermitType: 'ELEC', Type: 'CHECKLIST', Sequence: '', Category: 'BARRICADING', Question: 'IS THE ADJACENT LIVE EQUIPMENT / SWITCHGEAR BUSBAR SHROUDED AND CLEAR DANGER WARNING BOARDS DISPLAYED?' }
   ]
 };
 

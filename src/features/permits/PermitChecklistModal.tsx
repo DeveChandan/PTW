@@ -158,36 +158,38 @@ export const PermitChecklistModal: React.FC<PermitChecklistModalProps> = ({
     onSave(result);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !items || items.length === 0) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="checklist-modal-title"
     >
-      <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] overflow-hidden">
-        {/* MODAL HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-sky-50 via-slate-50 to-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#006398] text-white flex items-center justify-center shadow-md">
+      <div className="bg-white w-full max-w-5xl rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35),0_0_0_1px_rgba(15,23,42,0.08)] border border-slate-200/90 flex flex-col max-h-[85vh] overflow-hidden my-auto">
+        {/* MODAL HEADER with Light Tint */}
+        <div className="px-6 sm:px-8 py-5 sm:py-6 border-b border-slate-200/80 bg-gradient-to-r from-sky-50/90 via-blue-50/30 to-white/95 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#006398] to-[#004f7a] text-white flex items-center justify-center shadow-md shadow-sky-900/15 shrink-0">
               <span className="material-symbols-outlined text-[24px]">fact_check</span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 id="checklist-modal-title" className="text-lg font-bold text-slate-900 font-display">
+              <div className="flex items-center flex-wrap gap-2">
+                <h2 id="checklist-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 font-display tracking-tight">
                   {permitTypeName || permitType} Compliance Checklist
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-sans bg-blue-50 text-[#006398] border border-blue-200/80">
                   {permitType}
                 </span>
-                <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-100 text-emerald-800 font-semibold">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                   SAP OData V4
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Mandatory Safety Verification Questionnaire · Answer YES / NO / NA with Remarks
+              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                <span>Mandatory Safety Verification Questionnaire</span>
+                <span className="text-slate-300">·</span>
+                <span>Answer YES / NO / NA with Remarks</span>
               </p>
             </div>
           </div>
@@ -196,14 +198,14 @@ export const PermitChecklistModal: React.FC<PermitChecklistModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className="w-9 h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors"
+            className="w-10 h-10 rounded-xl border border-slate-200/80 bg-white/90 hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all shadow-xs hover:shadow-sm shrink-0"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
         {/* PROGRESS & SUMMARY STRIP */}
-        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="px-6 sm:px-8 py-3.5 bg-slate-50/90 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-700">Completion:</span>
@@ -233,7 +235,7 @@ export const PermitChecklistModal: React.FC<PermitChecklistModalProps> = ({
             <button
               type="button"
               onClick={() => handleBulkSet('YES')}
-              className="px-2.5 py-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs flex items-center gap-1 transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs flex items-center gap-1 transition-colors shadow-xs"
             >
               <span className="material-symbols-outlined text-[14px]">check</span>
               All YES
@@ -241,7 +243,7 @@ export const PermitChecklistModal: React.FC<PermitChecklistModalProps> = ({
             <button
               type="button"
               onClick={() => handleBulkSet('NA')}
-              className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold text-xs flex items-center gap-1 transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold text-xs flex items-center gap-1 transition-colors shadow-xs"
             >
               <span className="material-symbols-outlined text-[14px]">remove</span>
               All NA
@@ -258,7 +260,7 @@ export const PermitChecklistModal: React.FC<PermitChecklistModalProps> = ({
         </div>
 
         {/* CATEGORY TABS & SEARCH */}
-        <div className="px-6 py-2.5 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-3">
+        <div className="px-6 sm:px-8 py-3 border-b border-slate-200/80 bg-white flex flex-wrap items-center justify-between gap-3">
           {/* Category Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto py-1 max-w-full">
             <button
@@ -334,11 +336,11 @@ export const PermitChecklistModal: React.FC<PermitChecklistModalProps> = ({
                   className={`p-4 rounded-xl border transition-all ${
                     isAnswered
                       ? currentAns.response === 'YES'
-                        ? 'bg-white border-emerald-200/80 shadow-xs'
+                        ? 'bg-white border-emerald-300 shadow-xs ring-1 ring-emerald-500/10'
                         : currentAns.response === 'NO'
-                        ? 'bg-rose-50/30 border-rose-200 shadow-xs'
-                        : 'bg-white border-slate-200'
-                      : 'bg-white border-amber-200/70'
+                        ? 'bg-rose-50/25 border-rose-300 shadow-xs ring-1 ring-rose-500/10'
+                        : 'bg-slate-50/50 border-slate-200/90 shadow-xs'
+                      : 'bg-white border-slate-200/90 shadow-xs hover:border-slate-300'
                   }`}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">

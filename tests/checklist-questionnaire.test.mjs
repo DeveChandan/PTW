@@ -93,6 +93,61 @@ test('checklistApi works transparently with UI codes like HGHT and CONF', async 
 });
 
 test('checklistApi returns empty array for permit types without questionnaires', async () => {
-  const coldItems = await checklistApi.fetchChecklist('UNKNOWN_TYPE');
+  const unknownItems = await checklistApi.fetchChecklist('UNKNOWN_TYPE');
+  assert.equal(unknownItems.length, 0);
+});
+
+test('checklistApi provides compliance questionnaires only for CSE, W@H, ELEC, HOT', async () => {
+  const hotItems = await checklistApi.fetchChecklist('HOT');
+  assert.equal(hotItems.length, 10);
+  assert.equal(hotItems[0].PermitType, 'HOT');
+
+  const elecItems = await checklistApi.fetchChecklist('ELEC');
+  assert.equal(elecItems.length, 6);
+  assert.equal(elecItems[0].PermitType, 'ELEC');
+
+  const cseItems = await checklistApi.fetchChecklist('CSE');
+  assert.equal(cseItems.length, 23);
+
+  const wahItems = await checklistApi.fetchChecklist('W@H');
+  assert.equal(wahItems.length, 18);
+
+  // Other categories without API questionnaire return empty array
+  const excvItems = await checklistApi.fetchChecklist('EXCV');
+  assert.equal(excvItems.length, 0);
+
+  const lbrkItems = await checklistApi.fetchChecklist('LBRK');
+  assert.equal(lbrkItems.length, 0);
+
+  const rigItems = await checklistApi.fetchChecklist('RIG');
+  assert.equal(rigItems.length, 0);
+
+  const radItems = await checklistApi.fetchChecklist('RAD');
+  assert.equal(radItems.length, 0);
+
+  const hypnItems = await checklistApi.fetchChecklist('HYD_PNEU');
+  assert.equal(hypnItems.length, 0);
+
+  const coldItems = await checklistApi.fetchChecklist('COLD');
   assert.equal(coldItems.length, 0);
+
+  const otherItems = await checklistApi.fetchChecklist('OTHER');
+  assert.equal(otherItems.length, 0);
+});
+
+test('all QuestionaireIds across CSE, W@H, ELEC, HOT are strictly unique to prevent _Safety collisions', () => {
+  const allIds = new Set();
+  const duplicates = [];
+
+  for (const [cat, list] of Object.entries(FALLBACK_CHECKLISTS)) {
+    for (const item of list) {
+      if (allIds.has(item.QuestionaireId)) {
+        duplicates.push(`${cat}: Q${item.QuestionaireId}`);
+      }
+      allIds.add(item.QuestionaireId);
+    }
+  }
+
+  assert.equal(duplicates.length, 0, `Duplicate QuestionaireIds found: ${duplicates.join(', ')}`);
+  assert.equal(allIds.size, 18 + 23 + 10 + 6, `Expected exactly 57 questions across CSE, W@H, ELEC, HOT`);
 });
