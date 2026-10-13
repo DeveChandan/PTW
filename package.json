@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "test:bsp": "npm run build && node --test tests/bsp-assets.test.mjs",
     "test": "node --test tests/permit-work-lookup.test.mjs tests/site-procedure.test.mjs tests/prerequisites.test.mjs tests/checklist-questionnaire.test.mjs tests/isolation-registry.test.mjs tests/risk-matrix-5x5.test.mjs tests/execution-target.test.mjs tests/phone-validation.test.mjs",
     "deploy:bsp": "echo \"Upload dist/ to SAP BSP using report /UI5/UI5_REPOSITORY_LOAD or SAP Fiori Tools\""
   },

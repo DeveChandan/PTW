@@ -17,6 +17,12 @@ export default defineConfig(({ mode }) => {
     // In SAP BSP, the app is served under /sap/bc/bsp/sap/<app_name>/
     base: './',
 
+    // BSP MIME responses may declare a legacy code page. Escaping Unicode
+    // preserves UI punctuation and symbols regardless of that response charset.
+    esbuild: {
+      charset: 'ascii'
+    },
+
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

@@ -193,6 +193,31 @@ npm run build
 ```
 This generates the optimized bundle in the `dist/` directory.
 
+### Text encoding and icons after BSP deployment
+
+The production build escapes Unicode characters in JavaScript and CSS as ASCII.
+This preserves bullets, separators, dashes, and other UI symbols even when a BSP
+MIME response declares a legacy character encoding. Keep source files in UTF-8
+and serve HTML, JavaScript, and CSS as UTF-8 on SAP where possible.
+
+Material Symbols icons are bundled locally with a full variable WOFF2 font; no
+Google Fonts connection is required for icons. Upload the **entire** `dist/`
+folder, including `assets/material-symbols-outlined-*.woff2`. Preserve the
+generated paths and filenames. The font should be served as `font/woff2`.
+
+The build also copies `public/.Ui5RepositoryBinaryFiles` to the root of `dist/`.
+Keep this file in the upload folder (or at the root of the upload ZIP). It tells
+`/UI5/UI5_REPOSITORY_LOAD` to upload `.woff2` fonts and `.webp` images as binary.
+Without it, SAP can log `*** IGNORE ***` and skip the icon font and logo even
+though the upload ends with "Upload finished". After uploading, confirm both
+files are listed as uploaded **Binary**, with no IGNORE warning for either.
+
+Run `npm run test:bsp` to rebuild and check that generated scripts/styles are
+ASCII-safe and that scripts, styles, and the icon font resolve beneath the BSP
+application path. After uploading, reload with the browser cache cleared and
+check the work-reference separators, missing-equipment dash, header bullet, and
+icons across the permit wizard and other modules.
+
 ### Deploying to SAP NetWeaver BSP
 You have two automated options:
 

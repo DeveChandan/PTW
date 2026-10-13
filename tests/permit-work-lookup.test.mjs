@@ -41,6 +41,48 @@ test('userinfo serializes sap-client once after merging Axios defaults', async (
   }
 });
 
+test('fetchStartupUser discovers user from /sap/bc/ui2/start_up and handles various SAP payloads', async () => {
+  const instance = odataClient.instance;
+  const adapter = instance.defaults.adapter;
+  try {
+    // 1. Direct ID in root response
+    instance.defaults.adapter = async (config) => ({
+      config,
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'application/json' },
+      data: { id: 'VERTIF-V', client: '200' }
+    });
+    const user1 = await authApi.fetchStartupUser('200');
+    assert.equal(user1?.id, 'VERTIF-V');
+
+    // 2. Nested user object (Fiori Launchpad start_up shape)
+    instance.defaults.adapter = async (config) => ({
+      config,
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'application/json' },
+      data: { user: { id: 'SAFETY_MGR' } }
+    });
+    const user2 = await authApi.fetchStartupUser('200');
+    assert.equal(user2?.id, 'SAFETY_MGR');
+
+    // 3. Rejects HTML login page
+    instance.defaults.adapter = async (config) => ({
+      config,
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'text/html', 'sap-authenticated': 'pending' },
+      data: '<html><head><title>SAP Logon</title></head></html>'
+    });
+    const user3 = await authApi.fetchStartupUser('200');
+    assert.equal(user3, null);
+  } finally {
+    instance.defaults.adapter = adapter;
+  }
+});
+
+
 test('validates real calendar dates and inclusive same-day ranges', () => {
   for (const change of [{ fromDate: '' }, { fromDate: '2026-02-30' }, { fromDate: '2026-09-26' }, { toDate: 'bad' }]) assert.ok(validateWorkSearch({ ...base, ...change }));
   assert.equal(validateWorkSearch({ ...base, fromDate: base.toDate }), null);

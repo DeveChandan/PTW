@@ -6,7 +6,7 @@ const ODATA_BASE_URL = import.meta.env.VITE_ODATA_BASE_URL || '/sap/opu/odata4/s
 const SAP_CLIENT = import.meta.env.VITE_SAP_CLIENT || '200';
 
 class SapODataClient {
-  private instance: AxiosInstance;
+  public instance: AxiosInstance;
   private csrfToken: string | null = null;
   private isFetchingToken: Promise<string | null> | null = null;
 
@@ -234,6 +234,13 @@ class SapODataClient {
       }
     }
     return error;
+  }
+
+  /**
+   * Helper for non-OData root endpoints like /sap/bc/ui2/... or /sap/public/...
+   */
+  public getRoot<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    return this.instance.get<T>(url, { ...config, baseURL: '' });
   }
 
   /**

@@ -171,7 +171,7 @@ interface SapAuthContextType {
   unlockedModules: ModuleDefinition[];
   hasRole: (role: string) => boolean;
   isModuleUnlocked: (moduleId: ModuleId) => boolean;
-  login: (credentials: LoginCredentials) => Promise<boolean>;
+  login: (credentials: LoginCredentials, options?: { silent?: boolean }) => Promise<boolean>;
   logout: () => void;
   switchUser: (userId: string) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -180,7 +180,7 @@ interface SapAuthContextType {
 
 const SapAuthContext = createContext<SapAuthContextType | undefined>(undefined);
 
-// Extend window definition for SAP ushell container
+// Extend window definition for SAP ushell container and BSP runtime
 declare global {
   interface Window {
     sap?: {
@@ -194,6 +194,10 @@ declare global {
         };
       };
     };
+    SAP_CURRENT_USER?: string;
+    SAP_CURRENT_CLIENT?: string;
+    SY_UNAME?: string;
+    __SAP_USER__?: string;
   }
 }
 
@@ -245,26 +249,56 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   /**
-   * 1. Lifecycle Hook: Auto-restore session from sessionStorage on app mount / page reload (F5)
-   * or detect SAP Fiori Launchpad container user.
+   * 1. Lifecycle Hook: Auto-restore session from SAP environment on app mount.
+   * Priority resolution:
+   *   Priority 1: SAP Fiori Launchpad (FLP Container Shell)
+   *   Priority 2: Standalone BSP Injected variables or URL parameters (?sap-user=...)
+   *   Priority 3: Active sessionStorage (F5 page refresh)
+   *   Priority 4: SAP Startup Service (/sap/bc/ui2/start_up & /sap/bc/ui2/user)
+   *   Priority 5: Remembered user / default user verified against active SAP session cookies
    */
   useEffect(() => {
     const restoreSession = async () => {
       try {
         sessionStorage.removeItem('gfl_ptw_user_session_v1');
-        // Priority A: If hosted inside SAP Fiori Launchpad (FLP Container Shell)
+
+        // Priority 1: If hosted inside SAP Fiori Launchpad (FLP Container Shell)
         const flpContainerUser = window.sap?.ushell?.Container?.getUser?.();
         if (flpContainerUser) {
           const flpUserId = flpContainerUser.getId();
           if (flpUserId) {
             console.info(`[SapAuth] Detected SAP Fiori Launchpad session for user: ${flpUserId}`);
-            await login({ userId: flpUserId, client: '200' });
-            setIsSessionRestoring(false);
-            return;
+            const ok = await login({ userId: flpUserId, client: '200' }, { silent: true });
+            if (ok) return;
           }
         }
 
-        // Priority B: Check sessionStorage for persisted session
+        // Priority 2: BSP Server-Side Injected Variables or URL Parameters
+        const bspInjectedUser =
+          window.SAP_CURRENT_USER ||
+          window.SY_UNAME ||
+          window.__SAP_USER__;
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlUser = urlParams.get('sap-user') || urlParams.get('sap-user-id') || urlParams.get('user');
+        const candidateDirectUser = (bspInjectedUser || urlUser || '').trim().toUpperCase();
+        const candidateDirectClient =
+          window.SAP_CURRENT_CLIENT ||
+          urlParams.get('sap-client') ||
+          import.meta.env.VITE_SAP_CLIENT ||
+          '200';
+        const candidateDirectLang = urlParams.get('sap-language') || 'EN';
+
+        if (candidateDirectUser && !candidateDirectUser.includes('<%')) {
+          console.info(`[SapAuth] Detected BSP / URL user: ${candidateDirectUser}`);
+          const ok = await login({
+            userId: candidateDirectUser,
+            client: candidateDirectClient,
+            language: candidateDirectLang
+          }, { silent: true });
+          if (ok) return;
+        }
+
+        // Priority 3: Check sessionStorage for persisted session (F5 page refresh)
         const rawSession = sessionStorage.getItem(SESSION_STORAGE_KEY);
         if (rawSession) {
           const parsedSession: StoredUserSession = JSON.parse(rawSession);
@@ -273,11 +307,43 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
           if (!isIdleExpired && parsedSession.user) {
             // Revalidate against SAP; browser storage is not proof of authentication.
-            await login({ userId: parsedSession.user.id, client: parsedSession.client, language: parsedSession.language });
+            const ok = await login({
+              userId: parsedSession.user.id,
+              client: parsedSession.client,
+              language: parsedSession.language
+            }, { silent: true });
+            if (ok) return;
           } else if (isIdleExpired) {
             sessionStorage.removeItem(SESSION_STORAGE_KEY);
             setError('Your SAP session has timed out due to inactivity. Please log on again.');
           }
+        }
+
+        // Priority 4: Standalone SAP BSP Session Discovery (/sap/bc/ui2/start_up & /sap/bc/ui2/user)
+        // When deployed to BSP, user already authenticated with SAP ICF at the host URL.
+        const defaultClient = import.meta.env.VITE_SAP_CLIENT || '200';
+        const startupUser = await authApi.fetchStartupUser(defaultClient);
+        if (startupUser && startupUser.id) {
+          console.info(`[SapAuth] Detected standalone SAP BSP session for user: ${startupUser.id}`);
+          const ok = await login({
+            userId: startupUser.id,
+            client: startupUser.client || defaultClient,
+            language: startupUser.language || 'EN'
+          }, { silent: true });
+          if (ok) return;
+        }
+
+        // Priority 5: Remembered User ID or Default Initial User ID with Active Session Validation
+        // If the user previously logged in, or VITE_INITIAL_USER_ID is set:
+        // Test if the active SAP cookie session can authenticate this user without password.
+        const rememberedId = getRememberedUserId();
+        const initialId = import.meta.env.VITE_INITIAL_USER_ID || '';
+        const candidateFallback = (rememberedId || initialId).trim().toUpperCase();
+
+        if (candidateFallback) {
+          console.info(`[SapAuth] Attempting SSO session validation for candidate user: ${candidateFallback}`);
+          const ok = await login({ userId: candidateFallback, client: defaultClient }, { silent: true });
+          if (ok) return;
         }
       } catch (err) {
         console.warn('[SapAuth] Session restoration error:', err);
@@ -378,8 +444,14 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
   /**
    * Login handler that queries SAP OData V4 userinfo endpoint
    */
-  const login = async (credentials: LoginCredentials): Promise<boolean> => {
-    setLoading(true); setError(null);
+  const login = async (
+    credentials: LoginCredentials,
+    options?: { silent?: boolean }
+  ): Promise<boolean> => {
+    if (!options?.silent) {
+      setLoading(true);
+      setError(null);
+    }
     const targetId = credentials.userId.trim().toUpperCase();
     const client = credentials.client || import.meta.env.VITE_SAP_CLIENT || '200';
     const lang = credentials.language || 'EN';
@@ -395,21 +467,40 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!unlocked.length) throw new Error('This SAP user has no assigned PTW authorization.');
       const profile = records[0];
       const loggedInUser: SapUser = {
-        id: profile.UserId, firstName: profile.FirstName || '', lastName: profile.LastName || '',
+        id: profile.UserId,
+        firstName: profile.FirstName || '',
+        lastName: profile.LastName || '',
         fullName: [profile.FirstName, profile.LastName].filter(Boolean).join(' ') || profile.UserId,
-        email: profile.Email || '', roles, plant: '', client, language: lang,
-        isFlpShell: Boolean(window.sap?.ushell?.Container), unlockedModules: unlocked,
+        email: profile.Email || '',
+        roles,
+        plant: '',
+        client,
+        language: lang,
+        isFlpShell: Boolean(window.sap?.ushell?.Container),
+        unlockedModules: unlocked,
       };
-      setUser(loggedInUser); setIsAuthenticated(true); setActiveModule(unlocked[0]);
+      setUser(loggedInUser);
+      setIsAuthenticated(true);
+      setActiveModule(unlocked[0]);
+      if (!options?.silent) {
+        setError(null);
+      }
       persistSession(loggedInUser, client, lang, credentials);
       return true;
     } catch (err) {
       authApi.clearSession();
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      setUser(null); setIsAuthenticated(false);
-      setError(err instanceof Error ? err.message : 'SAP sign-in failed.');
+      setUser(null);
+      setIsAuthenticated(false);
+      if (!options?.silent) {
+        setError(err instanceof Error ? err.message : 'SAP sign-in failed.');
+      }
       return false;
-    } finally { setLoading(false); }
+    } finally {
+      if (!options?.silent) {
+        setLoading(false);
+      }
+    }
   };
 
   /**

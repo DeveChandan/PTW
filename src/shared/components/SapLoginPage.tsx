@@ -18,8 +18,8 @@ import {
 export const SapLoginPage: React.FC = () => {
   const { login, loading, error, getRememberedUserId } = useSapAuth();
 
-  const [userId, setUserId] = useState<string>('VERTIF-V');
-  const [password, setPassword] = useState<string>('November@2026@2026');
+  const [userId, setUserId] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [client, setClient] = useState<string>('200');
   const [language, setLanguage] = useState<string>('EN');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -39,9 +39,10 @@ export const SapLoginPage: React.FC = () => {
       toast.warning('SAP User ID is required.', { title: 'Mandatory Field Missing' });
       return;
     }
+    const cleanPassword = password.trim() ? password : undefined;
     const success = await login({
-      userId,
-      password,
+      userId: userId.trim(),
+      password: cleanPassword,
       client,
       language,
       rememberUser,
@@ -49,7 +50,13 @@ export const SapLoginPage: React.FC = () => {
     if (success) {
       toast.success(`Welcome back, ${userId.toUpperCase()}!`, { title: 'Authentication Successful' });
     } else {
-      toast.error(error || 'Authentication failed. Please verify credentials.', { title: 'Sign-in Failed' });
+      toast.error(
+        error ||
+          (cleanPassword
+            ? 'Authentication failed. Please verify credentials.'
+            : 'No active SAP session detected. Please enter your password or sign in to your SAP host.'),
+        { title: 'Sign-in Failed' }
+      );
     }
   };
 
@@ -186,10 +193,10 @@ export const SapLoginPage: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-slate-700 tracking-wide">
-                  Password <span className="text-red-500">*</span>
+                  Password <span className="text-slate-400 font-normal">(Optional for Host SSO)</span>
                 </label>
                 <span className="text-[11px] text-slate-400 font-medium">
-                  SAP S/4HANA PIN
+                  Leave empty if signed into SAP
                 </span>
               </div>
               <div className="relative">
@@ -200,9 +207,8 @@ export const SapLoginPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter secure password"
+                  placeholder="Enter password or leave blank for Host SSO"
                   className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-10 pr-11 py-2.5 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#006398]/15 focus:border-[#006398] focus:bg-white transition-all"
-                  required
                 />
                 <button
                   type="button"
@@ -266,7 +272,7 @@ export const SapLoginPage: React.FC = () => {
               </label>
               <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                <span>FIPS 140-3 TLS 1.3</span>
+                {/* <span>FIPS 140-3 TLS 1.3</span> */}
               </span>
             </div>
 

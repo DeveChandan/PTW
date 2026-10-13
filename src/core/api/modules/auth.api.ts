@@ -3,10 +3,86 @@ import { ODATA_ENTITIES } from '../odataEndpoints';
 import { ODataCollectionResponse } from '../../types/odata.types';
 import { SapUserInfoRecord } from '../../auth/sapAuthContext';
 
+export interface SapStartupInfo {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  client?: string;
+  language?: string;
+}
+
 /**
  * Module API: SAP Authentication, Identity & User Roles
  */
 export const authApi = {
+  /**
+   * Attempts to discover the currently logged-in user from SAP NetWeaver's
+   * standard startup and user services (/sap/bc/ui2/start_up or /sap/bc/ui2/user)
+   * using the active browser session cookies.
+   */
+  async fetchStartupUser(client: string = '200'): Promise<SapStartupInfo | null> {
+    const endpoints = [
+      `/sap/bc/ui2/start_up?sap-client=${encodeURIComponent(client)}`,
+      `/sap/bc/ui2/start_up`,
+      `/sap/bc/ui2/user?sap-client=${encodeURIComponent(client)}`,
+      `/sap/bc/ui2/user`
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const response = await odataClient.getRoot(ep, {
+          withCredentials: true,
+          timeout: 4000,
+          headers: {
+            'Accept': 'application/json',
+            'sap-client': client
+          }
+        });
+
+        const contentType = String(response.headers?.['content-type'] || '').toLowerCase();
+        // Reject HTML login pages returned with 200 OK
+        if (contentType.includes('text/html') || response.headers?.['sap-authenticated'] === 'pending') {
+          continue;
+        }
+
+        const data = response.data;
+        if (!data || typeof data !== 'object') continue;
+
+        const rawId =
+          data.id ||
+          data.userId ||
+          data.userName ||
+          data.user?.id ||
+          data.user?.name ||
+          data.d?.id ||
+          data.d?.userId;
+
+        if (typeof rawId === 'string' && rawId.trim()) {
+          const id = rawId.trim().toUpperCase();
+          return {
+            id,
+            firstName: data.firstName || data.user?.firstName || undefined,
+            lastName: data.lastName || data.user?.lastName || undefined,
+            fullName:
+              data.fullName ||
+              data.user?.fullName ||
+              [data.firstName, data.lastName].filter(Boolean).join(' ') ||
+              undefined,
+            email: data.email || data.user?.email || undefined,
+            client: data.client || data.sapClient || client,
+            language: data.language || data.sapLanguage || undefined
+          };
+        }
+      } catch {
+        // Probe next endpoint
+      }
+    }
+
+    return null;
+  },
+
   /**
    * Fetches user profile, assigned plant, and SAP authorizations from the OData V4 userinfo entity set
    */
@@ -38,3 +114,4 @@ export const authApi = {
 };
 
 export default authApi;
+
