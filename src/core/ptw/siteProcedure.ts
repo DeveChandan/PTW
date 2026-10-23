@@ -68,6 +68,7 @@ export function toNatwCode(desc: string): string {
   if (!desc) return '';
   const trimmed = desc.trim();
   if (NATURE_CODE_MAP[trimmed]) return NATURE_CODE_MAP[trimmed];
+  if (trimmed.toLowerCase().startsWith('other')) return 'OTHER';
   const clean = trimmed.toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_').slice(0, 10);
   return clean || 'NATW';
 }
@@ -76,6 +77,7 @@ export function toEquipCode(desc: string): string {
   if (!desc) return '';
   const trimmed = desc.trim();
   if (TOOL_CODE_MAP[trimmed]) return TOOL_CODE_MAP[trimmed];
+  if (trimmed.toLowerCase().startsWith('other')) return 'OTHER';
   const clean = trimmed.toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_').slice(0, 10);
   return clean || 'EQUIP';
 }
@@ -187,10 +189,22 @@ export function sitePlanRows(primary: string, plan: SitePlan): SafetyRecord[] {
   const types = selectedTypes(primary, plan);
   const rows = [row('DOCV', 'Procedure and source form', `${PROCEDURE.id} Rev-${PROCEDURE.revision} ${PROCEDURE.date}; ${PROCEDURE.form}`)];
   types.forEach(type => rows.push(row('TYPE', 'Applicable work category', type)));
-  plan.nature.forEach(value => rows.push(row('NATR', 'Nature of work', value)));
-  plan.tools.forEach(value => rows.push(row('TOOL', 'Tools and equipment', value)));
+  plan.nature.forEach(value => {
+    const detail = value === 'Other' && (plan.fields.OTHER_NATURE || '').trim() ? `Other: ${plan.fields.OTHER_NATURE.trim()}` : value;
+    rows.push(row('NATR', 'Nature of work', detail));
+  });
+  plan.tools.forEach(value => {
+    const detail = value === 'Other' && (plan.fields.OTHER_TOOLS || '').trim() ? `Other: ${plan.fields.OTHER_TOOLS.trim()}` : value;
+    rows.push(row('TOOL', 'Tools and equipment', detail));
+  });
   fieldsFor(types).forEach(field => {
-    const value = (plan.fields[field.code] || '').trim();
+    let value = (plan.fields[field.code] || '').trim();
+    if (field.code === 'NOTE' && !value) {
+      value = [
+        plan.fields.OTHER_NATURE ? `Nature: ${plan.fields.OTHER_NATURE.trim()}` : '',
+        plan.fields.OTHER_TOOLS ? `Tools: ${plan.fields.OTHER_TOOLS.trim()}` : ''
+      ].filter(Boolean).join('; ');
+    }
     const record = row(field.code, field.label, value);
     if ('reference' in field) record.ReferenceNo = value;
     rows.push(record);
@@ -219,7 +233,7 @@ export function validateSitePermit(payload: PermitDeepInsertPayload): void {
     if ('required' in field && field.required && !value(field.code)) throw new Error(`Complete ${field.label}.`);
   }
   if (!rows.some(record => record.ItemCode === 'NATR') || !rows.some(record => record.ItemCode === 'TOOL')) throw new Error('Select the nature of work and tools / equipment.');
-  if ((rows.some(record => ['NATR', 'TOOL'].includes(record.ItemCode) && record.Remarks === 'Other')) && !value('NOTE')) throw new Error('Describe the other nature of work or tools in preparation notes.');
+  if ((rows.some(record => ['NATR', 'TOOL'].includes(record.ItemCode) && (record.Remarks === 'Other' || record.Remarks.startsWith('Other')))) && !value('NOTE')) throw new Error('Describe the other nature of work or tools in preparation notes.');
   if (value('ISSR').toUpperCase() === value('ACCP').toUpperCase()) throw new Error('Issuer and acceptor must be different people.');
   if (!payload.AreaLoc.trim() || !payload.ExecDept.trim()) throw new Error('Complete the work area and execution department.');
   const start = siteTime(payload.ValidFromD, payload.ValidFromT);

@@ -76,7 +76,7 @@ export interface PermitInfoRecord {
   Assembly: string; // Maintenance Assembly, MaxLength 18
 
   Equnr: string; // Equipment Number, MaxLength 18
-  Tplnr: string; // Functional Location, MaxLength 30
+  Tplnr: string; // Functional Location, MaxLength 40
 
   Werks: string; // Plant, MaxLength 4
   Arbpl: string; // Work Center, MaxLength 8
@@ -305,17 +305,23 @@ export interface AttachmentRecord {
 }
 
 /**
- * ApprovalType
+ * ApprovalType - SAP OData V4 entity for Multi-Tier Approval Chain & Digital Signatures
+ * Service Endpoint: /sap/opu/odata4/sap/zptw_mamagement_srv/srvd_a2x/sap/zptw_services/0001/Approval
  */
+export type ApprovalActionCode = 'AP' | 'VR' | 'RJ' | 'APPROVED' | 'VERIFIED' | 'REJECTED';
+export type ApprovalRoleId = 'PTW_APPR1' | 'PTW_APPR2' | 'PTW_APPR3' | 'VER' | 'ISS' | 'SAF' | string;
+export type ApprovalStage = 'APPR' | '01' | '02' | string;
+
 export interface ApprovalRecord {
-  PermitNo: string; // Key, MaxLength 10
-  Stage: string; // Key, Stage ("01", "02"), MaxLength 6
-  SeqNo: string; // Key, Sequence Number ("1", "2"), MaxLength 3
-  RoleId: string; // Key, Role ("VER", "APP", "ISS"), MaxLength 6
-  Action: string; // VR, AP, RJ, MaxLength 2
-  SignedBy: string; // User Name, MaxLength 12
+  PermitNo: string; // Key, MaxLength 10 (e.g. "PTW0000045", "0000099")
+  CycleNo?: number; // Rejection/Resubmission cycle number (e.g. 1, 2)
+  Stage: string; // Key, Stage ("APPR", "01"), MaxLength 10
+  SeqNo: string; // Key, Sequence Number ("1", "2"), MaxLength 4
+  RoleId: string; // Key, Role ("PTW_APPR1", "PTW_APPR2", "VER", "ISS"), MaxLength 12
+  Action: string; // Action ("AP" = Approved, "VR" = Verified, "RJ" = Rejected), MaxLength 4
+  SignedBy: string; // SAP User Name (e.g. "VERTIF-V"), MaxLength 12
   ActionDate: string | null; // Date (YYYY-MM-DD)
-  ActionTime: string; // Time (HH:mm:ss)
+  ActionTime: string; // TimeOfDay (HH:mm:ss)
   Comments: string; // Comments, MaxLength 255
   SAP__Messages?: SapMessageItem[];
 }

@@ -64,24 +64,25 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
   validateSitePermit(payload);
   const sapType = toSapPermitType(payload.PermitType) || payload.PermitType;
 
-  // Derive _WorkType when multiple categories are selected if not already supplied
+  // Derive _WorkType (primary work category and any additional types) if not already supplied
   let effectiveWorkTypes = payload._WorkType;
-  if (!effectiveWorkTypes && payload._Safety?.length) {
+  if ((!effectiveWorkTypes || !effectiveWorkTypes.length) && (sapType || payload._Safety?.length)) {
+    const primarySap = sapType;
     const typeItems = payload._Safety
-      .filter(row => row.Category === 'PTW' && row.ItemCode === 'TYPE')
-      .map(row => row.Remarks?.trim())
-      .filter(Boolean);
-    if (typeItems.length > 1) {
-      const primarySap = sapType;
-      const additionalSaps = typeItems
-        .map(t => toSapPermitType(t) || t)
-        .filter(t => Boolean(t) && t !== primarySap);
-      if (additionalSaps.length > 0) {
-        effectiveWorkTypes = [primarySap, ...additionalSaps].map((code, idx) => ({
-          SeqNo: String(idx + 1),
-          WorkType: code
-        }));
-      }
+      ? payload._Safety
+          .filter(row => row.Category === 'PTW' && row.ItemCode === 'TYPE')
+          .map(row => row.Remarks?.trim())
+          .filter(Boolean)
+      : [];
+    const additionalSaps = typeItems
+      .map(t => toSapPermitType(t) || t)
+      .filter(t => Boolean(t) && t !== primarySap);
+    const allTypes = Array.from(new Set([primarySap, ...additionalSaps].filter(Boolean)));
+    if (allTypes.length > 0) {
+      effectiveWorkTypes = allTypes.map((code, idx) => ({
+        SeqNo: String(idx + 1),
+        WorkType: code
+      }));
     }
   }
 
@@ -90,12 +91,18 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
   if (effectiveNatw === undefined && payload._Safety?.length) {
     const natwRows = payload._Safety.filter(row => row.Category === 'PTW' && row.ItemCode === 'NATR');
     if (natwRows.length > 0) {
-      effectiveNatw = natwRows.map((row, idx) => ({
-        ItemNo: String(idx + 1),
-        NatwCode: toNatwCode(row.Remarks || row.ValueText),
-        NatwDesc: (row.Remarks || row.ValueText || '').slice(0, 255),
-        OtherText: (row.Remarks === 'Other' ? (payload._Safety?.find(r => r.ItemCode === 'NOTE')?.Remarks || '') : '').slice(0, 255)
-      }));
+      effectiveNatw = natwRows.map((row, idx) => {
+        const isOther = (row.Remarks || row.ValueText || '').startsWith('Other');
+        const customText = row.Remarks?.includes(':')
+          ? row.Remarks.split(':').slice(1).join(':').trim()
+          : (payload._Safety?.find(r => r.ItemCode === 'NOTE')?.Remarks || '');
+        return {
+          ItemNo: String(idx + 1),
+          NatwCode: toNatwCode(row.Remarks || row.ValueText),
+          NatwDesc: (row.Remarks || row.ValueText || '').slice(0, 255),
+          OtherText: (isOther ? customText : '').slice(0, 255)
+        };
+      });
     }
   }
 
@@ -104,50 +111,26 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
   if (effectiveEquipment === undefined && payload._Safety?.length) {
     const equipRows = payload._Safety.filter(row => row.Category === 'PTW' && row.ItemCode === 'TOOL');
     if (equipRows.length > 0) {
-      effectiveEquipment = equipRows.map((row, idx) => ({
-        ItemNo: String(idx + 1),
-        EquipCode: toEquipCode(row.Remarks || row.ValueText),
-        EquipDesc: (row.Remarks || row.ValueText || '').slice(0, 255),
-        OtherText: (row.Remarks === 'Other' ? (payload._Safety?.find(r => r.ItemCode === 'NOTE')?.Remarks || '') : '').slice(0, 255)
-      }));
+      effectiveEquipment = equipRows.map((row, idx) => {
+        const isOther = (row.Remarks || row.ValueText || '').startsWith('Other');
+        const customText = row.Remarks?.includes(':')
+          ? row.Remarks.split(':').slice(1).join(':').trim()
+          : (payload._Safety?.find(r => r.ItemCode === 'NOTE')?.Remarks || '');
+        return {
+          ItemNo: String(idx + 1),
+          EquipCode: toEquipCode(row.Remarks || row.ValueText),
+          EquipDesc: (row.Remarks || row.ValueText || '').slice(0, 255),
+          OtherText: (isOther ? customText : '').slice(0, 255)
+        };
+      });
     }
   }
 
-  // Compile _Safety rows, preserving gas requirement row and converting any payload._CHK items
-  // into _Safety rows so both _CHK and _Safety hold the checklist responses
-  const safetyRows = [...(payload._Safety || []).filter(row => !(row.Category === 'PTW' && row.ItemCode === 'GREQ'))];
-  if (Array.isArray(payload._CHK) && payload._CHK.length > 0) {
-    const existingSafetyKeys = new Set(safetyRows.map(r => `${r.Category || ''}_${r.ItemCode || ''}_${r.ReferenceNo || ''}`));
-
-    for (const chk of payload._CHK) {
-      if (!chk || typeof chk !== 'object') continue;
-      const qId = String(chk.QuestionnaireId || (chk as any).QuestionaireId || '').trim();
-      const pType = String(chk.PermitType || '').trim();
-      const ans = String(chk.Answer || (chk as any).response || '').trim().toUpperCase();
-      const sapCat = (toSapPermitType(pType) || pType || sapType || 'GEN').substring(0, 6).toUpperCase();
-      const itemCode = (qId.startsWith('Q') ? qId : `Q${qId}`).slice(0, 4);
-      const matchKey = `${sapCat}_${itemCode}_${qId.substring(0, 30)}`;
-      if (!existingSafetyKeys.has(matchKey)) {
-        existingSafetyKeys.add(matchKey);
-        safetyRows.push({
-          PermitNo: '',
-          ItemNo: '',
-          Category: sapCat,
-          ItemCode: itemCode || 'Q001',
-          Response: ans.slice(0, 3) || 'NO',
-          ValueText: (chk.Remarks || `Checklist item ${qId}`).trim().slice(0, 100) || `Checklist item ${qId}`,
-          ValueNum: 0,
-          Unit: '',
-          ReferenceNo: qId.substring(0, 30),
-          ResponsibleUser: (payload.SupvName || '').slice(0, 12),
-          VerifiedBy: '',
-          VerifiedAt: null,
-          Remarks: (chk.Remarks || '').slice(0, 255)
-        });
-      }
-    }
-  }
-  safetyRows.push(gasRequirementRow(isGas ? 'Y' : 'N'));
+  // Compile _Safety rows, preserving gas requirement row (compliance checklist items belong in _CHK, not _Safety)
+  const safetyRows = [
+    ...(payload._Safety || []).filter(row => !(row.Category === 'PTW' && row.ItemCode === 'GREQ') && !row.ItemCode?.startsWith('Q')),
+    gasRequirementRow(isGas ? 'Y' : 'N')
+  ];
 
   payload = { ...payload, ExecDept: payload.ExecDept.trim(),
     PermitType: sapType,
@@ -165,7 +148,24 @@ export function preparePermitCreate(payload: PermitDeepInsertPayload): Record<st
   };
   const body = serialize('PermitInfoType', payload as unknown as Record<string, unknown>);
   body.PermitType = sapType;
-  body.Status = status;
+
+  // Pure Cold Work Check: Primary category is Cold Work and no other additional categories exist
+  const isOnlyColdWork = (sapType === 'COLD') && (
+    !effectiveWorkTypes ||
+    effectiveWorkTypes.length === 0 ||
+    effectiveWorkTypes.every(wt => {
+      const code = (toSapPermitType(wt.WorkType) || wt.WorkType || '').trim().toUpperCase();
+      return code === 'COLD';
+    })
+  );
+
+  // If Status is explicitly passed as 'APPR' and only primary permit type is cold work (no additional types added),
+  // post Status as 'APPR' (Approve) so system behaves synchronously without requiring approver sign-off.
+  const finalStatus = (payload.Status === 'APPR' && isOnlyColdWork)
+    ? 'APPR'
+    : status;
+
+  body.Status = finalStatus;
   for (const [navigation, entity] of Object.entries(children)) {
     const rows = (payload as unknown as Record<string, unknown>)[navigation];
     if (!Array.isArray(rows) || !rows.length) continue;

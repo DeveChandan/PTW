@@ -24,6 +24,8 @@ export const ODATA_ENTITIES = {
 
   // Authentication & System
   USER_INFO: 'userinfo',
+  USER_ROLE: 'UserRole',
+  USER_ROLES: 'UserRole',
   CONFIG: 'Config',
   CHECKLIST: 'Checklist',
 
@@ -55,6 +57,15 @@ export const ODATA_NAV_PROPERTIES = {
   CHK: '_CHK',
   EQUIPMENT: '_Equipment',
   NATW: '_NATW',
+} as const;
+
+/**
+ * SAP OData V4 Service Action Endpoints
+ */
+export const ODATA_ACTIONS = {
+  APPROVE: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.approve',
+  REJECT: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.reject',
+  RESUBMIT: 'com.sap.gateway.srvd_a2x.zptw_services.v0001.Resubmit',
 } as const;
 
 /**

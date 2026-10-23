@@ -71,12 +71,12 @@ export function SiteProcedureStep({
         theme="blue"
         sectionTag="SECTION A"
         title="Additional Applicable Work Categories"
-        subtitle="Select combined activities, e.g. hot work inside a confined space. Primary permit category is defined in Section 2.1. When multiple categories are selected, primary and additional work types are stored in SAP child table _WorkType."
+        subtitle="Select combined activities, e.g. hot work inside a confined space. Primary permit category is defined in Section 2.1. Primary and additional work types are stored in SAP child table _WorkType."
         icon="category"
         badge={
           <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-blue-100 text-[#006398]">
             {types.length} Active {types.length === 1 ? 'Category' : 'Categories'}
-            {types.length > 1 ? ' · _WorkType Active' : ''}
+            {types.length >= 1 ? ' · _WorkType Active' : ''}
           </span>
         }
       >
@@ -173,6 +173,29 @@ export function SiteProcedureStep({
                       {progress.answered}/{progress.total} Verified
                     </span>
                   </button>
+                )}
+
+                {/* Other Work description input directly on the card if selected or primary */}
+                {((category.code as string) === 'OTHER' || (category.sapCode as string) === 'OTHER') && (isPrimary || isSelected) && (
+                  <div className="mt-2.5 pt-2 border-t border-sky-200/80">
+                    <label className="block text-[10px] font-semibold text-[#006398] mb-1">
+                      Specify Other Work Scope &amp; Controls <span className="text-red-500 font-bold">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={plan.fields.OTHR || ''}
+                      onChange={(e) =>
+                        onChange({
+                          ...plan,
+                          fields: { ...plan.fields, OTHR: e.target.value }
+                        })
+                      }
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Describe scope of work and required controls..."
+                      maxLength={255}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#006398]/40 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#006398]/20 focus:border-[#006398] font-sans"
+                    />
+                  </div>
                 )}
               </div>
             );
@@ -320,6 +343,7 @@ export function SiteProcedureStep({
 
       {/* SECTION B: Nature of Work */}
       <SectionCard
+        id="field-nature-of-work"
         theme="indigo"
         sectionTag="SECTION B"
         title="Nature of Work *"
@@ -340,6 +364,73 @@ export function SiteProcedureStep({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {NATURE_OF_WORK.map((choice) => {
             const isChecked = plan.nature.includes(choice);
+            const isOther = choice === 'Other';
+
+            if (isOther) {
+              return (
+                <div
+                  key={choice}
+                  className={`p-3 rounded-xl border text-xs font-medium transition-all ${
+                    isChecked
+                      ? 'bg-indigo-50/70 border-indigo-300 text-indigo-950 font-semibold shadow-xs sm:col-span-2 lg:col-span-3'
+                      : 'bg-white border-slate-200/90 text-slate-700 hover:border-slate-300 hover:bg-slate-50/50'
+                  }`}
+                >
+                  <label className="flex items-center justify-between gap-3 cursor-pointer select-none">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          const nextNature = toggle(plan.nature, choice);
+                          onChange({
+                            ...plan,
+                            nature: nextNature
+                          });
+                        }}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-colors cursor-pointer shrink-0"
+                      />
+                      <span className="leading-snug">{choice}</span>
+                    </div>
+                    {isChecked && (
+                      <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200 shrink-0">
+                        Input Required
+                      </span>
+                    )}
+                  </label>
+
+                  {isChecked && (
+                    <div className="mt-2.5 pt-2 border-t border-indigo-200/80">
+                      <label className="block text-[11px] font-semibold text-indigo-900 mb-1">
+                        Specify Other Nature of Work <span className="text-red-500 font-bold">*</span>
+                      </label>
+                      <input
+                        id="procedure-other-nature"
+                        type="text"
+                        value={plan.fields.OTHER_NATURE || ''}
+                        onChange={(event) => {
+                          const val = event.target.value;
+                          onChange({
+                            ...plan,
+                            fields: {
+                              ...plan.fields,
+                              OTHER_NATURE: val,
+                              NOTE: plan.fields.NOTE || val
+                            }
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Please specify nature of work (e.g. Scaffolding erection, refractory repair, hydro-test)..."
+                        maxLength={255}
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-indigo-300 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-sans shadow-2xs"
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <label
                 key={choice}
@@ -358,7 +449,7 @@ export function SiteProcedureStep({
                       nature: toggle(plan.nature, choice)
                     })
                   }
-                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-colors cursor-pointer"
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-colors cursor-pointer shrink-0"
                 />
                 <span className="leading-snug">{choice}</span>
               </label>
@@ -369,6 +460,7 @@ export function SiteProcedureStep({
 
       {/* SECTION C: Tools and Equipment */}
       <SectionCard
+        id="field-tools-equipment"
         theme="amber"
         sectionTag="SECTION C"
         title="Tools & Equipment *"
@@ -389,6 +481,75 @@ export function SiteProcedureStep({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {TOOLS.map((choice) => {
             const isChecked = plan.tools.includes(choice);
+            const isOther = choice === 'Other';
+
+            if (isOther) {
+              return (
+                <div
+                  key={choice}
+                  className={`p-3 rounded-xl border text-xs font-medium transition-all ${
+                    isChecked
+                      ? 'bg-amber-50/70 border-amber-300 text-amber-950 font-semibold shadow-xs sm:col-span-2 lg:col-span-3'
+                      : 'bg-white border-slate-200/90 text-slate-700 hover:border-slate-300 hover:bg-slate-50/50'
+                  }`}
+                >
+                  <label className="flex items-center justify-between gap-3 cursor-pointer select-none">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          const nextTools = toggle(plan.tools, choice);
+                          onChange({
+                            ...plan,
+                            tools: nextTools
+                          });
+                        }}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 transition-colors cursor-pointer shrink-0"
+                      />
+                      <span className="leading-snug">{choice}</span>
+                    </div>
+                    {isChecked && (
+                      <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                        Input Required
+                      </span>
+                    )}
+                  </label>
+
+                  {isChecked && (
+                    <div className="mt-2.5 pt-2 border-t border-amber-200/80">
+                      <label className="block text-[11px] font-semibold text-amber-950 mb-1">
+                        Specify Other Tools &amp; Equipment <span className="text-red-500 font-bold">*</span>
+                      </label>
+                      <input
+                        id="procedure-other-tools"
+                        type="text"
+                        value={plan.fields.OTHER_TOOLS || ''}
+                        onChange={(event) => {
+                          const val = event.target.value;
+                          onChange({
+                            ...plan,
+                            fields: {
+                              ...plan.fields,
+                              OTHER_TOOLS: val,
+                              NOTE: plan.fields.OTHER_NATURE
+                                ? `${plan.fields.OTHER_NATURE}; Tools: ${val}`
+                                : (plan.fields.NOTE || val)
+                            }
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Please specify tools & equipment (e.g. Torque wrench, air blower, vacuum truck)..."
+                        maxLength={255}
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-amber-300 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 font-sans shadow-2xs"
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <label
                 key={choice}
@@ -407,7 +568,7 @@ export function SiteProcedureStep({
                       tools: toggle(plan.tools, choice)
                     })
                   }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 transition-colors cursor-pointer"
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 transition-colors cursor-pointer shrink-0"
                 />
                 <span className="leading-snug">{choice}</span>
               </label>
@@ -418,6 +579,7 @@ export function SiteProcedureStep({
 
       {/* SECTION D: JSA, Shift and Proposed Responsibilities */}
       <SectionCard
+        id="section-procedure-d"
         theme="emerald"
         sectionTag="SECTION D"
         title="JSA, Shift & Proposed Responsibilities"
@@ -444,6 +606,7 @@ export function SiteProcedureStep({
                     </span>
                   </label>
                   <input
+                    id={`procedure-field-${field.code}`}
                     type={isDateTime ? 'datetime-local' : 'text'}
                     maxLength={maxLen}
                     value={value}

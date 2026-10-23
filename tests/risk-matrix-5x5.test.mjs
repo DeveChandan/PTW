@@ -23,7 +23,14 @@ new Function('require', 'module', 'exports', result.outputFiles[0].text)(
   compiled.exports
 );
 
-const { getRiskMatrixCell, SEVERITY_CRITERIA_ROWS, LIKELIHOOD_COLS } = compiled.exports;
+const {
+  getRiskMatrixCell,
+  SEVERITY_CRITERIA_ROWS,
+  LIKELIHOOD_COLS,
+  deduceMatrixCoordinates,
+  extractHazardRisk,
+  getMaxHazardRisk
+} = compiled.exports;
 
 test('5x5 Matrix correctly maps all 25 cells to exact corporate risk bands and scores', () => {
   // Red cells (Scores 15, 16, 20, 25) -> Critical Risk (#FF0000, black text)
@@ -39,7 +46,8 @@ test('5x5 Matrix correctly maps all 25 cells to exact corporate risk bands and s
     const cell = getRiskMatrixCell(sev, lik);
     assert.equal(cell.score, score, `Score for (${sev},${lik})`);
     assert.equal(cell.band, 'RED', `Band for (${sev},${lik})`);
-    assert.equal(cell.sapRiskLevel, 'CRIT', `SAP level for (${sev},${lik})`);
+    assert.equal(cell.sapRiskLevel, String(score), `SAP level for (${sev},${lik})`);
+    assert.equal(cell.riskBandCode, 'CRIT', `Risk band code for (${sev},${lik})`);
     assert.equal(cell.hexColor, '#FF0000', `Hex color for (${sev},${lik})`);
     assert.equal(cell.textClass, 'text-black', `Text color for (${sev},${lik})`);
   }
@@ -56,7 +64,8 @@ test('5x5 Matrix correctly maps all 25 cells to exact corporate risk bands and s
     const cell = getRiskMatrixCell(sev, lik);
     assert.equal(cell.score, score, `Score for (${sev},${lik})`);
     assert.equal(cell.band, 'YELLOW', `Band for (${sev},${lik})`);
-    assert.equal(cell.sapRiskLevel, 'HIGH', `SAP level for (${sev},${lik})`);
+    assert.equal(cell.sapRiskLevel, String(score), `SAP level for (${sev},${lik})`);
+    assert.equal(cell.riskBandCode, 'HIGH', `Risk band code for (${sev},${lik})`);
     assert.equal(cell.hexColor, '#FFD966', `Hex color for (${sev},${lik})`);
     assert.equal(cell.textClass, 'text-black', `Text color for (${sev},${lik})`);
   }
@@ -77,7 +86,8 @@ test('5x5 Matrix correctly maps all 25 cells to exact corporate risk bands and s
     const cell = getRiskMatrixCell(sev, lik);
     assert.equal(cell.score, score, `Score for (${sev},${lik})`);
     assert.equal(cell.band, 'CYAN', `Band for (${sev},${lik})`);
-    assert.equal(cell.sapRiskLevel, 'MED', `SAP level for (${sev},${lik})`);
+    assert.equal(cell.sapRiskLevel, String(score), `SAP level for (${sev},${lik})`);
+    assert.equal(cell.riskBandCode, 'MED', `Risk band code for (${sev},${lik})`);
     assert.equal(cell.hexColor, '#66FFFF', `Hex color for (${sev},${lik})`);
     assert.equal(cell.textClass, 'text-black', `Text color for (${sev},${lik})`);
   }
@@ -94,7 +104,8 @@ test('5x5 Matrix correctly maps all 25 cells to exact corporate risk bands and s
     const cell = getRiskMatrixCell(sev, lik);
     assert.equal(cell.score, score, `Score for (${sev},${lik})`);
     assert.equal(cell.band, 'GREEN', `Band for (${sev},${lik})`);
-    assert.equal(cell.sapRiskLevel, 'LOW', `SAP level for (${sev},${lik})`);
+    assert.equal(cell.sapRiskLevel, String(score), `SAP level for (${sev},${lik})`);
+    assert.equal(cell.riskBandCode, 'LOW', `Risk band code for (${sev},${lik})`);
     assert.equal(cell.hexColor, '#CCFF99', `Hex color for (${sev},${lik})`);
     assert.equal(cell.textClass, 'text-black', `Text color for (${sev},${lik})`);
   }
@@ -155,3 +166,101 @@ test('Likelihood probability scale matches 1 to 5 frequency categories', () => {
   assert.equal(LIKELIHOOD_COLS[4].qualitative, 'Very Likely');
   assert.match(LIKELIHOOD_COLS[4].frequency, /Once a yr or More/i);
 });
+
+test('deduceMatrixCoordinates accurately breaks down scores into 5x5 Severity and Likelihood', () => {
+  assert.deepEqual(deduceMatrixCoordinates(25), { s: 5, l: 5 });
+  assert.deepEqual(deduceMatrixCoordinates(20), { s: 5, l: 4 });
+  assert.deepEqual(deduceMatrixCoordinates(16), { s: 4, l: 4 });
+  assert.deepEqual(deduceMatrixCoordinates(15), { s: 5, l: 3 });
+  assert.deepEqual(deduceMatrixCoordinates(12), { s: 4, l: 3 });
+  assert.deepEqual(deduceMatrixCoordinates(10), { s: 5, l: 2 });
+  assert.deepEqual(deduceMatrixCoordinates(9), { s: 3, l: 3 });
+  assert.deepEqual(deduceMatrixCoordinates(8), { s: 4, l: 2 });
+  assert.deepEqual(deduceMatrixCoordinates(6), { s: 3, l: 2 });
+  assert.deepEqual(deduceMatrixCoordinates(5), { s: 5, l: 1 });
+  assert.deepEqual(deduceMatrixCoordinates(4), { s: 2, l: 2 });
+  assert.deepEqual(deduceMatrixCoordinates(3), { s: 3, l: 1 });
+  assert.deepEqual(deduceMatrixCoordinates(2), { s: 2, l: 1 });
+  assert.deepEqual(deduceMatrixCoordinates(1), { s: 1, l: 1 });
+});
+
+test('extractHazardRisk dynamically extracts S, L, score, and matrix band from Remarks or RiskLevel', () => {
+  // 1. From Remarks containing [5x5 S=4, L=4, Score=16...]
+  const h1 = {
+    HazardDesc: 'TOXIC VAPOR EXPOSURE',
+    RiskLevel: '16',
+    Remarks: '[5x5 S=4, L=4, Score=16: HIGH RISK] MANDATORY CONTROL VERIFICATION'
+  };
+  const r1 = extractHazardRisk(h1);
+  assert.equal(r1.s, 4);
+  assert.equal(r1.l, 4);
+  assert.equal(r1.score, 16);
+  assert.equal(r1.band, 'RED');
+  assert.equal(r1.hexColor, '#FF0000');
+
+  // 2. From Remarks with different coordinates: S=3, L=3 -> Score 9 (YELLOW)
+  const h2 = {
+    HazardDesc: 'HIGH PRESSURE LEAK',
+    RiskLevel: '9',
+    Remarks: '[5x5 S=3, L=3, Score=9: HIGH RISK] MANDATORY CONTROL VERIFICATION'
+  };
+  const r2 = extractHazardRisk(h2);
+  assert.equal(r2.s, 3);
+  assert.equal(r2.l, 3);
+  assert.equal(r2.score, 9);
+  assert.equal(r2.band, 'YELLOW');
+  assert.equal(r2.hexColor, '#FFD966');
+
+  // 3. From numeric RiskLevel alone: '4' -> S=2, L=2 (CYAN)
+  const h3 = {
+    HazardDesc: 'NOISE EXPOSURE',
+    RiskLevel: '4',
+    Remarks: 'Routine plant inspection'
+  };
+  const r3 = extractHazardRisk(h3);
+  assert.equal(r3.s, 2);
+  assert.equal(r3.l, 2);
+  assert.equal(r3.score, 4);
+  assert.equal(r3.band, 'CYAN');
+  assert.equal(r3.hexColor, '#66FFFF');
+
+  // 4. From textual legacy RiskLevel 'CRIT' -> Score 25 (RED)
+  const h4 = {
+    HazardDesc: 'CONFINED SPACE ASPHYXIATION',
+    RiskLevel: 'CRIT',
+    Remarks: ''
+  };
+  const r4 = extractHazardRisk(h4);
+  assert.equal(r4.s, 5);
+  assert.equal(r4.l, 5);
+  assert.equal(r4.score, 25);
+  assert.equal(r4.band, 'RED');
+});
+
+test('getMaxHazardRisk dynamically returns highest risk from filled-up hazards', () => {
+  const hazards = [
+    { HazardDesc: 'Slip & Trip', RiskLevel: '2', Remarks: '[5x5 S=2, L=1, Score=2: LOW RISK]' },
+    { HazardDesc: 'Flash Fire', RiskLevel: '16', Remarks: '[5x5 S=4, L=4, Score=16: CRITICAL RISK]' },
+    { HazardDesc: 'Chemical Splash', RiskLevel: '9', Remarks: '[5x5 S=3, L=3, Score=9: HIGH RISK]' }
+  ];
+
+  const max = getMaxHazardRisk(hazards);
+  assert.ok(max);
+  assert.equal(max.score, 16);
+  assert.equal(max.s, 4);
+  assert.equal(max.l, 4);
+  assert.equal(max.band, 'RED');
+
+  // If hazards only have moderate risks
+  const moderateHazards = [
+    { HazardDesc: 'Dust inhalation', RiskLevel: '4', Remarks: '[5x5 S=2, L=2, Score=4: MODERATE RISK]' },
+    { HazardDesc: 'Minor heat', RiskLevel: '2', Remarks: '[5x5 S=2, L=1, Score=2: LOW RISK]' }
+  ];
+  const modMax = getMaxHazardRisk(moderateHazards);
+  assert.ok(modMax);
+  assert.equal(modMax.score, 4);
+  assert.equal(modMax.s, 2);
+  assert.equal(modMax.l, 2);
+  assert.equal(modMax.band, 'CYAN');
+});
+

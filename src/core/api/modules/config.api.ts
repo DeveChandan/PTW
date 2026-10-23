@@ -197,6 +197,29 @@ export const FALLBACK_CONFIG_DATA: Record<ConfigType, SapConfigRecord[]> = {
     { Config_Type: 'DEISOLATED_STATE', Config_Code: 'RESTORED', Config_Desc: 'RESTORED', Parent_Code: '', Active: 'X' },
     { Config_Type: 'DEISOLATED_STATE', Config_Code: 'UN_LOCKED', Config_Desc: 'UN-LOCKED', Parent_Code: '', Active: 'X' },
     { Config_Type: 'DEISOLATED_STATE', Config_Code: 'UNLOCKED', Config_Desc: 'UNLOCKED', Parent_Code: '', Active: 'X' }
+  ],
+  PTW_ADMIN: [
+    { Config_Type: 'PTW_ADMIN', Config_Code: 'PTW_ADMIN', Config_Desc: 'PTW ADMINISTRATOR', Parent_Code: '', Active: 'X' }
+  ],
+  PTW_APPROVAL_ROLE: [
+    { Config_Type: 'PTW_APPROVAL_ROLE', Config_Code: 'PTW_APPR1', Config_Desc: 'PERMIT APPROVER-I', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'PTW_APPROVAL_ROLE', Config_Code: 'PTW_APPR2', Config_Desc: 'PERMIT APPROVER-II', Parent_Code: '', Active: 'X' },
+    { Config_Type: 'PTW_APPROVAL_ROLE', Config_Code: 'PTW_APPR3', Config_Desc: 'PERMIT APPROVER-III', Parent_Code: '', Active: 'X' }
+  ],
+  PTW_AREA_OPP_ROLE: [
+    { Config_Type: 'PTW_AREA_OPP_ROLE', Config_Code: 'PTW_AOPR', Config_Desc: 'PERMIT AREA OPERATOR', Parent_Code: '', Active: 'X' }
+  ],
+  PTW_GASTESTER_ROLE: [
+    { Config_Type: 'PTW_GASTESTER_ROLE', Config_Code: 'PTW_GAS', Config_Desc: 'PERMIT GAS TESTER', Parent_Code: '', Active: 'X' }
+  ],
+  PTW_HOLDER_ROLE: [
+    { Config_Type: 'PTW_HOLDER_ROLE', Config_Code: 'PTW_HOLD', Config_Desc: 'PERMIT HOLDER', Parent_Code: '', Active: 'X' }
+  ],
+  PTW_ISSUER_ROLE: [
+    { Config_Type: 'PTW_ISSUER_ROLE', Config_Code: 'PTW_ISSU', Config_Desc: 'PERMIT ISSUER', Parent_Code: '', Active: 'X' }
+  ],
+  PTW_SAFETY_ROLE: [
+    { Config_Type: 'PTW_SAFETY_ROLE', Config_Code: 'PTW_SAFE', Config_Desc: 'PERMIT SAFETY OFFICER', Parent_Code: '', Active: 'X' }
   ]
 };
 
@@ -280,6 +303,59 @@ class ConfigApiService {
 
   public async fetchDeisolatedStateConfig(forceRefresh = false): Promise<SapConfigRecord[]> {
     return this.fetchConfigByType('DEISOLATED_STATE', forceRefresh);
+  }
+
+  /**
+   * Fetches all PTW role definition records from the SAP Config entity set
+   * Service endpoint: Config?$filter=startswith(Config_Type, 'PTW_') and Active eq 'X'
+   * Returns records for PTW_ADMIN, PTW_APPROVAL_ROLE, PTW_AREA_OPP_ROLE, PTW_GASTESTER_ROLE, PTW_HOLDER_ROLE, PTW_ISSUER_ROLE, PTW_SAFETY_ROLE
+   */
+  public async fetchRoleConfigs(forceRefresh = false): Promise<SapConfigRecord[]> {
+    const cacheKey = 'ALL_PTW_ROLES';
+    if (!forceRefresh && this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
+    }
+
+    const roleTypes: ConfigType[] = [
+      'PTW_ADMIN',
+      'PTW_APPROVAL_ROLE',
+      'PTW_AREA_OPP_ROLE',
+      'PTW_GASTESTER_ROLE',
+      'PTW_HOLDER_ROLE',
+      'PTW_ISSUER_ROLE',
+      'PTW_SAFETY_ROLE'
+    ];
+
+    try {
+      // 1. Try querying Config with startswith filter
+      const filter = encodeURIComponent(`startswith(Config_Type, 'PTW_') and Active eq 'X'`);
+      const response = await odataClient.get<SapConfigResponse>(`Config?$filter=${filter}`, { timeout: 5000 });
+      if (response.data?.value && response.data.value.length > 0) {
+        this.cache.set(cacheKey, response.data.value);
+        return response.data.value;
+      }
+    } catch {
+      // fallback to multi-type fetch
+    }
+
+    try {
+      // 2. Fetch all known role types in parallel
+      const results = await Promise.all(
+        roleTypes.map(t => this.fetchConfigByType(t, forceRefresh).catch(() => []))
+      );
+      const combined = results.flat();
+      if (combined.length > 0) {
+        this.cache.set(cacheKey, combined);
+        return combined;
+      }
+    } catch {
+      // fallback to local data
+    }
+
+    // 3. Fallback to local configuration table
+    const fallbackCombined = roleTypes.flatMap(t => FALLBACK_CONFIG_DATA[t] || []);
+    this.cache.set(cacheKey, fallbackCombined);
+    return fallbackCombined;
   }
 
   public clearCache(): void {

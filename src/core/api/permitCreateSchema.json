@@ -121,7 +121,7 @@
     },
     "Tplnr": {
       "type": "Edm.String",
-      "maxLength": "30",
+      "maxLength": "40",
       "precision": null,
       "scale": null,
       "nullable": false
@@ -1234,6 +1234,78 @@
     "OtherText": {
       "type": "Edm.String",
       "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    }
+  },
+  "ApprovalType": {
+    "PermitNo": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Stage": {
+      "type": "Edm.String",
+      "maxLength": "10",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SeqNo": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "RoleId": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Action": {
+      "type": "Edm.String",
+      "maxLength": "4",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SignedBy": {
+      "type": "Edm.String",
+      "maxLength": "12",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "ActionDate": {
+      "type": "Edm.Date",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "ActionTime": {
+      "type": "Edm.TimeOfDay",
+      "maxLength": null,
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "Comments": {
+      "type": "Edm.String",
+      "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": false
+    },
+    "SAP__Messages": {
+      "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
+      "maxLength": null,
       "precision": null,
       "scale": null,
       "nullable": false

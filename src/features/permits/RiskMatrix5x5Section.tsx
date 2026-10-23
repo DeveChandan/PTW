@@ -25,7 +25,8 @@ export interface RiskMatrixCellDef {
   likelihood: number;
   score: number;
   band: RiskMatrixBand;
-  sapRiskLevel: 'LOW' | 'MED' | 'HIGH' | 'CRIT';
+  sapRiskLevel: string;
+  riskBandCode: 'LOW' | 'MED' | 'HIGH' | 'CRIT';
   riskLabel: string;
   actionRequired: string;
   bgClass: string;
@@ -125,10 +126,26 @@ export const LIKELIHOOD_COLS: LikelihoodCol[] = [
  * - CYAN (#66FFFF, Black text): Cells (5,1), (4,1), (4,2), (3,2), (2,2), (2,3), (2,4), (1,4), (1,5) -> Scores 4, 5, 6, 8
  * - GREEN (#CCFF99, Black text): Cells (3,1), (2,1), (1,1), (1,2), (1,3) -> Scores 1, 2, 3
  */
+export function getRiskLevelColor(riskLevel?: string): string {
+  if (!riskLevel) return '#CCFF99';
+  const num = Number(riskLevel);
+  if (!isNaN(num)) {
+    if (num >= 15) return '#FF0000';
+    if (num >= 9) return '#FFD966';
+    if (num >= 4) return '#66FFFF';
+    return '#CCFF99';
+  }
+  if (riskLevel === 'CRIT') return '#FF0000';
+  if (riskLevel === 'HIGH') return '#FFD966';
+  if (riskLevel === 'MED') return '#66FFFF';
+  return '#CCFF99';
+}
+
 export function getRiskMatrixCell(severity: number, likelihood: number): RiskMatrixCellDef {
   const score = severity * likelihood;
   let band: RiskMatrixBand = 'GREEN';
-  let sapRiskLevel: 'LOW' | 'MED' | 'HIGH' | 'CRIT' = 'LOW';
+  let riskBandCode: 'LOW' | 'MED' | 'HIGH' | 'CRIT' = 'LOW';
+  const sapRiskLevel = String(score);
   let riskLabel = 'Low Risk';
   let actionRequired = 'Broadly acceptable. Manage via standard operating procedures and standard PPE.';
   let bgClass = 'bg-[#CCFF99]';
@@ -144,7 +161,7 @@ export function getRiskMatrixCell(severity: number, likelihood: number): RiskMat
     (severity === 3 && likelihood === 5)
   ) {
     band = 'RED';
-    sapRiskLevel = 'CRIT';
+    riskBandCode = 'CRIT';
     riskLabel = 'Critical Risk';
     actionRequired = 'Intolerable risk. Work must NOT proceed without immediate hierarchy of controls & executive approval.';
     bgClass = 'bg-[#FF0000]';
@@ -161,7 +178,7 @@ export function getRiskMatrixCell(severity: number, likelihood: number): RiskMat
     (severity === 2 && likelihood === 5)
   ) {
     band = 'YELLOW';
-    sapRiskLevel = 'HIGH';
+    riskBandCode = 'HIGH';
     riskLabel = 'High Risk';
     actionRequired = 'Substantial risk. Area in-charge & safety officer sign-off mandatory before permit issuance.';
     bgClass = 'bg-[#FFD966]';
@@ -179,7 +196,7 @@ export function getRiskMatrixCell(severity: number, likelihood: number): RiskMat
     (severity === 1 && (likelihood === 4 || likelihood === 5))
   ) {
     band = 'CYAN';
-    sapRiskLevel = 'MED';
+    riskBandCode = 'MED';
     riskLabel = 'Moderate Risk';
     actionRequired = 'Tolerable with controls. Specific job procedures, continuous supervision & specialized PPE required.';
     bgClass = 'bg-[#66FFFF]';
@@ -191,7 +208,7 @@ export function getRiskMatrixCell(severity: number, likelihood: number): RiskMat
   // Default Green cells
   else {
     band = 'GREEN';
-    sapRiskLevel = 'LOW';
+    riskBandCode = 'LOW';
     riskLabel = 'Low Risk';
     actionRequired = 'Broadly acceptable. Manage via standard operating procedures and standard PPE.';
     bgClass = 'bg-[#CCFF99]';
@@ -207,6 +224,7 @@ export function getRiskMatrixCell(severity: number, likelihood: number): RiskMat
     score,
     band,
     sapRiskLevel,
+    riskBandCode,
     riskLabel,
     actionRequired,
     bgClass,
@@ -215,6 +233,144 @@ export function getRiskMatrixCell(severity: number, likelihood: number): RiskMat
     badgeClass,
     hexColor
   };
+}
+
+export interface ExtractedRiskInfo {
+  s: number;
+  l: number;
+  score: number;
+  level: string;
+  band: RiskMatrixBand;
+  sapRiskLevel: string;
+  badgeClass: string;
+  hexColor: string;
+  actionRequired: string;
+}
+
+/**
+ * Deduces matrix Severity (1-5) and Likelihood (1-5) coordinates from a numeric score.
+ */
+export function deduceMatrixCoordinates(score: number): { s: number; l: number } {
+  if (score >= 25) return { s: 5, l: 5 };
+  if (score >= 20) return { s: 5, l: 4 };
+  if (score >= 16) return { s: 4, l: 4 };
+  if (score >= 15) return { s: 5, l: 3 };
+  if (score >= 12) return { s: 4, l: 3 };
+  if (score >= 10) return { s: 5, l: 2 };
+  if (score >= 9) return { s: 3, l: 3 };
+  if (score >= 8) return { s: 4, l: 2 };
+  if (score >= 6) return { s: 3, l: 2 };
+  if (score >= 5) return { s: 5, l: 1 };
+  if (score >= 4) return { s: 2, l: 2 };
+  if (score >= 3) return { s: 3, l: 1 };
+  if (score >= 2) return { s: 2, l: 1 };
+  if (score >= 1) return { s: 1, l: 1 };
+  return { s: 0, l: 0 };
+}
+
+/**
+ * Dynamically extracts exact Severity (S), Likelihood (L), Score, and 5x5 Matrix Band
+ * from a HazardControlRecord's Remarks (e.g. [5x5 S=4, L=4, Score=16...]) or RiskLevel.
+ */
+export function extractHazardRisk(hazard?: Partial<HazardControlRecord> | null): ExtractedRiskInfo {
+  if (!hazard) {
+    return {
+      s: 0,
+      l: 0,
+      score: 0,
+      level: 'None',
+      band: 'GREEN',
+      sapRiskLevel: '0',
+      badgeClass: 'bg-slate-100 text-slate-700 border-slate-300',
+      hexColor: '#CCFF99',
+      actionRequired: 'No hazard specified.'
+    };
+  }
+
+  const remarks = hazard.Remarks || '';
+  const sMatch = remarks.match(/\bS\s*[:=]\s*(\d+)/i);
+  const lMatch = remarks.match(/\bL\s*[:=]\s*(\d+)/i);
+
+  let s = sMatch ? parseInt(sMatch[1], 10) : 0;
+  let l = lMatch ? parseInt(lMatch[1], 10) : 0;
+
+  // Validate bounds (1 to 5)
+  if (s > 5 || s < 1) s = 0;
+  if (l > 5 || l < 1) l = 0;
+
+  // Fallback: check Score in Remarks or deduce from RiskLevel
+  if (s === 0 || l === 0) {
+    const rawRisk = String(hazard.RiskLevel || '').trim().toUpperCase();
+    const num = Number(rawRisk);
+    if (!isNaN(num) && num > 0) {
+      const coords = deduceMatrixCoordinates(num);
+      s = coords.s;
+      l = coords.l;
+    } else if (rawRisk === 'CRIT' || rawRisk === 'CRITICAL') {
+      s = 5; l = 5;
+    } else if (rawRisk === 'HIGH') {
+      s = 4; l = 4;
+    } else if (rawRisk === 'MED' || rawRisk === 'MEDIUM') {
+      s = 3; l = 3;
+    } else if (rawRisk === 'LOW') {
+      s = 2; l = 2;
+    } else {
+      const scoreMatch = remarks.match(/\bScore\s*[:=]\s*(\d+)/i);
+      if (scoreMatch) {
+        const sc = parseInt(scoreMatch[1], 10);
+        const coords = deduceMatrixCoordinates(sc);
+        s = coords.s;
+        l = coords.l;
+      }
+    }
+  }
+
+  if (s > 0 && l > 0) {
+    const cellDef = getRiskMatrixCell(s, l);
+    return {
+      s,
+      l,
+      score: cellDef.score,
+      level: cellDef.riskLabel,
+      band: cellDef.band,
+      sapRiskLevel: cellDef.sapRiskLevel,
+      badgeClass: cellDef.badgeClass,
+      hexColor: cellDef.hexColor,
+      actionRequired: cellDef.actionRequired
+    };
+  }
+
+  return {
+    s: 0,
+    l: 0,
+    score: 0,
+    level: 'Unassessed',
+    band: 'GREEN',
+    sapRiskLevel: '0',
+    badgeClass: 'bg-slate-100 text-slate-700 border-slate-300',
+    hexColor: '#CCFF99',
+    actionRequired: 'Assess risk severity and likelihood in matrix.'
+  };
+}
+
+/**
+ * Finds the maximum initial risk across all filled-up hazard control items in _HazardControl.
+ */
+export function getMaxHazardRisk(hazards?: HazardControlRecord[] | null): ExtractedRiskInfo | null {
+  if (!hazards || !Array.isArray(hazards) || hazards.length === 0) {
+    return null;
+  }
+
+  const evaluated = hazards.map(h => extractHazardRisk(h)).filter(r => r.score > 0);
+  if (evaluated.length === 0) {
+    return extractHazardRisk(hazards[0]);
+  }
+
+  return evaluated.reduce((max, curr) => {
+    if (curr.score > max.score) return curr;
+    if (curr.score === max.score && curr.s > max.s) return curr;
+    return max;
+  }, evaluated[0]);
 }
 
 export interface RiskMatrix5x5SectionProps {
@@ -263,6 +419,16 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
 
   // Active evaluated hazard
   const activeHazard = hazards[selectedHazardIdx] || hazards[0];
+
+  // Synchronize matrix selection dynamically to the currently selected hazard's filled-up assessment
+  React.useEffect(() => {
+    if (activeHazard) {
+      const risk = extractHazardRisk(activeHazard);
+      if (risk.s > 0 && risk.l > 0 && (risk.s !== selectedMatrixCell.c || risk.l !== selectedMatrixCell.l)) {
+        setSelectedMatrixCell({ c: risk.s, l: risk.l });
+      }
+    }
+  }, [selectedHazardIdx, activeHazard?.Remarks, activeHazard?.RiskLevel]);
 
   // Active selected cell details
   const activeCellDef = useMemo(() => {
@@ -330,7 +496,15 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
   return (
     <div className="space-y-6">
       {/* SECTION TOP: Active Hazard Focus & Matrix Assessment Score Banner */}
-      <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 shadow-xs">
+      <div className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs ${
+        activeCellDef.band === 'RED'
+          ? 'bg-gradient-to-r from-rose-50 via-red-50/70 to-rose-100/60 border-rose-300 ring-2 ring-rose-400/25'
+          : activeCellDef.band === 'YELLOW'
+          ? 'bg-gradient-to-r from-amber-50 via-yellow-50/70 to-amber-100/60 border-amber-300 ring-2 ring-amber-400/25'
+          : activeCellDef.band === 'CYAN'
+          ? 'bg-gradient-to-r from-cyan-50 via-sky-50/70 to-cyan-100/60 border-cyan-300 ring-2 ring-cyan-400/25'
+          : 'bg-gradient-to-r from-emerald-50 via-lime-50/70 to-emerald-100/60 border-emerald-300 ring-2 ring-emerald-400/25'
+      }`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Left: Active Hazard Selection */}
           <div className="space-y-1.5">
@@ -345,13 +519,16 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
                     onChange={(e) => setSelectedHazardIdx(Number(e.target.value))}
                     className="font-mono font-bold text-xs bg-[#006398] text-white px-3 py-1 rounded-xl shadow-xs border-0 focus:ring-2 focus:ring-[#006398]"
                   >
-                    {hazards.map((h, idx) => (
-                      <option key={idx} value={idx}>
-                        #{h.ItemNo || idx + 1} - {h.HazardDesc} ({h.RiskLevel || 'MED'})
-                      </option>
-                    ))}
+                    {hazards.map((h, idx) => {
+                      const hR = extractHazardRisk(h);
+                      return (
+                        <option key={idx} value={idx}>
+                          #{h.ItemNo || idx + 1} - {h.HazardDesc} (Score {hR.score} · S:{hR.s}×L:{hR.l})
+                        </option>
+                      );
+                    })}
                   </select>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-500 font-mono">
                     ({selectedHazardIdx + 1} of {hazards.length})
                   </span>
                 </div>
@@ -372,14 +549,30 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
             )}
           </div>
 
-          {/* Right: Active Matrix Assessment Pill */}
+          {/* Right: Active Matrix Assessment Pill with Dynamic Score & Formula */}
           <div className="flex items-center gap-3 self-start lg:self-center flex-wrap">
-            <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-xs">
+            <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border shadow-xs transition-all ${
+              activeCellDef.band === 'RED'
+                ? 'bg-white/95 border-rose-300 text-rose-950 shadow-2xs'
+                : activeCellDef.band === 'YELLOW'
+                ? 'bg-white/95 border-amber-300 text-amber-950 shadow-2xs'
+                : activeCellDef.band === 'CYAN'
+                ? 'bg-white/95 border-cyan-300 text-cyan-950 shadow-2xs'
+                : 'bg-white/95 border-emerald-300 text-emerald-950 shadow-2xs'
+            }`}>
               <span className="text-xs font-semibold text-slate-500">Score:</span>
               <span className="font-mono text-xl font-extrabold text-slate-900">
                 {activeCellDef.score}
               </span>
-              <span className="text-xs font-mono text-slate-400">
+              <span className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded border ${
+                activeCellDef.band === 'RED'
+                  ? 'bg-rose-100/90 text-rose-800 border-rose-300'
+                  : activeCellDef.band === 'YELLOW'
+                  ? 'bg-amber-100/90 text-amber-800 border-amber-300'
+                  : activeCellDef.band === 'CYAN'
+                  ? 'bg-cyan-100/90 text-cyan-800 border-cyan-300'
+                  : 'bg-emerald-100/90 text-emerald-800 border-emerald-300'
+              }`}>
                 (S:{activeCellDef.severity} × L:{activeCellDef.likelihood})
               </span>
             </div>
@@ -397,7 +590,7 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
                   : 'check_circle'}
               </span>
               <span>{activeCellDef.riskLabel}</span>
-              <span className="text-[10px] opacity-80">({activeCellDef.sapRiskLevel})</span>
+              <span className="text-[10px] opacity-80">(SAP: {activeCellDef.sapRiskLevel})</span>
             </div>
           </div>
         </div>
@@ -871,12 +1064,18 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
           <div className="space-y-2.5">
             {hazards.map((hazard, idx) => {
               const isSelected = selectedHazardIdx === idx;
-              const isCritOrHigh = hazard.RiskLevel === 'HIGH' || hazard.RiskLevel === 'CRIT';
+              const hRisk = extractHazardRisk(hazard);
+              const isCritOrHigh = hRisk.score >= 9 || hazard.RiskLevel === 'HIGH' || hazard.RiskLevel === 'CRIT';
 
               return (
                 <div
                   key={hazard.ItemNo || idx}
-                  onClick={() => setSelectedHazardIdx(idx)}
+                  onClick={() => {
+                    setSelectedHazardIdx(idx);
+                    if (hRisk.s > 0 && hRisk.l > 0) {
+                      setSelectedMatrixCell({ c: hRisk.s, l: hRisk.l });
+                    }
+                  }}
                   className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs ${
                     isSelected
                       ? 'bg-blue-50/50 border-[#006398] ring-2 ring-[#006398]/20 shadow-xs'
@@ -887,17 +1086,10 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
                     <div
                       className="w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 font-mono font-extrabold text-[11px] border border-black shadow-2xs text-black"
                       style={{
-                        backgroundColor:
-                          hazard.RiskLevel === 'CRIT'
-                            ? '#FF0000'
-                            : hazard.RiskLevel === 'HIGH'
-                            ? '#FFD966'
-                            : hazard.RiskLevel === 'MED'
-                            ? '#66FFFF'
-                            : '#CCFF99'
+                        backgroundColor: hRisk.hexColor || getRiskLevelColor(hazard.RiskLevel)
                       }}
                     >
-                      <span>{hazard.RiskLevel}</span>
+                      <span>{hRisk.score || hazard.RiskLevel}</span>
                     </div>
 
                     <div>
@@ -911,6 +1103,11 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
                         <span className="text-[10px] text-slate-400 font-mono">
                           Item #{hazard.ItemNo || idx + 1}
                         </span>
+                        {hRisk.s > 0 && hRisk.l > 0 && (
+                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-white/90 border border-slate-300 text-slate-800 shadow-2xs">
+                            (S:{hRisk.s} × L:{hRisk.l})
+                          </span>
+                        )}
                         {isCritOrHigh && (
                           <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
                             Strict Control Req
@@ -923,7 +1120,7 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
                         — {hazard.ControlDesc}
                       </p>
                       {hazard.Remarks && (
-                        <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                        <span className="text-[10px] text-slate-500 font-mono block mt-0.5 truncate max-w-xl">
                           {hazard.Remarks}
                         </span>
                       )}
@@ -935,16 +1132,64 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
                       value={hazard.RiskLevel}
                       onChange={(e) => {
                         const val = e.target.value;
+                        const num = Number(val);
+                        const coords = !isNaN(num) && num > 0
+                          ? deduceMatrixCoordinates(num)
+                          : val === 'CRIT' ? { s: 5, l: 5 }
+                          : val === 'HIGH' ? { s: 4, l: 4 }
+                          : val === 'MED' ? { s: 3, l: 3 }
+                          : { s: 2, l: 2 };
+                        const cellDef = getRiskMatrixCell(coords.s, coords.l);
                         setHazards((prev) =>
-                          prev.map((h, i) => (i === idx ? { ...h, RiskLevel: val } : h))
+                          prev.map((h, i) =>
+                            i === idx
+                              ? {
+                                  ...h,
+                                  RiskLevel: cellDef.sapRiskLevel,
+                                  Remarks: `[5x5 S=${coords.s}, L=${coords.l}, Score=${cellDef.score}: ${cellDef.riskLabel.toUpperCase()}] ${
+                                    h.Remarks && !h.Remarks.startsWith('[5x5') ? h.Remarks : 'MANDATORY CONTROL VERIFICATION'
+                                  }`.substring(0, 255)
+                                }
+                              : h
+                          )
                         );
+                        if (selectedHazardIdx === idx) {
+                          setSelectedMatrixCell({ c: coords.s, l: coords.l });
+                        }
                       }}
                       className="px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold"
                     >
-                      <option value="LOW">LOW</option>
-                      <option value="MED">MED</option>
-                      <option value="HIGH">HIGH</option>
-                      <option value="CRIT">CRIT</option>
+                      {!['25', '20', '16', '15', '12', '10', '9', '8', '6', '5', '4', '3', '2', '1', 'CRIT', 'HIGH', 'MED', 'LOW'].includes(hazard.RiskLevel) && (
+                        <option value={hazard.RiskLevel}>Score {hazard.RiskLevel}</option>
+                      )}
+                      <optgroup label="Critical Risk (Red)">
+                        <option value="25">Score 25 (Critical)</option>
+                        <option value="20">Score 20 (Critical)</option>
+                        <option value="16">Score 16 (Critical)</option>
+                        <option value="15">Score 15 (Critical)</option>
+                      </optgroup>
+                      <optgroup label="High Risk (Yellow)">
+                        <option value="12">Score 12 (High)</option>
+                        <option value="10">Score 10 (High)</option>
+                        <option value="9">Score 9 (High)</option>
+                      </optgroup>
+                      <optgroup label="Moderate Risk (Cyan)">
+                        <option value="8">Score 8 (Moderate)</option>
+                        <option value="6">Score 6 (Moderate)</option>
+                        <option value="5">Score 5 (Moderate)</option>
+                        <option value="4">Score 4 (Moderate)</option>
+                      </optgroup>
+                      <optgroup label="Low Risk (Green)">
+                        <option value="3">Score 3 (Low)</option>
+                        <option value="2">Score 2 (Low)</option>
+                        <option value="1">Score 1 (Low)</option>
+                      </optgroup>
+                      <optgroup label="Legacy Bands">
+                        <option value="CRIT">CRIT</option>
+                        <option value="HIGH">HIGH</option>
+                        <option value="MED">MED</option>
+                        <option value="LOW">LOW</option>
+                      </optgroup>
                     </select>
 
                     <select
@@ -1105,6 +1350,7 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
           <div>
             <label className="block text-slate-600 font-semibold mb-1">Hazard Description *</label>
             <input
+              id="field-hazard-desc"
               type="text"
               value={newHazardDesc}
               onChange={(e) => setNewHazardDesc(e.target.value)}
@@ -1116,6 +1362,7 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
           <div>
             <label className="block text-slate-600 font-semibold mb-1">Control Description *</label>
             <input
+              id="field-control-desc"
               type="text"
               value={newControlDesc}
               onChange={(e) => setNewControlDesc(e.target.value)}
@@ -1126,6 +1373,7 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
 
           <div className="flex items-end">
             <button
+              id="btn-add-hazard"
               type="button"
               onClick={handleAddHazard}
               className="w-full px-4 py-2 bg-[#006398] hover:bg-[#004f7a] text-white rounded-xl font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"

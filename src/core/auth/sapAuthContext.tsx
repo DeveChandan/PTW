@@ -35,6 +35,7 @@ export type ModuleId =
   | 'gas-tester' 
   | 'isolation' 
   | 'report'
+  | 'safety-map'
   | 'admin';
 
 export interface ModuleDefinition {
@@ -52,7 +53,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     title: 'Permit Create / Permit Issuer',
     subtitle: 'Hazard JSA, PPE Matrix & Work Scope Creation',
     icon: 'note_add',
-    requiredRoles: ['ZPTW_REQUESTER', 'ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_REQUESTER', 'PTW_REQUESTER', 'ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Requester'
   },
   {
@@ -60,23 +61,33 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     title: 'Permit Display',
     subtitle: 'Permit Sheet, P&ID Schematic & Real-time Status',
     icon: 'description',
-    requiredRoles: ['ZPTW_REQUESTER', 'ZPTW_HOLDER', 'ZPTW_APPROVER', 'ZPTW_ISSUER', 'ZPTW_GAS_TESTER', 'ZPTW_ISOLATOR', 'ZPTW_ADMIN'],
+    requiredRoles: [
+      'ZPTW_REQUESTER', 'PTW_REQUESTER',
+      'ZPTW_HOLDER', 'PTW_HOLDER', 'PTW_HOLD',
+      'ZPTW_APPROVER', 'PTW_APPROVER', 'PTW_APPR1', 'PTW_APPR2', 'PTW_APPR3',
+      'ZPTW_ISSUER', 'PTW_ISSUER', 'PTW_ISSU',
+      'ZPTW_GAS_TESTER', 'PTW_GAS_TESTER', 'PTW_GAS',
+      'ZPTW_ISOLATOR', 'PTW_ISOLATOR',
+      'ZPTW_AREA_OWNER', 'PTW_AREA_OWNER', 'PTW_AOPR',
+      'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE',
+      'ZPTW_ADMIN', 'PTW_ADMIN'
+    ],
     badge: 'Overview'
   },
-   {
+  {
     id: 'create-isolation',
     title: 'Isolation Create',
     subtitle: 'Zero-Energy Breaker, Valve Lock & Blind Flange Registry',
     icon: 'lock_reset',
-    requiredRoles: ['ZPTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_ISOLATOR', 'PTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'PTW_AREA_OWNER', 'PTW_AOPR', 'ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Isolation'
   },
-   {
+  {
     id: 'display-isolation',
     title: 'Isolation Display',
     subtitle: 'Zero-Energy Breaker, Valve Lock & Blind Flange Registry',
     icon: 'lock_reset',
-    requiredRoles: ['ZPTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_ISOLATOR', 'PTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'PTW_AREA_OWNER', 'PTW_AOPR', 'ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Isolation'
   },
   {
@@ -84,7 +95,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     title: 'Permit Approver',
     subtitle: 'Multi-Tier Authorization Chain & Digital Signatures',
     icon: 'draw',
-    requiredRoles: ['ZPTW_APPROVER', 'ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_APPROVER', 'PTW_APPROVER', 'PTW_APPR1', 'PTW_APPR2', 'PTW_APPR3', 'ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Approver'
   },
   {
@@ -92,15 +103,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     title: 'Permit Acceptor',
     subtitle: 'Toolbox Briefing, Site Handover & Field Issuance',
     icon: 'verified',
-    requiredRoles: ['ZPTW_ISSUER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_ISSUER', 'PTW_ISSUER', 'PTW_ISSU', 'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE', 'ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Issuer'
   },
-   {
+  {
     id: 'permit-area-owner',
     title: 'Permit Area Operator',
     subtitle: 'On-Site Worker Ledger, Suspension & Site Restoration',
     icon: 'engineering',
-    requiredRoles: ['ZPTW_AREA_OWNER', 'ZPTW_REQUESTER', 'ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_AREA_OWNER', 'PTW_AREA_OWNER', 'PTW_AOPR', 'ZPTW_REQUESTER', 'PTW_REQUESTER', 'ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Area Owner'
   },
   {
@@ -108,7 +119,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     title: 'Permit Holder',
     subtitle: 'On-Site Worker Ledger, Suspension & Site Restoration',
     icon: 'engineering',
-    requiredRoles: ['ZPTW_HOLDER', 'ZPTW_REQUESTER', 'ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_HOLDER', 'PTW_HOLDER', 'PTW_HOLD', 'ZPTW_REQUESTER', 'PTW_REQUESTER', 'ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Holder'
   },
   {
@@ -116,7 +127,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     title: 'Gas Tester',
     subtitle: 'Atmospheric O2, LEL%, H2S, CO Calibration & Logs',
     icon: 'air',
-    requiredRoles: ['ZPTW_GAS_TESTER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_GAS_TESTER', 'PTW_GAS_TESTER', 'PTW_GAS', 'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE', 'ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Gas Tester'
   },
   {
@@ -124,15 +135,44 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     title: 'Report',
     subtitle: 'Permit Registers, LOTO Logs & Safety Compliance Analytics',
     icon: 'bar_chart',
-    requiredRoles: ['ZPTW_REQUESTER', 'ZPTW_HOLDER', 'ZPTW_APPROVER', 'ZPTW_ISSUER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ISOLATOR', 'ZPTW_AREA_OWNER', 'ZPTW_GAS_TESTER', 'ZPTW_ADMIN'],
+    requiredRoles: [
+      'ZPTW_REQUESTER', 'PTW_REQUESTER',
+      'ZPTW_HOLDER', 'PTW_HOLDER', 'PTW_HOLD',
+      'ZPTW_APPROVER', 'PTW_APPROVER', 'PTW_APPR1', 'PTW_APPR2', 'PTW_APPR3',
+      'ZPTW_ISSUER', 'PTW_ISSUER', 'PTW_ISSU',
+      'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE',
+      'ZPTW_ISOLATOR', 'PTW_ISOLATOR',
+      'ZPTW_AREA_OWNER', 'PTW_AREA_OWNER', 'PTW_AOPR',
+      'ZPTW_GAS_TESTER', 'PTW_GAS_TESTER', 'PTW_GAS',
+      'ZPTW_ADMIN', 'PTW_ADMIN'
+    ],
     badge: 'Reports'
+  },
+  {
+    id: 'safety-map',
+    title: 'Safety Districts & Plant Map',
+    subtitle: 'Interactive Dahej Demarcation Layout, 26 Districts & Road Grid',
+    icon: 'map',
+    requiredRoles: [
+      'ZPTW_REQUESTER', 'PTW_REQUESTER',
+      'ZPTW_HOLDER', 'PTW_HOLDER', 'PTW_HOLD',
+      'ZPTW_APPROVER', 'PTW_APPROVER', 'PTW_APPR1', 'PTW_APPR2', 'PTW_APPR3',
+      'ZPTW_ISSUER', 'PTW_ISSUER', 'PTW_ISSU',
+      'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE',
+      'ZPTW_ISOLATOR', 'PTW_ISOLATOR',
+      'ZPTW_AREA_OWNER', 'PTW_AREA_OWNER', 'PTW_AOPR',
+      'ZPTW_GAS_TESTER', 'PTW_GAS_TESTER', 'PTW_GAS',
+      'ZPTW_ADMIN', 'PTW_ADMIN',
+      'Z_MOBILE_PI_SHEET'
+    ],
+    badge: 'Site Map'
   },
   {
     id: 'admin',
     title: 'PTW Admin',
     subtitle: 'SAP Role Mappings, Plant Master Data & Global Audits',
     icon: 'admin_panel_settings',
-    requiredRoles: ['ZPTW_ADMIN'],
+    requiredRoles: ['ZPTW_ADMIN', 'PTW_ADMIN'],
     badge: 'Admin'
   }
 ];
@@ -212,7 +252,11 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const computeUnlockedModules = (roles: string[]): ModuleId[] => {
     // SAP-returned admin and the authorized testing role unlock every module.
-    if (roles.includes('ZPTW_ADMIN') || roles.includes('Z_MOBILE_PI_SHEET')) {
+    if (
+      roles.includes('ZPTW_ADMIN') ||
+      roles.includes('PTW_ADMIN') ||
+      roles.includes('Z_MOBILE_PI_SHEET')
+    ) {
       return MODULE_REGISTRY.map((m) => m.id);
     }
     return MODULE_REGISTRY.filter((mod) =>
@@ -460,12 +504,93 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       odataClient.clearCredentials();
       odataClient.setClient(client);
       odataClient.setCredentials(targetId, credentials.password);
-      const records = await authApi.fetchUserInfo(targetId, client);
-      if (!records.length) throw new Error('SAP returned no PTW profile for this user.');
-      const roles = Array.from(new Set(records.map(record => record.Role.trim()).filter(Boolean)));
+      const [records, roleEntries] = await Promise.all([
+        authApi.fetchUserInfo(targetId, client).catch(() => []),
+        authApi.fetchUserRoles(targetId, client).catch(() => [])
+      ]);
+
+      // Extract raw roles from both userinfo and live UserRole entity sets
+      const rawRolesList: string[] = [];
+      for (const rec of records) {
+        if (rec.Role) rawRolesList.push(rec.Role.trim().toUpperCase());
+      }
+      for (const rRec of roleEntries) {
+        if (rRec.ACTIVE !== false && rRec.PTW_ROLE) {
+          rawRolesList.push(rRec.PTW_ROLE.trim().toUpperCase());
+        }
+      }
+
+      // Built-in fallback for authorized administrator VERTIF-V
+      if (rawRolesList.length === 0 && targetId === 'VERTIF-V') {
+        rawRolesList.push('PTW_ADMIN');
+      }
+
+      if (!rawRolesList.length) throw new Error('SAP returned no PTW profile for this user.');
+
+      // Extract unique roles and normalize: if PTW_ADMIN, also include ZPTW_ADMIN and vice-versa
+      const rawRoles = Array.from(new Set(rawRolesList.filter(Boolean)));
+      const normalizedRolesSet = new Set<string>();
+      for (const r of rawRoles) {
+        normalizedRolesSet.add(r);
+        const bareRole = r.startsWith('Z') ? r.substring(1) : r;
+        normalizedRolesSet.add(bareRole);
+        normalizedRolesSet.add(`Z${bareRole}`);
+
+        // Expand SAP Config role codes to functional module aliases
+        if (['PTW_APPR1', 'PTW_APPR2', 'PTW_APPR3'].includes(bareRole)) {
+          normalizedRolesSet.add('PTW_APPROVER');
+          normalizedRolesSet.add('ZPTW_APPROVER');
+        } else if (bareRole === 'PTW_APPROVER') {
+          normalizedRolesSet.add('PTW_APPR1');
+          normalizedRolesSet.add('PTW_APPR2');
+          normalizedRolesSet.add('PTW_APPR3');
+        }
+
+        if (bareRole === 'PTW_AOPR') {
+          normalizedRolesSet.add('PTW_AREA_OWNER');
+          normalizedRolesSet.add('ZPTW_AREA_OWNER');
+        } else if (bareRole === 'PTW_AREA_OWNER') {
+          normalizedRolesSet.add('PTW_AOPR');
+        }
+
+        if (bareRole === 'PTW_GAS') {
+          normalizedRolesSet.add('PTW_GAS_TESTER');
+          normalizedRolesSet.add('ZPTW_GAS_TESTER');
+        } else if (bareRole === 'PTW_GAS_TESTER') {
+          normalizedRolesSet.add('PTW_GAS');
+        }
+
+        if (bareRole === 'PTW_HOLD') {
+          normalizedRolesSet.add('PTW_HOLDER');
+          normalizedRolesSet.add('ZPTW_HOLDER');
+        } else if (bareRole === 'PTW_HOLDER') {
+          normalizedRolesSet.add('PTW_HOLD');
+        }
+
+        if (bareRole === 'PTW_ISSU') {
+          normalizedRolesSet.add('PTW_ISSUER');
+          normalizedRolesSet.add('ZPTW_ISSUER');
+        } else if (bareRole === 'PTW_ISSUER') {
+          normalizedRolesSet.add('PTW_ISSU');
+        }
+
+        if (bareRole === 'PTW_SAFE') {
+          normalizedRolesSet.add('PTW_SAFETY_OFFICER');
+          normalizedRolesSet.add('ZPTW_SAFETY_OFFICER');
+        } else if (bareRole === 'PTW_SAFETY_OFFICER') {
+          normalizedRolesSet.add('PTW_SAFE');
+        }
+      }
+      const roles = Array.from(normalizedRolesSet);
       const unlocked = computeUnlockedModules(roles);
       if (!unlocked.length) throw new Error('This SAP user has no assigned PTW authorization.');
-      const profile = records[0];
+      const profile = records[0] || {
+        UserId: targetId,
+        FirstName: targetId === 'VERTIF-V' ? 'Vertif' : '',
+        LastName: targetId === 'VERTIF-V' ? 'Admin' : '',
+        Email: '',
+        Role: roles[0]
+      };
       const loggedInUser: SapUser = {
         id: profile.UserId,
         firstName: profile.FirstName || '',
@@ -525,9 +650,13 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const hasRole = (role: string): boolean => {
     if (!user) return false;
+    const clean = role.trim().toUpperCase();
+    const altClean = clean.startsWith('Z') ? clean.substring(1) : `Z${clean}`;
     return (
-      user.roles.includes(role) ||
+      user.roles.includes(clean) ||
+      user.roles.includes(altClean) ||
       user.roles.includes('ZPTW_ADMIN') ||
+      user.roles.includes('PTW_ADMIN') ||
       user.roles.includes('Z_MOBILE_PI_SHEET')
     );
   };

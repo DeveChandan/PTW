@@ -15,6 +15,7 @@ const fixture = {
   ReferenceId: '000040001234', ReferenceSource: 'ORDER', WorkCategory: 'PREVENTIVE', OrderNotifType: 'PM01',
   JobDescription: 'Inspect pump', WorkDate: '2026-09-25', Plant: '1000', EquipmentTag: '000000000010001234',
   FunctionalLocation: 'PLANT-AREA-001', PlannerGroup: '', Priority: '1', SystemStatus: '',
+  WorkCenter: '', WorkCenterDesc: '', AreaLoc: '', LocationDesc: '', ColorNumber: 0,
 };
 
 test('userinfo serializes sap-client once after merging Axios defaults', async () => {
@@ -158,6 +159,71 @@ test('PM03 shutdown remains an ORDER when filling the permit', () => {
   assert.equal(result.Qmnum, '');
 });
 
+test('maps live SAP PMIntegration fields WorkCenter, AreaLoc, ColorNumber, etc. into permit reference', () => {
+  const liveNotification = {
+    ReferenceId: '10000002',
+    ReferenceSource: 'NOTIFICATION',
+    WorkCategory: 'Breakdown/Corrective',
+    OrderNotifType: 'M2',
+    JobDescription: 'E608 top/bottom open for hydrotest work',
+    WorkDate: '2025-09-05',
+    Plant: '1002',
+    EquipmentTag: '',
+    FunctionalLocation: '1002-010-CRGSTRT-XXXXXXX-E608A',
+    PlannerGroup: '',
+    WorkCenter: 'DMEC-TF2',
+    WorkCenterDesc: 'MECHANICAL TFE 2',
+    AreaLoc: 'POL',
+    LocationDesc: 'TFE 2 PLANT',
+    Priority: '2',
+    SystemStatus: '1',
+    ColorNumber: 4,
+  };
+  const notifResult = toPermitReferenceFields(liveNotification);
+  assert.equal(notifResult.Qmnum, '10000002');
+  assert.equal(notifResult.Qmart, 'M2');
+  assert.equal(notifResult.Arbpl, 'DMEC-TF2');
+  assert.equal(notifResult.AreaLoc, 'POL');
+  assert.equal(notifResult.WorkCenter, 'DMEC-TF2');
+  assert.equal(notifResult.WorkCenterDesc, 'MECHANICAL TFE 2');
+  assert.equal(notifResult.LocationDesc, 'TFE 2 PLANT');
+  assert.equal(notifResult.ColorNumber, 4);
+  assert.equal(notifResult.Werks, '1002');
+  assert.equal(notifResult.Tplnr, '1002-010-CRGSTRT-XXXXXXX-E608A');
+  assert.equal(notifResult.Qmdat, '2025-09-05');
+
+  const liveOrder = {
+    ReferenceId: '100000002',
+    ReferenceSource: 'ORDER',
+    WorkCategory: 'Maintenance order (Preventive Maint)',
+    OrderNotifType: 'PM01',
+    JobDescription: 'GENERAL MAINTENANCE ORDER JULY 2025',
+    WorkDate: '2025-07-16',
+    Plant: '1001',
+    EquipmentTag: '',
+    FunctionalLocation: '1001-003',
+    PlannerGroup: '',
+    WorkCenter: 'RWORKSHO',
+    WorkCenterDesc: 'CENTRAL WORKSHOP',
+    AreaLoc: 'FCM',
+    LocationDesc: 'AHF PLANT',
+    Priority: '3',
+    SystemStatus: '',
+    ColorNumber: 5,
+  };
+  const orderResult = toPermitReferenceFields(liveOrder);
+  assert.equal(orderResult.Aufnr, '100000002');
+  assert.equal(orderResult.Auart, 'PM01');
+  assert.equal(orderResult.Arbpl, 'RWORKSHO');
+  assert.equal(orderResult.AreaLoc, 'FCM');
+  assert.equal(orderResult.WorkCenter, 'RWORKSHO');
+  assert.equal(orderResult.WorkCenterDesc, 'CENTRAL WORKSHOP');
+  assert.equal(orderResult.LocationDesc, 'AHF PLANT');
+  assert.equal(orderResult.ColorNumber, 5);
+  assert.equal(orderResult.Werks, '1001');
+  assert.equal(orderResult.PmBasicStartD, '2025-07-16');
+});
+
 test('PMIntegration request carries filter, selected client and abort signal; parses ABAP padding', async () => {
   const original = odataClient.get;
   const controller = new AbortController();
@@ -218,7 +284,7 @@ test('create validation rejects missing real work, crew, controls, expired or re
   for (const change of [
     { Aufnr: '', Qmnum: '' }, { PermitType: '' }, { SupvName: '' }, { _Worker: [] }, { PersonsQty: 2 },
     { _HazardControl: [] }, { ValidToT: '07:00' }, { ValidFromD: '2000-01-01', ValidToD: '2000-01-02' },
-    { Tplnr: 'X'.repeat(31) }, { JobDesc: 'X'.repeat(256) }, { PersonsQty: -1 },
+    { Tplnr: 'X'.repeat(41) }, { JobDesc: 'X'.repeat(256) }, { PersonsQty: -1 },
   ]) assert.throws(() => preparePermitCreate({ ...validPermit(), ...change }));
 });
 

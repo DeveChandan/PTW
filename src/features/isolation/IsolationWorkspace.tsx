@@ -29,6 +29,22 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
+  // Sorting & Pagination State for Certificates List
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageJumpInput, setPageJumpInput] = useState<string>('1');
+  const [sortField, setSortField] = useState<'IsolationNo' | 'PermitNo' | 'Status' | 'RequestedDate' | 'PointsCount'>('RequestedDate');
+  const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
+
+  // Pagination for points within selected certificate detail
+  const [pointsPage, setPointsPage] = useState<number>(1);
+  const [pointsPageSize, setPointsPageSize] = useState<number>(10);
+
+  // Guarantee view changes (list, create, detail) open from the top
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [viewMode, selectedIso]);
+
   const showNotification = (type: 'success' | 'error' | 'info' | 'warning', text: string) => {
     setNotification({ type: type === 'warning' ? 'error' : type, text });
     if (type === 'error') {
@@ -75,6 +91,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
     }
   ]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [availablePermits, setAvailablePermits] = useState<string[]>([]);
   // Edit Certificate Modal State
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [editingIso, setEditingIso] = useState<SapIsolationHeader | null>(null);
@@ -111,22 +128,26 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
 
     try {
       const trimmedPermit = editPermitNo.trim().toUpperCase();
+      const normalizedPermit = /^\d+$/.test(trimmedPermit) && trimmedPermit.length < 10
+        ? trimmedPermit.padStart(10, '0')
+        : trimmedPermit;
+
       const updated = await isolationApi.update(editingIso.IsolationNo, {
-        PermitNo: trimmedPermit,
+        PermitNo: normalizedPermit,
         description: editDescription.trim(),
         Remarks: editRemarks.trim()
       }, editingIso['@odata.etag']);
 
       // Also sync link to PermitInfo in SAP if permit specified or unassigned
-      if (trimmedPermit) {
-        await sitePermitApi.updateIsolationLink(trimmedPermit, editingIso.IsolationNo);
+      if (normalizedPermit) {
+        await sitePermitApi.updateIsolationLink(normalizedPermit, editingIso.IsolationNo);
       } else if (editingIso.PermitNo) {
         await sitePermitApi.updateIsolationLink(editingIso.PermitNo, '');
       }
 
       const effectivePermitNo = updated.PermitNo !== undefined && updated.PermitNo !== '' 
         ? updated.PermitNo 
-        : trimmedPermit;
+        : normalizedPermit;
 
       const finalUpdated: SapIsolationHeader = {
         ...updated,
@@ -190,6 +211,16 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
     configApi.fetchIsolatedStateConfig().then(setIsolatedStates);
     configApi.fetchIsolMethodConfig().then(setIsolMethods);
     configApi.fetchDeisolatedStateConfig().then(setDeisolatedStates);
+    sitePermitApi.list('', '', 0, undefined, 'ALL', undefined, 100).then((res) => {
+      setAvailablePermits(res.map((p) => p.Permit_No).filter(Boolean));
+    }).catch(() => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const stored = JSON.parse(window.localStorage.getItem('ptw_recent_created_permits') || '[]');
+          setAvailablePermits(stored.map((p: any) => p?.Permit_No).filter(Boolean));
+        }
+      } catch {}
+    });
     return () => abortControllerRef.current?.abort();
   }, []);
 
@@ -241,6 +272,79 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       return matchesSearch && matchesStatus;
     });
   }, [isolations, searchQuery, statusFilter]);
+
+  // Sorted Isolations
+  const sortedIsolations = useMemo(() => {
+    const list = [...filteredIsolations];
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'IsolationNo') {
+        cmp = a.IsolationNo.localeCompare(b.IsolationNo);
+      } else if (sortField === 'PermitNo') {
+        cmp = (a.PermitNo || '').localeCompare(b.PermitNo || '');
+      } else if (sortField === 'Status') {
+        cmp = (a.Status || '').localeCompare(b.Status || '');
+      } else if (sortField === 'RequestedDate') {
+        const dateA = `${a.RequestedDate || ''} ${a.RequestedTime || ''}`;
+        const dateB = `${b.RequestedDate || ''} ${b.RequestedTime || ''}`;
+        cmp = dateA.localeCompare(dateB);
+      } else if (sortField === 'PointsCount') {
+        cmp = (a._Item?.length || 0) - (b._Item?.length || 0);
+      }
+      return sortDirection === 'ASC' ? cmp : -cmp;
+    });
+    return list;
+  }, [filteredIsolations, sortField, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedIsolations.length / pageSize));
+
+  // Reset page when search or status filter or pageSize changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setPageJumpInput('1');
+  }, [searchQuery, statusFilter, pageSize]);
+
+  // Sync jump input when page changes
+  useEffect(() => {
+    setPageJumpInput(String(currentPage));
+  }, [currentPage]);
+
+  // Reset points page when selected certificate changes
+  useEffect(() => {
+    setPointsPage(1);
+  }, [selectedIso?.IsolationNo]);
+
+  const paginatedIsolations = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return sortedIsolations.slice(startIndex, startIndex + pageSize);
+  }, [sortedIsolations, currentPage, pageSize]);
+
+  const paginatedPoints = useMemo(() => {
+    if (!selectedIso?._Item) return [];
+    const startIndex = (pointsPage - 1) * pointsPageSize;
+    return selectedIso._Item.slice(startIndex, startIndex + pointsPageSize);
+  }, [selectedIso?._Item, pointsPage, pointsPageSize]);
+
+  const totalPointsPages = Math.max(1, Math.ceil((selectedIso?._Item?.length || 0) / pointsPageSize));
+
+  const handleSort = (field: 'IsolationNo' | 'PermitNo' | 'Status' | 'RequestedDate' | 'PointsCount') => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'ASC' ? 'DESC' : 'ASC'));
+    } else {
+      setSortField(field);
+      setSortDirection('ASC');
+    }
+  };
+
+  const handlePageJump = (e: React.FormEvent) => {
+    e.preventDefault();
+    const target = parseInt(pageJumpInput, 10);
+    if (!isNaN(target) && target >= 1 && target <= totalPages) {
+      setCurrentPage(target);
+    } else {
+      setPageJumpInput(String(currentPage));
+    }
+  };
 
   // Statistics
   const stats = useMemo(() => {
@@ -311,8 +415,13 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
     setNotification(null);
 
     try {
+      const trimmedPermit = createPermitNo.trim().toUpperCase();
+      const normalizedPermit = /^\d+$/.test(trimmedPermit) && trimmedPermit.length < 10
+        ? trimmedPermit.padStart(10, '0')
+        : trimmedPermit;
+
       const payload: Partial<SapIsolationHeader> = {
-        PermitNo: createPermitNo.trim(),
+        PermitNo: normalizedPermit,
         description: createDescription.trim(),
         Remarks: createRemarks.trim(),
         _Item: createPoints.map((p) => ({
@@ -329,6 +438,16 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
       };
 
       const result = await isolationApi.create(payload);
+
+      // If created with a target permit number, sync the link on PermitInfo in SAP
+      if (normalizedPermit && result.IsolationNo) {
+        try {
+          await sitePermitApi.updateIsolationLink(normalizedPermit, result.IsolationNo);
+        } catch (linkErr) {
+          console.warn('[IsolationWorkspace] Could not link permit to new isolation certificate:', linkErr);
+        }
+      }
+
       showNotification(
         'success',
         `Isolation Certificate ${result.IsolationNo} successfully created and registered in SAP database.`
@@ -374,15 +493,15 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
-      {/* Top Banner / Breadcrumb */}
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-7">
+      {/* Top Banner / Breadcrumb & Global Toolbar */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
-          <div className="mb-3 flex flex-wrap items-center gap-2.5">
+          <div className="mb-2.5 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onBack}
-              className="group inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition-all duration-200 hover:border-[#006398] hover:bg-slate-50 hover:text-[#006398] hover:shadow-sm active:scale-[0.98]"
+              className="group inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3.5 py-1.5 text-xs font-mono font-bold text-slate-700 shadow-2xs transition-all duration-200 hover:border-[#006398] hover:bg-slate-50 hover:text-[#006398] active:scale-[0.98] cursor-pointer"
               title="Return to Launchpad"
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors duration-200 group-hover:bg-[#006398]/10 group-hover:text-[#006398]">
@@ -396,25 +515,30 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
             <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-slate-400">
               <span>PTW Suite</span>
               <span>/</span>
-              <span className="font-semibold text-slate-600">Isolation Registry</span>
+              <span className="font-semibold text-slate-700">Isolation & LOTO Registry</span>
             </div>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 text-[10px] font-mono font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+              <span>Zero-Energy (LOTO)</span>
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
+
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20 shrink-0">
               <span className="material-symbols-outlined text-[24px]">lock_reset</span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Isolation Registry
+              <h1 className="text-xl sm:text-2xl font-display font-extrabold tracking-tight text-slate-900">
+                Positive Isolation & LOTO Registry
               </h1>
-              <p className="text-xs text-slate-500 font-mono">
+              <p className="text-xs text-slate-500 font-mono mt-0.5">
                 Zero-Energy Breaker, Valve Lock & Blind Flange Registry (SAP OData V4)
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {viewMode !== 'list' && (
             <button
               type="button"
@@ -486,9 +610,17 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
         </div>
       )}
 
-      {/* KPI Overview Metrics Strip with Layered Depth & Light Tint Gradients */}
+      {/* KPI Overview Metrics Strip with Interactive Filtering & Layered Depth */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-5">
-        <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-slate-50/70 to-slate-100/50 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.04),0_6px_16px_-4px_rgba(15,23,42,0.06),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('ALL')}
+          className={`text-left rounded-2xl border p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.04),0_6px_16px_-4px_rgba(15,23,42,0.06),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'ALL'
+              ? 'border-[#006398] bg-sky-50/60 ring-2 ring-[#006398]/20 shadow-sm'
+              : 'border-slate-200/90 bg-gradient-to-br from-white via-slate-50/70 to-slate-100/50'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
               Certificates
@@ -496,9 +628,18 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
             <span className="material-symbols-outlined text-[18px] text-slate-400">verified</span>
           </div>
           <p className="mt-1 font-mono text-2xl font-bold text-slate-800">{stats.total}</p>
-        </div>
+          <span className="text-[10px] text-slate-500 font-mono">All Records</span>
+        </button>
 
-        <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-white via-[#fffef7] to-amber-50/70 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(217,119,6,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('CRTD')}
+          className={`text-left rounded-2xl border p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(217,119,6,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'CRTD'
+              ? 'border-amber-500 bg-amber-50/80 ring-2 ring-amber-500/20 shadow-sm'
+              : 'border-amber-200/90 bg-gradient-to-br from-white via-[#fffef7] to-amber-50/70'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-700">
               Draft (CRTD)
@@ -506,9 +647,18 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
             <span className="material-symbols-outlined text-[18px] text-amber-600">edit_document</span>
           </div>
           <p className="mt-1 font-mono text-2xl font-bold text-amber-900">{stats.crtd}</p>
-        </div>
+          <span className="text-[10px] text-amber-700 font-mono">Pending Lockout</span>
+        </button>
 
-        <div className="rounded-2xl border border-sky-200/90 bg-gradient-to-br from-white via-[#f5f9fe] to-sky-50/70 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(0,99,152,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('ISOL')}
+          className={`text-left rounded-2xl border p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(0,99,152,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'ISOL'
+              ? 'border-[#006398] bg-sky-50 ring-2 ring-[#006398]/20 shadow-sm'
+              : 'border-sky-200/90 bg-gradient-to-br from-white via-[#f5f9fe] to-sky-50/70'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-700">
               Isolated (ISOL)
@@ -516,9 +666,18 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
             <span className="material-symbols-outlined text-[18px] text-[#006398]">lock</span>
           </div>
           <p className="mt-1 font-mono text-2xl font-bold text-blue-900">{stats.isol}</p>
-        </div>
+          <span className="text-[10px] text-blue-700 font-mono">Active Lockouts</span>
+        </button>
 
-        <div className="rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-white via-[#f4fbf7] to-emerald-50/70 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(5,150,105,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('NORM')}
+          className={`text-left rounded-2xl border p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(5,150,105,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'NORM'
+              ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20 shadow-sm'
+              : 'border-emerald-200/90 bg-gradient-to-br from-white via-[#f4fbf7] to-emerald-50/70'
+          }`}
+        >
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700">
               Normalized (NORM)
@@ -526,7 +685,8 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
             <span className="material-symbols-outlined text-[18px] text-emerald-600">lock_open</span>
           </div>
           <p className="mt-1 font-mono text-2xl font-bold text-emerald-900">{stats.norm}</p>
-        </div>
+          <span className="text-[10px] text-emerald-700 font-mono">Restored Energy</span>
+        </button>
 
         <div className="rounded-2xl border border-orange-200/90 bg-gradient-to-br from-white via-[#fffdf8] to-orange-50/70 p-4 shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_6px_18px_-4px_rgba(234,88,12,0.12),inset_0_1px_0_0_rgba(255,255,255,1)] hover:-translate-y-0.5 transition-all">
           <div className="flex items-center justify-between mb-1">
@@ -536,6 +696,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
             <span className="material-symbols-outlined text-[18px] text-orange-600">key</span>
           </div>
           <p className="mt-1 font-mono text-2xl font-bold text-orange-900">{stats.totalPoints}</p>
+          <span className="text-[10px] text-orange-700 font-mono">Total Physical Points</span>
         </div>
       </div>
 
@@ -549,103 +710,230 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
           icon="lock"
           badge={
             <span className="px-2.5 py-0.5 rounded-full font-mono text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-              {filteredIsolations.length} Certificates
+              {sortedIsolations.length} Certificates
             </span>
           }
         >
           <div className="space-y-4">
-            {/* Search & Filter Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4 shadow-xs">
-              <div className="flex flex-1 items-center gap-2 min-w-[260px] bg-white px-3 py-2 rounded-xl border border-slate-200">
-                <span className="material-symbols-outlined text-slate-400 text-[18px]">search</span>
+            {/* Search & Filter Toolbar with Proper Spacing */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 shadow-2xs">
+              <div className="flex flex-1 items-center gap-2.5 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs focus-within:ring-2 focus-within:ring-[#006398]/20 focus-within:border-[#006398] transition-all">
+                <span className="material-symbols-outlined text-slate-400 text-[19px]">search</span>
                 <input
                   type="text"
-                  placeholder="Search certificate #, permit #, point name, lock/tag..."
+                  placeholder="Search certificate #, linked permit #, requested by, point name, lock/tag..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full text-xs outline-none bg-transparent placeholder-slate-400 font-sans"
+                  className="w-full text-xs outline-none bg-transparent placeholder-slate-400 font-sans text-slate-800"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="text-xs text-slate-400 hover:text-slate-600"
+                    className="text-xs text-slate-400 hover:text-slate-700 p-0.5 rounded transition-colors cursor-pointer"
+                    title="Clear search"
                   >
-                    ✕
+                    <span className="material-symbols-outlined text-[16px]">cancel</span>
                   </button>
                 )}
+                <span className="text-[10px] font-mono font-bold text-slate-400 border-l border-slate-200 pl-2 shrink-0">
+                  {sortedIsolations.length} found
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 font-semibold font-mono">Status:</span>
-                <div className="flex gap-1">
-                  {(['ALL', 'CRTD', 'ISOL', 'NORM'] as const).map((st) => (
-                    <button
-                      key={st}
-                      type="button"
-                      onClick={() => setStatusFilter(st)}
-                      className={`rounded-lg px-2.5 py-1 text-xs font-mono font-bold transition-all ${
-                        statusFilter === st
-                          ? 'bg-[#006398] text-white shadow-xs'
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
+              <div className="flex items-center gap-3 flex-wrap justify-between lg:justify-end">
+                <div className="flex items-center gap-1.5 font-mono">
+                  <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px] text-slate-400">filter_alt</span>
+                    <span>Status:</span>
+                  </span>
+                  <div className="inline-flex rounded-xl bg-slate-200/60 p-1 gap-1">
+                    {[
+                      { id: 'ALL', label: 'All', count: stats.total },
+                      { id: 'CRTD', label: 'CRTD', count: stats.crtd },
+                      { id: 'ISOL', label: 'ISOL', count: stats.isol },
+                      { id: 'NORM', label: 'NORM', count: stats.norm }
+                    ].map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setStatusFilter(st.id)}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          statusFilter === st.id
+                            ? 'bg-[#006398] text-white shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                        }`}
+                      >
+                        <span>{st.label}</span>
+                        <span className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
+                          statusFilter === st.id ? 'bg-white/20 text-white' : 'bg-slate-300/60 text-slate-600'
+                        }`}>
+                          {st.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Page Size Dropdown */}
+                <div className="flex items-center gap-1.5 font-mono text-xs text-slate-500">
+                  <span>Show:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="px-2.5 py-1 text-xs font-mono font-bold bg-white border border-slate-200 rounded-lg text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-[#006398] cursor-pointer"
+                  >
+                    <option value={10}>10 / page</option>
+                    <option value={25}>25 / page</option>
+                    <option value={50}>50 / page</option>
+                    <option value={100}>100 / page</option>
+                  </select>
                 </div>
               </div>
             </div>
 
             {/* Certificates Table */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b bg-slate-50/80 font-mono text-[11px] uppercase tracking-wider text-slate-600">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="border-b border-slate-200 bg-slate-50/90 font-mono text-[11px] uppercase tracking-wider text-slate-600 select-none">
                   <tr>
-                    <th className="p-3">Isolation Certificate</th>
-                    <th className="p-3">Linked Permit</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Requested By & Date</th>
-                    <th className="p-3">Points Registered</th>
-                    <th className="p-3">Description / Remarks</th>
-                    <th className="p-3 text-right">Actions</th>
+                    <th
+                      onClick={() => handleSort('IsolationNo')}
+                      className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                      title="Sort by Certificate No"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Isolation Certificate</span>
+                        {sortField === 'IsolationNo' ? (
+                          <span className="material-symbols-outlined text-[14px] text-[#006398]">
+                            {sortDirection === 'ASC' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        ) : (
+                          <span className="material-symbols-outlined text-[14px] text-slate-300">unfold_more</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort('PermitNo')}
+                      className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                      title="Sort by Linked Permit"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Linked Permit</span>
+                        {sortField === 'PermitNo' ? (
+                          <span className="material-symbols-outlined text-[14px] text-[#006398]">
+                            {sortDirection === 'ASC' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        ) : (
+                          <span className="material-symbols-outlined text-[14px] text-slate-300">unfold_more</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort('Status')}
+                      className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                      title="Sort by Status"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Status</span>
+                        {sortField === 'Status' ? (
+                          <span className="material-symbols-outlined text-[14px] text-[#006398]">
+                            {sortDirection === 'ASC' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        ) : (
+                          <span className="material-symbols-outlined text-[14px] text-slate-300">unfold_more</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort('RequestedDate')}
+                      className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                      title="Sort by Requested Date"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Requested By & Date</span>
+                        {sortField === 'RequestedDate' ? (
+                          <span className="material-symbols-outlined text-[14px] text-[#006398]">
+                            {sortDirection === 'ASC' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        ) : (
+                          <span className="material-symbols-outlined text-[14px] text-slate-300">unfold_more</span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort('PointsCount')}
+                      className="p-3.5 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                      title="Sort by Points Count"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Points Registered</span>
+                        {sortField === 'PointsCount' ? (
+                          <span className="material-symbols-outlined text-[14px] text-[#006398]">
+                            {sortDirection === 'ASC' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        ) : (
+                          <span className="material-symbols-outlined text-[14px] text-slate-300">unfold_more</span>
+                        )}
+                      </div>
+                    </th>
+                    <th className="p-3.5">Description / Remarks</th>
+                    <th className="p-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-sans">
-                  {filteredIsolations.length === 0 ? (
+                  {paginatedIsolations.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-500">
-                        <div className="flex flex-col items-center gap-2">
-                          <span className="material-symbols-outlined text-[36px] text-slate-300">
-                            folder_off
+                      <td colSpan={7} className="py-14 text-center text-slate-500">
+                        <div className="flex flex-col items-center gap-2.5">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <span className="material-symbols-outlined text-[28px]">folder_off</span>
+                          </div>
+                          <span className="font-semibold text-slate-700">No isolation certificates found</span>
+                          <span className="text-xs text-slate-400 max-w-sm">
+                            {searchQuery || statusFilter !== 'ALL'
+                              ? 'Try adjusting your search keywords or resetting the status filter.'
+                              : 'No isolation certificates exist yet in the SAP S/4HANA registry.'}
                           </span>
-                          <span>No isolation certificates found matching current criteria.</span>
+                          {(searchQuery || statusFilter !== 'ALL') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchQuery('');
+                                setStatusFilter('ALL');
+                              }}
+                              className="mt-1 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-mono font-bold text-slate-700 transition-colors"
+                            >
+                              Reset Filters
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    filteredIsolations.map((iso) => (
-                      <tr key={iso.IsolationNo} className="hover:bg-sky-50/40 transition-colors">
-                        <td className="p-3 font-mono font-bold text-[#006398]">
+                    paginatedIsolations.map((iso) => (
+                      <tr key={iso.IsolationNo} className="hover:bg-sky-50/50 transition-colors group">
+                        <td className="p-3.5 font-mono font-bold text-[#006398]">
                           <button
                             type="button"
                             onClick={() => {
                               setSelectedIso(iso);
                               setViewMode('detail');
                             }}
-                            className="hover:underline flex items-center gap-1.5"
+                            className="hover:underline flex items-center gap-2 group-hover:text-[#004e78]"
                           >
-                            <span className="material-symbols-outlined text-[16px] text-orange-600">
-                              lock
+                            <span className="w-7 h-7 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-[16px]">lock</span>
                             </span>
-                            {iso.IsolationNo}
+                            <span>{iso.IsolationNo}</span>
                           </button>
                         </td>
-                        <td className="p-3 font-mono">
+                        <td className="p-3.5 font-mono">
                           {iso.PermitNo ? (
                             <div className="flex items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 rounded bg-sky-50 px-2 py-0.5 text-[#006398] font-bold border border-sky-100">
-                                {iso.PermitNo}
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-2.5 py-1 text-[#006398] font-bold border border-sky-200 shadow-2xs">
+                                <span className="material-symbols-outlined text-[13px]">description</span>
+                                <span>{iso.PermitNo}</span>
                               </span>
                               <button
                                 type="button"
@@ -653,8 +941,8 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                                   e.stopPropagation();
                                   handleOpenEdit(iso);
                                 }}
-                                className="text-slate-400 hover:text-[#006398] p-0.5 rounded transition"
-                                title="Edit Permit No"
+                                className="text-slate-400 hover:text-[#006398] p-1 rounded-md hover:bg-sky-50 transition"
+                                title="Edit Permit Linkage"
                               >
                                 <span className="material-symbols-outlined text-[14px]">edit</span>
                               </button>
@@ -666,41 +954,45 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                                 e.stopPropagation();
                                 handleOpenEdit(iso);
                               }}
-                              className="inline-flex items-center gap-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold transition"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 text-[11px] font-mono font-bold transition shadow-2xs cursor-pointer"
                               title="Add or link a Permit No to this certificate"
                             >
-                              <span className="material-symbols-outlined text-[13px]">add_link</span>
+                              <span className="material-symbols-outlined text-[14px]">add_link</span>
                               <span>+ Link Permit</span>
                             </button>
                           )}
                         </td>
-                        <td className="p-3">
+                        <td className="p-3.5">
                           <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase ${
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-extrabold tracking-wider uppercase border shadow-2xs ${
                               iso.Status === 'CRTD'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
                                 : iso.Status === 'ISOL'
-                                ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                ? 'bg-sky-50 text-[#006398] border-sky-300 ring-2 ring-sky-500/20'
                                 : iso.Status === 'NORM'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : 'bg-slate-100 text-slate-700'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
                             }`}
                           >
-                            {iso.Status}
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              iso.Status === 'ISOL' ? 'bg-[#006398] animate-pulse' : iso.Status === 'NORM' ? 'bg-emerald-500' : 'bg-amber-500'
+                            }`}></span>
+                            <span>{iso.Status}</span>
                           </span>
                         </td>
-                        <td className="p-3">
-                          <div className="font-semibold text-slate-800">{iso.RequestedBy}</div>
-                          <div className="font-mono text-[10px] text-slate-400">
+                        <td className="p-3.5">
+                          <div className="font-semibold text-slate-800">{iso.RequestedBy || 'SYSTEM'}</div>
+                          <div className="font-mono text-[10px] text-slate-400 mt-0.5">
                             {iso.RequestedDate} {iso.RequestedTime}
                           </div>
                         </td>
-                        <td className="p-3">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">
-                            {iso._Item?.length || 0} point(s)
+                        <td className="p-3.5">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100/90 border border-slate-200/80 px-2.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">
+                            <span className="material-symbols-outlined text-[13px] text-orange-600">key</span>
+                            <span>{iso._Item?.length || 0} point(s)</span>
                           </span>
                         </td>
-                        <td className="p-3 max-w-[220px] text-slate-600" title={iso.description || iso.Remarks || ''}>
+                        <td className="p-3.5 max-w-[220px] text-slate-600" title={iso.description || iso.Remarks || ''}>
                           {iso.description && (
                             <div className="font-semibold text-slate-800 truncate">{iso.description}</div>
                           )}
@@ -708,12 +1000,12 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                             {iso.Remarks || (!iso.description ? '—' : '')}
                           </div>
                         </td>
-                        <td className="p-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="p-3.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => handleOpenEdit(iso)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-[#006398] transition"
+                              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-700 hover:bg-slate-100 hover:text-[#006398] transition shadow-2xs cursor-pointer"
                               title="Edit Certificate / Link Permit"
                             >
                               <span className="material-symbols-outlined text-[14px]">edit</span>
@@ -725,7 +1017,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                                 setSelectedIso(iso);
                                 setViewMode('detail');
                               }}
-                              className="inline-flex items-center gap-1 rounded-lg bg-[#006398] hover:bg-[#004e78] text-white px-2.5 py-1 text-xs font-semibold shadow-xs transition-colors"
+                              className="inline-flex items-center gap-1 rounded-xl bg-[#006398] hover:bg-[#004e78] text-white px-3 py-1.5 text-xs font-mono font-bold shadow-2xs transition-colors cursor-pointer"
                             >
                               <span>View Details</span>
                               <span className="material-symbols-outlined text-[14px]">chevron_right</span>
@@ -737,6 +1029,92 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Table Bottom Pagination Bar */}
+            <div className="px-5 py-3.5 bg-slate-50/90 rounded-2xl border border-slate-200/90 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
+              <div className="text-slate-500 flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Connected to SAP Gateway:</span>
+                </span>
+                <code className="text-slate-800 font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                  /Isolation
+                </code>
+                <span>&middot;</span>
+                <span>
+                  Showing{' '}
+                  <strong className="text-slate-800">
+                    {sortedIsolations.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+                  </strong>{' '}
+                  to{' '}
+                  <strong className="text-slate-800">
+                    {Math.min(currentPage * pageSize, sortedIsolations.length)}
+                  </strong>{' '}
+                  of{' '}
+                  <strong className="text-slate-800">{sortedIsolations.length}</strong> certificates
+                  {isolations.length !== sortedIsolations.length && (
+                    <span className="text-slate-400"> (filtered from {isolations.length} total)</span>
+                  )}
+                </span>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition shadow-2xs cursor-pointer"
+                    title="First Page"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">first_page</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold flex items-center gap-1 transition shadow-2xs cursor-pointer"
+                    title="Previous Page"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">chevron_left</span>
+                    <span className="hidden sm:inline">Prev</span>
+                  </button>
+
+                  <form onSubmit={handlePageJump} className="flex items-center gap-1">
+                    <span className="text-slate-500">Page</span>
+                    <input
+                      type="text"
+                      value={pageJumpInput}
+                      onChange={(e) => setPageJumpInput(e.target.value)}
+                      onBlur={() => setPageJumpInput(String(currentPage))}
+                      className="w-10 text-center py-1 bg-white border border-slate-200 rounded-lg font-bold text-slate-900 shadow-2xs focus:outline-none focus:ring-1 focus:ring-[#006398]"
+                      title="Type page number and press Enter"
+                    />
+                    <span className="text-slate-500">of {totalPages}</span>
+                  </form>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold flex items-center gap-1 transition shadow-2xs cursor-pointer"
+                    title="Next Page"
+                  >
+                    <span className="hidden sm:inline">Next</span>
+                    <span className="material-symbols-outlined text-[15px]">chevron_right</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold transition shadow-2xs cursor-pointer"
+                    title="Last Page"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">last_page</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </SectionCard>
@@ -904,87 +1282,139 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                       </td>
                     </tr>
                   ) : (
-                    selectedIso._Item.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="p-3 font-mono font-bold text-slate-500">
-                          {item.ItemNo || idx + 1}
-                        </td>
-                        <td className="p-3 font-mono">
-                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
-                            {item.ReferenceType}
-                          </span>{' '}
-                          <span className="font-semibold text-slate-800">{item.ReferenceId}</span>
-                        </td>
-                        <td className="p-3 font-semibold text-slate-900 flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-[14px] text-orange-500">
-                            lock
-                          </span>
-                          {item.IsolationPoint}
-                        </td>
-                        <td className="p-3 font-mono text-[11px]">
-                          <span className="font-bold text-slate-800">{getIsolTypeLabel(item.IsolType)}</span>
-                          <span className="block text-slate-500 font-normal">{getIsolMethodLabel(item.IsolMethod)}</span>
-                        </td>
-                        <td className="p-3 font-mono font-bold text-amber-700">
-                          {getIsolatedStateLabel(item.IsolatedState) || '—'}
-                        </td>
-                        <td className="p-3 font-mono text-slate-600">
-                          {getDeisolatedStateLabel(item.DeIsolatedState || '') || '—'}
-                        </td>
-                        <td className="p-3 font-mono font-bold text-slate-800">
-                          {item.LockTagNo ? (
-                            <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-900">
-                              🏷️ {item.LockTagNo}
+                    paginatedPoints.map((item, idx) => {
+                      const itemIndex = (pointsPage - 1) * pointsPageSize + idx + 1;
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3 font-mono font-bold text-slate-500">
+                            {item.ItemNo || itemIndex}
+                          </td>
+                          <td className="p-3 font-mono">
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                              {item.ReferenceType}
+                            </span>{' '}
+                            <span className="font-semibold text-slate-800">{item.ReferenceId}</span>
+                          </td>
+                          <td className="p-3 font-semibold text-slate-900 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[14px] text-orange-500">
+                              lock
                             </span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td className="p-3 text-center font-mono">
-                          {item.IsIsolated === 'Y' ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
-                              <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                              YES
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-slate-400">
-                              <span className="material-symbols-outlined text-[16px]">pending</span>
-                              Pending
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3 text-center font-mono">
-                          {item.ZeroEnergyConf === 'Y' ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
-                              <span className="material-symbols-outlined text-[16px]">verified</span>
-                              CONFIRMED
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-slate-400">
-                              <span className="material-symbols-outlined text-[16px]">schedule</span>
-                              Pending
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3 text-center font-mono">
-                          {item.IsNormalized === 'Y' ? (
-                            <span className="inline-flex items-center gap-1 text-blue-700 font-bold">
-                              <span className="material-symbols-outlined text-[16px]">restore</span>
-                              RESTORED
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">Active</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-slate-600 max-w-[150px] truncate" title={item.Remarks}>
-                          {item.Remarks || '—'}
-                        </td>
-                      </tr>
-                    ))
+                            {item.IsolationPoint}
+                          </td>
+                          <td className="p-3 font-mono text-[11px]">
+                            <span className="font-bold text-slate-800">{getIsolTypeLabel(item.IsolType)}</span>
+                            <span className="block text-slate-500 font-normal">{getIsolMethodLabel(item.IsolMethod)}</span>
+                          </td>
+                          <td className="p-3 font-mono font-bold text-amber-700">
+                            {getIsolatedStateLabel(item.IsolatedState) || '—'}
+                          </td>
+                          <td className="p-3 font-mono text-slate-600">
+                            {getDeisolatedStateLabel(item.DeIsolatedState || '') || '—'}
+                          </td>
+                          <td className="p-3 font-mono font-bold text-slate-800">
+                            {item.LockTagNo ? (
+                              <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-900">
+                                🏷️ {item.LockTagNo}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="p-3 text-center font-mono">
+                            {item.IsIsolated === 'Y' ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                YES
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-slate-400">
+                                <span className="material-symbols-outlined text-[16px]">pending</span>
+                                Pending
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center font-mono">
+                            {item.ZeroEnergyConf === 'Y' ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                                <span className="material-symbols-outlined text-[16px]">verified</span>
+                                CONFIRMED
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-slate-400">
+                                <span className="material-symbols-outlined text-[16px]">schedule</span>
+                                Pending
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center font-mono">
+                            {item.IsNormalized === 'Y' ? (
+                              <span className="inline-flex items-center gap-1 text-blue-700 font-bold">
+                                <span className="material-symbols-outlined text-[16px]">restore</span>
+                                RESTORED
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic">Active</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-slate-600 max-w-[150px] truncate" title={item.Remarks}>
+                            {item.Remarks || '—'}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
+
+            {/* Points Table Pagination Bar (if > 5) */}
+            {selectedIso._Item && selectedIso._Item.length > 5 && (
+              <div className="px-4 py-2.5 bg-slate-50/90 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-slate-500 mt-2">
+                <div className="flex items-center gap-3">
+                  <span>
+                    Showing {(pointsPage - 1) * pointsPageSize + 1} to{' '}
+                    {Math.min(pointsPage * pointsPageSize, selectedIso._Item.length)} of{' '}
+                    {selectedIso._Item.length} physical lock points
+                  </span>
+                  <div className="flex items-center gap-1.5 font-sans">
+                    <span className="text-slate-400">Rows:</span>
+                    <select
+                      value={pointsPageSize}
+                      onChange={(e) => {
+                        setPointsPageSize(Number(e.target.value));
+                        setPointsPage(1);
+                      }}
+                      className="px-2 py-0.5 bg-white border border-slate-200 rounded-md font-sans text-xs text-slate-700 outline-none focus:border-[#006398] cursor-pointer"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPointsPage((p) => Math.max(1, p - 1))}
+                    disabled={pointsPage === 1}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 disabled:opacity-40 font-bold hover:bg-slate-100 shadow-2xs cursor-pointer"
+                  >
+                    Prev
+                  </button>
+                  <span className="font-bold text-slate-800 px-1">
+                    {pointsPage} / {totalPointsPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPointsPage((p) => Math.min(totalPointsPages, p + 1))}
+                    disabled={pointsPage === totalPointsPages}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 disabled:opacity-40 font-bold hover:bg-slate-100 shadow-2xs cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
         </div>
       )}
@@ -1016,7 +1446,8 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                 Linked Permit Number (Optional)
                 <input
                   type="text"
-                  placeholder="e.g. PTW0000002"
+                  list="available-permits-list"
+                  placeholder="e.g. 0000000014"
                   value={createPermitNo}
                   onChange={(e) => setCreatePermitNo(e.target.value.toUpperCase())}
                   maxLength={10}
@@ -1395,12 +1826,18 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                     <input
                       id="iso-permit-no"
                       type="text"
+                      list="available-permits-list"
                       maxLength={10}
-                      placeholder="e.g. PTW0000016"
+                      placeholder="e.g. 0000000014"
                       value={editPermitNo}
                       onChange={(e) => setEditPermitNo(e.target.value.toUpperCase())}
                       className="flex-1 px-3 py-2 text-xs sm:text-sm font-mono tracking-wider outline-none uppercase font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal"
                     />
+                    <datalist id="available-permits-list">
+                      {availablePermits.map((no) => (
+                        <option key={no} value={no} />
+                      ))}
+                    </datalist>
                     {editPermitNo && (
                       <button
                         type="button"
@@ -1413,7 +1850,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                     )}
                   </div>
                   <p className="text-[11px] text-slate-500 font-sans">
-                    Enter the 10-character SAP Work Permit number, or clear to save without a linked permit.
+                    Select or enter the 10-character SAP Work Permit number, or clear to save without a linked permit.
                   </p>
                 </div>
 

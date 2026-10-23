@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSapAuth, MODULE_REGISTRY, ModuleId } from './core/auth/sapAuthContext';
+import type { PermitDeepInsertResponse } from './core/types/ptw.types';
 import { SapLoginPage } from './shared/components/SapLoginPage';
 import { StitchHeader } from './shared/components/StitchHeader';
 import { ModuleLaunchpad } from './features/dashboard/ModuleLaunchpad';
@@ -9,7 +10,10 @@ import { PermitCreateModule } from './features/permits/PermitCreateModule';
 import { PermitDisplayWorkspace } from './features/permits/PermitDisplayWorkspace';
 import { IsolationWorkspace } from './features/isolation/IsolationWorkspace';
 import { GasTesterWorkspace } from './features/gastest/GasTesterWorkspace';
+import { PermitApproverWorkspace } from './features/approvals/PermitApproverWorkspace';
 import { ReportModule } from './features/dashboard/ReportModule';
+import { SafetyMapWorkspace } from './features/map/SafetyMapWorkspace';
+import { AdminWorkspace } from './features/admin/AdminWorkspace';
 import { OfflineNotificationBanner } from './shared/components/OfflineNotificationBanner';
 import { SapReauthModal } from './shared/components/SapReauthModal';
 
@@ -35,6 +39,8 @@ export const App: React.FC = () => {
     }
   });
 
+  const [revisionPermit, setRevisionPermit] = useState<PermitDeepInsertResponse | null>(null);
+
   const setSelectedModule = (mod: ModuleId | null) => {
     setSelectedModuleState(mod);
     try {
@@ -47,6 +53,11 @@ export const App: React.FC = () => {
       // ignore
     }
   };
+
+  // Guarantee that every screen/page always opens at the very top (never mid-scroll)
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [selectedModule]);
 
   // 0. Session Restoration Screen (Prevents login flicker on browser reload)
   if (isSessionRestoring) {
@@ -99,6 +110,8 @@ export const App: React.FC = () => {
       <StitchHeader
         onGoHome={() => setSelectedModule(null)}
         isHome={selectedModule === null}
+        onOpenMap={() => setSelectedModule('safety-map')}
+        isMapActive={selectedModule === 'safety-map'}
       />
 
       {/* Real-time Network Disconnection Notification */}
@@ -155,17 +168,30 @@ export const App: React.FC = () => {
         ) : selectedModule === 'permit-create' ? (
           <PermitCreateModule
             user={user}
-            onBack={() => setSelectedModule(null)}
+            onBack={() => {
+              setRevisionPermit(null);
+              setSelectedModule(null);
+            }}
+            revisionPermit={revisionPermit}
           />
         ) : selectedModule === 'permit-details' ? (
           <PermitDisplayWorkspace
             user={user}
             onBack={() => setSelectedModule(null)}
+            onRevisePermit={(permit) => {
+              setRevisionPermit(permit);
+              setSelectedModule('permit-create');
+            }}
           />
         ) : selectedModule === 'create-isolation' || selectedModule === 'display-isolation' || selectedModule === 'isolation' ? (
           <IsolationWorkspace
             key={selectedModule}
             module={selectedModule}
+            user={user}
+            onBack={() => setSelectedModule(null)}
+          />
+        ) : selectedModule === 'permit-approver' ? (
+          <PermitApproverWorkspace
             user={user}
             onBack={() => setSelectedModule(null)}
           />
@@ -182,7 +208,16 @@ export const App: React.FC = () => {
               onBack={() => setSelectedModule(null)}
             />
           )
-        ) : selectedModule !== 'admin' ? (
+        ) : selectedModule === 'safety-map' ? (
+          <SafetyMapWorkspace
+            onBack={() => setSelectedModule(null)}
+          />
+        ) : selectedModule === 'admin' ? (
+          <AdminWorkspace
+            user={user}
+            onBack={() => setSelectedModule(null)}
+          />
+        ) : selectedModule ? (
           <PermitProcedureWorkspace key={selectedModule} module={selectedModule} user={user} onBack={() => setSelectedModule(null)} />
         ) : (
           /* Active Unlocked Module Workspace Fallback */

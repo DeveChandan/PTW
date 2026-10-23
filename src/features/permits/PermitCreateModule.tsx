@@ -70,13 +70,20 @@ export function formatExecutionTarget(plant: string, dept: string, deptCode?: st
 interface PermitCreateModuleProps {
   user: SapUser | null;
   onBack?: () => void;
+  revisionPermit?: PermitDeepInsertResponse | null;
 }
 
 type TabKey = 'work' | 'general' | 'procedure' | 'workers' | 'ppe' | 'hazards' | 'gas-isolation' | 'payload';
 
-export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, onBack }) => {
+export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, onBack, revisionPermit }) => {
   // A new request starts without asserted work, crew or safety evidence.
   const [activeTab, setActiveTab] = useState<TabKey>('work');
+
+  // Guarantee each wizard step/tab opens from the top (never scrolled down mid-way)
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
   const [workSelection, setWorkSelection] = useState<WorkSelection | null>(null);
 
   // Permit Header Fields
@@ -108,7 +115,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [jobDesc, setJobDesc] = useState<string>('');
 
   // Execution & Supervision
-  const [execAgency, setExecAgency] = useState<string>('CONT');
+  const [execAgency, setExecAgency] = useState<string>('EMP');
   const [execDept, setExecDept] = useState<string>('');
   const [execPlant, setExecPlant] = useState<string>('');
   const [supvName, setSupvName] = useState<string>('');
@@ -118,13 +125,181 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [shift, setShift] = useState<string>('GENERAL');
   const [personsQty, setPersonsQty] = useState<number>(0);
 
-  // Validity Period
+  // Validity Period (without seconds in user interaction)
   const [validFromD, setValidFromD] = useState<string>('');
   const [validFromT, setValidFromT] = useState<string>('');
   const [validToD, setValidToD] = useState<string>('');
   const [validToT, setValidToT] = useState<string>('');
   const [gasTestFreqHr, setGasTestFreqHr] = useState<string>('2');
   const [creatorComment, setCreatorComment] = useState<string>('');
+
+  // Pre-populate form when revising a rejected permit
+  useEffect(() => {
+    if (!revisionPermit) return;
+
+    if (revisionPermit.PermitType) setPermitType(revisionPermit.PermitType);
+    if (revisionPermit.Aufnr) setAufnr(revisionPermit.Aufnr);
+    if (revisionPermit.Qmnum) setQmnum(revisionPermit.Qmnum);
+    if (revisionPermit.Auart) setAuart(revisionPermit.Auart);
+    if (revisionPermit.PersonResp) setPersonResp(revisionPermit.PersonResp);
+    if (revisionPermit.PlannerGroup) setPlannerGroup(revisionPermit.PlannerGroup);
+    if (revisionPermit.Equnr) setEqunr(revisionPermit.Equnr);
+    if (revisionPermit.Tplnr) setTplnr(revisionPermit.Tplnr);
+    if (revisionPermit.Werks) setWerks(revisionPermit.Werks);
+    if (revisionPermit.Arbpl) setArbpl(revisionPermit.Arbpl);
+    if (revisionPermit.AreaLoc) setAreaLoc(revisionPermit.AreaLoc);
+    if (revisionPermit.JobDesc) setJobDesc(revisionPermit.JobDesc);
+    if (revisionPermit.ExecAgency) setExecAgency(revisionPermit.ExecAgency);
+    if (revisionPermit.ExecDept) setExecDept(revisionPermit.ExecDept);
+    if (revisionPermit.SupvName) setSupvName(revisionPermit.SupvName);
+    if (revisionPermit.SupvPhone) setSupvPhone(revisionPermit.SupvPhone);
+    if (revisionPermit.SafetyOfficer) setSafetyOfficer(revisionPermit.SafetyOfficer);
+    if (revisionPermit.Shift) setShift(revisionPermit.Shift);
+    if (revisionPermit.ValidFromD) setValidFromD(revisionPermit.ValidFromD);
+    if (revisionPermit.ValidFromT) setValidFromT(revisionPermit.ValidFromT);
+    if (revisionPermit.ValidToD) setValidToD(revisionPermit.ValidToD);
+    if (revisionPermit.ValidToT) setValidToT(revisionPermit.ValidToT);
+    if (revisionPermit.GasTestFreqHr) setGasTestFreqHr(revisionPermit.GasTestFreqHr);
+    if (revisionPermit.CreatorComment) setCreatorComment(revisionPermit.CreatorComment);
+
+    setWorkSelection({
+      id: revisionPermit.Aufnr || revisionPermit.Qmnum || revisionPermit.Permit_No,
+      type: revisionPermit.Aufnr ? 'ORDER' : 'NOTIFICATION',
+      title: revisionPermit.JobDesc,
+      plant: revisionPermit.Werks,
+      workCenter: revisionPermit.Arbpl,
+      functionalLocation: revisionPermit.Tplnr,
+      equipment: revisionPermit.Equnr,
+      description: revisionPermit.JobDesc,
+      source: revisionPermit.Aufnr ? 'ORDER' : 'NOTIFICATION',
+      category: revisionPermit.PermitType,
+      reference: revisionPermit.Aufnr || revisionPermit.Qmnum || revisionPermit.Permit_No
+    } as unknown as WorkSelection);
+
+    if (revisionPermit._Worker && revisionPermit._Worker.length > 0) {
+      setWorkers(revisionPermit._Worker);
+    }
+    if (revisionPermit._PPE && revisionPermit._PPE.length > 0) {
+      setPpeItems(revisionPermit._PPE);
+    }
+    if (revisionPermit._HazardControl && revisionPermit._HazardControl.length > 0) {
+      setHazards(revisionPermit._HazardControl);
+    }
+
+    setActiveTab('general');
+  }, [revisionPermit]);
+
+  // Unified datetime-local values (YYYY-MM-DDTHH:mm) - without seconds
+  const validFromDateTime = useMemo(() => {
+    if (!validFromD || !validFromT) return '';
+    const cleanTime = validFromT.slice(0, 5);
+    return `${validFromD}T${cleanTime}`;
+  }, [validFromD, validFromT]);
+
+  const validToDateTime = useMemo(() => {
+    if (!validToD || !validToT) return '';
+    const cleanTime = validToT.slice(0, 5);
+    return `${validToD}T${cleanTime}`;
+  }, [validToD, validToT]);
+
+  const handleValidFromDateTimeChange = (val: string) => {
+    if (!val) {
+      setValidFromD('');
+      setValidFromT('');
+      return;
+    }
+    const [d, t] = val.split('T');
+    setValidFromD(d || '');
+    setValidFromT(t ? (t.length === 5 ? `${t}:00` : t) : '');
+  };
+
+  const handleValidToDateTimeChange = (val: string) => {
+    if (!val) {
+      setValidToD('');
+      setValidToT('');
+      return;
+    }
+    const [d, t] = val.split('T');
+    setValidToD(d || '');
+    setValidToT(t ? (t.length === 5 ? `${t}:00` : t) : '');
+  };
+
+  // Helper preset: Set Start to current date & time (without seconds)
+  const handleSetStartNow = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    const timeStr = `${hh}:${min}:00`;
+
+    setValidFromD(dateStr);
+    setValidFromT(timeStr);
+
+    // If validTo is not set, also default it to now + 8 hours (standard permit validity)
+    if (!validToD || !validToT) {
+      const end = new Date(now.getTime() + 8 * 3600 * 1000);
+      const endY = end.getFullYear();
+      const endM = String(end.getMonth() + 1).padStart(2, '0');
+      const endD = String(end.getDate()).padStart(2, '0');
+      const endH = String(end.getHours()).padStart(2, '0');
+      const endMin = String(end.getMinutes()).padStart(2, '0');
+      setValidToD(`${endY}-${endM}-${endD}`);
+      setValidToT(`${endH}:${endMin}:00`);
+    }
+  };
+
+  // Helper preset: Auto-calculate Expiry as +8 Hours from Start Window
+  const handleSetPlus8Hours = () => {
+    let baseTime: Date;
+    if (validFromD && validFromT) {
+      baseTime = new Date(`${validFromD}T${validFromT.slice(0, 5)}`);
+    } else {
+      baseTime = new Date();
+    }
+    const end = new Date(baseTime.getTime() + 8 * 3600 * 1000);
+    const endY = end.getFullYear();
+    const endM = String(end.getMonth() + 1).padStart(2, '0');
+    const endD = String(end.getDate()).padStart(2, '0');
+    const endH = String(end.getHours()).padStart(2, '0');
+    const endMin = String(end.getMinutes()).padStart(2, '0');
+    setValidToD(`${endY}-${endM}-${endD}`);
+    setValidToT(`${endH}:${endMin}:00`);
+  };
+
+  // Helper preset: Snap Expiry to shift boundary (17:30 / 23:00 / 09:00)
+  const handleSetShiftEnd = () => {
+    let baseTime: Date;
+    if (validFromD && validFromT) {
+      baseTime = new Date(`${validFromD}T${validFromT.slice(0, 5)}`);
+    } else {
+      baseTime = new Date();
+    }
+    const mins = baseTime.getHours() * 60 + baseTime.getMinutes();
+    const baseDateStr = validFromD || new Date().toISOString().slice(0, 10);
+
+    if (mins >= 540 && mins < 1050) {
+      // Day shift -> ends at 17:30 same day
+      setValidToD(baseDateStr);
+      setValidToT('17:30:00');
+    } else if (mins >= 1050 && mins < 1380) {
+      // Evening shift -> ends at 23:00 same day
+      setValidToD(baseDateStr);
+      setValidToT('23:00:00');
+    } else {
+      // Night shift -> ends at 09:00 next day
+      let nextDate = baseDateStr;
+      if (mins >= 1380) {
+        const d = new Date(baseTime.getTime() + 24 * 3600 * 1000);
+        nextDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+      setValidToD(nextDate);
+      setValidToT('09:00:00');
+    }
+  };
 
   // LOTO & Isolation Requirements
   const [isolationRequired, setIsolationRequired] = useState<Requirement>('');
@@ -409,7 +584,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     if (draft.isolationNo) setIsolationNo(draft.isolationNo);
     if (draft.workers) setWorkers(draft.workers);
     if (draft.ppeItems) setPpeItems(draft.ppeItems);
-    if (draft.safetyChecklist) setSafetyChecklist(draft.safetyChecklist);
+    if (draft.safetyChecklist) setSafetyChecklist(draft.safetyChecklist.filter((p: SafetyRecord) => !p.ItemCode?.startsWith('Q')));
     if (draft.hazards) setHazards(draft.hazards);
     if (draft.isolations) setIsolations(draft.isolations);
     if (draft.categoryAnswers) setCategoryAnswers(draft.categoryAnswers);
@@ -431,8 +606,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   }, [permitType, sitePlan.additionalTypes]);
 
   // WorkType records for SAP child table _WorkType:
-  // Section 2.1 defines primary permit type. If Section A additional categories are selected (multiple select),
-  // both primary and additional work types are stored in _WorkType with sequential SeqNo.
+  // Primary permit type (Section 2.1) and any additional work categories (Section A)
+  // are stored in _WorkType with sequential SeqNo for both single and multiple categories.
   const workTypeRecords = useMemo((): WorkTypeRecord[] => {
     const primarySap = toSapPermitType(permitType) || permitType;
     if (!primarySap) return [];
@@ -440,14 +615,21 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       .map((t) => toSapPermitType(t) || t)
       .filter((t) => Boolean(t) && t !== primarySap);
 
-    if (additionalSaps.length > 0) {
-      const allTypes = [primarySap, ...additionalSaps];
-      return allTypes.map((code, index) => ({
-        SeqNo: String(index + 1),
-        WorkType: code
-      }));
-    }
-    return [];
+    const allTypes = Array.from(new Set([primarySap, ...additionalSaps]));
+    return allTypes.map((code, index) => ({
+      SeqNo: String(index + 1),
+      WorkType: code
+    }));
+  }, [permitType, sitePlan.additionalTypes]);
+
+  // Pure Cold Work Check: Primary category is Cold Work and no other additional categories exist
+  const isOnlyColdWork = useMemo(() => {
+    const primarySap = toSapPermitType(permitType) || permitType;
+    if (primarySap !== 'COLD') return false;
+    const additional = (sitePlan.additionalTypes || []).filter(
+      (t) => Boolean(t) && (toSapPermitType(t) || t) !== 'COLD'
+    );
+    return additional.length === 0;
   }, [permitType, sitePlan.additionalTypes]);
 
   // Overall statistics across all active categories
@@ -547,23 +729,29 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   // Nature of Work records formatted for SAP child table _NATW (Entity NATWType)
   const natwRecords = useMemo((): NatwRecord[] => {
-    return (sitePlan.nature || []).map((desc, index) => ({
-      ItemNo: String(index + 1),
-      NatwCode: toNatwCode(desc),
-      NatwDesc: desc.trim().slice(0, 255),
-      OtherText: (desc === 'Other' ? (sitePlan.fields.NOTE || '') : '').trim().slice(0, 255)
-    }));
-  }, [sitePlan.nature, sitePlan.fields.NOTE]);
+    return (sitePlan.nature || []).map((desc, index) => {
+      const otherDetail = desc === 'Other' ? (sitePlan.fields.OTHER_NATURE || sitePlan.fields.NOTE || '').trim() : '';
+      return {
+        ItemNo: String(index + 1),
+        NatwCode: toNatwCode(desc),
+        NatwDesc: (desc === 'Other' && otherDetail) ? `Other: ${otherDetail}`.slice(0, 255) : desc.trim().slice(0, 255),
+        OtherText: otherDetail.slice(0, 255)
+      };
+    });
+  }, [sitePlan.nature, sitePlan.fields.OTHER_NATURE, sitePlan.fields.NOTE]);
 
   // Tools & Equipment records formatted for SAP child table _Equipment (Entity EquipmentType)
   const equipmentRecords = useMemo((): EquipmentRecord[] => {
-    return (sitePlan.tools || []).map((desc, index) => ({
-      ItemNo: String(index + 1),
-      EquipCode: toEquipCode(desc),
-      EquipDesc: desc.trim().slice(0, 255),
-      OtherText: (desc === 'Other' ? (sitePlan.fields.NOTE || '') : '').trim().slice(0, 255)
-    }));
-  }, [sitePlan.tools, sitePlan.fields.NOTE]);
+    return (sitePlan.tools || []).map((desc, index) => {
+      const otherDetail = desc === 'Other' ? (sitePlan.fields.OTHER_TOOLS || sitePlan.fields.NOTE || '').trim() : '';
+      return {
+        ItemNo: String(index + 1),
+        EquipCode: toEquipCode(desc),
+        EquipDesc: (desc === 'Other' && otherDetail) ? `Other: ${otherDetail}`.slice(0, 255) : desc.trim().slice(0, 255),
+        OtherText: otherDetail.slice(0, 255)
+      };
+    });
+  }, [sitePlan.tools, sitePlan.fields.OTHER_TOOLS, sitePlan.fields.NOTE]);
 
   // Pre-fetch questionnaires for any active categories so item counts & progress are immediately ready
   useEffect(() => {
@@ -638,70 +826,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     };
     setCategoryAnswers(updatedCategoryAnswers);
 
-    // Recompile _Safety records across ALL active categories with their latest questions and answers
-    // Ensures answers from multiple categories in the same permit are preserved without collisions
-    const compiledRecords: SafetyRecord[] = [];
-    let itemIndex = 1;
-
-    allActiveCategories.forEach((cat) => {
-      const questions = categoryQuestions[cat] || (cat === targetCode ? (categoryQuestions[targetCode] || []) : []);
-      const ansMap = updatedCategoryAnswers[cat] || {};
-      const handledQIds = new Set<string>();
-
-      questions.forEach((q) => {
-        handledQIds.add(q.QuestionaireId);
-        const answer = ansMap[q.QuestionaireId];
-        if (answer && answer.response) {
-          compiledRecords.push({
-            PermitNo: '',
-            ItemNo: String(itemIndex++).slice(-4),
-            Category: (q.Category || cat).substring(0, 6).toUpperCase(),
-            ItemCode: (q.QuestionaireId.startsWith('Q') ? q.QuestionaireId : `Q${q.QuestionaireId}`).slice(0, 4),
-            Response: answer.response || 'NO',
-            ValueText: q.Question.substring(0, 100),
-            ValueNum: 0,
-            Unit: '',
-            ReferenceNo: q.QuestionaireId.substring(0, 30),
-            ResponsibleUser: user?.id || '',
-            VerifiedBy: '',
-            VerifiedAt: null,
-            Remarks: (answer.remarks || '').substring(0, 255),
-          });
-        }
-      });
-
-      // Preserve any answered questions in ansMap not yet in the loaded catalog
-      Object.entries(ansMap).forEach(([qId, answer]) => {
-        if (!handledQIds.has(qId) && answer && answer.response) {
-          compiledRecords.push({
-            PermitNo: '',
-            ItemNo: String(itemIndex++).slice(-4),
-            Category: cat.substring(0, 6).toUpperCase(),
-            ItemCode: (qId.startsWith('Q') ? qId : `Q${qId}`).slice(0, 4),
-            Response: answer.response || 'NO',
-            ValueText: `Checklist item ${qId}`,
-            ValueNum: 0,
-            Unit: '',
-            ReferenceNo: qId.substring(0, 30),
-            ResponsibleUser: user?.id || '',
-            VerifiedBy: '',
-            VerifiedAt: null,
-            Remarks: (answer.remarks || '').substring(0, 255),
-          });
-        }
-      });
-    });
-
-    setSafetyChecklist((prev) => {
-      const manualEntries = prev.filter((p) => !p.ItemCode.startsWith('Q'));
-      return [...compiledRecords, ...manualEntries];
-    });
-
+    // Compliance checklist responses are formatted into child table _CHK (CHKType) via chkRecords.
+    // They are NOT added to _Safety.
     setIsChecklistModalOpen(false);
     const answeredCount = answers.filter((a) => a.response).length;
     const targetLabel = PERMIT_CATEGORIES.find((c) => c.code === targetCode || c.sapCode === targetCode)?.label || targetCode;
-    const bannerMsg = `${targetLabel} compliance checklist updated: ${answeredCount} of ${answers.length} verified.`;
-    toast.success(bannerMsg, { title: 'Checklist Saved' });
+    const bannerMsg = `${targetLabel} compliance checklist (_CHK) updated: ${answeredCount} of ${answers.length} verified.`;
+    toast.success(bannerMsg, { title: 'Compliance Checklist Saved' });
     setNotificationBanner({
       type: 'success',
       message: bannerMsg
@@ -763,8 +894,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     setEqunr(ref.Equnr || '');
     setTplnr(ref.Tplnr || '');
     setWerks(ref.Werks || user?.plant || '');
-    setArbpl('');
-    setAreaLoc('');
+    setArbpl(ref.Arbpl || '');
+    setAreaLoc(ref.AreaLoc || ref.LocationDesc || '');
     setAssembly('');
     setPriority(ref.Priority || '');
     setRevision('');
@@ -781,92 +912,392 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     setActiveTab('general');
   };
 
-  // Tab-level validation helper for mandatory fields
-  const validateTab = (tab: TabKey): { valid: boolean; message?: string } => {
+  // Auto-scroll & Focus Jump Helper for Mandatory Validation
+  const jumpToField = (fieldId?: string, targetTab?: TabKey) => {
+    if (targetTab && activeTab !== targetTab) {
+      setActiveTab(targetTab);
+    }
+    if (!fieldId) return;
+    setTimeout(() => {
+      const el = document.getElementById(fieldId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const focusable = (el.matches('input, select, textarea, button')
+          ? el
+          : el.querySelector<HTMLElement>('input, select, textarea, button') || el) as HTMLElement;
+        if (focusable && typeof focusable.focus === 'function') {
+          focusable.focus({ preventScroll: true });
+        }
+        el.classList.add('field-highlight-error');
+        setTimeout(() => {
+          el.classList.remove('field-highlight-error');
+        }, 3600);
+      } else {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      }
+    }, 120);
+  };
+
+  // Tab-level validation helper for mandatory fields with auto-focus jump metadata
+  interface TabValidationResult {
+    valid: boolean;
+    message?: string;
+    fieldId?: string;
+    targetTab?: TabKey;
+  }
+
+  const validateTab = (tab: TabKey): TabValidationResult => {
     if (tab === 'work') {
       if (!workSelection) {
-        return { valid: false, message: 'Please select a PM maintenance order or notification to begin.' };
+        return {
+          valid: false,
+          message: 'Please select a PM maintenance order or notification to begin.',
+          fieldId: 'field-work-selection',
+          targetTab: 'work'
+        };
       }
     }
     if (tab === 'general') {
       if (!permitType) {
-        return { valid: false, message: 'Permit Category is mandatory. Select the primary work category.' };
+        return {
+          valid: false,
+          message: 'Permit Category is mandatory. Select the primary work category.',
+          fieldId: 'field-permit-type',
+          targetTab: 'general'
+        };
       }
       if (!jobDesc.trim()) {
-        return { valid: false, message: 'Job Description is mandatory.' };
+        return {
+          valid: false,
+          message: 'Job Description is mandatory.',
+          fieldId: 'field-job-desc',
+          targetTab: 'general'
+        };
       }
       if (!areaLoc.trim()) {
-        return { valid: false, message: 'Work Area / Functional Location is mandatory.' };
+        return {
+          valid: false,
+          message: 'Work Area / Functional Location is mandatory.',
+          fieldId: 'field-area-loc',
+          targetTab: 'general'
+        };
+      }
+      if (tplnr && tplnr.length > 40) {
+        return {
+          valid: false,
+          message: 'Functional Location (Tplnr) exceeds the 40-character limit of SAP PermitInfo.',
+          fieldId: 'field-tplnr',
+          targetTab: 'general'
+        };
       }
       if (!validFromD || !validToD) {
-        return { valid: false, message: 'Permit Start Date and End Date are mandatory.' };
+        return {
+          valid: false,
+          message: 'Permit Start Date and End Date are mandatory.',
+          fieldId: 'field-valid-from-datetime',
+          targetTab: 'general'
+        };
       }
       if (!validFromT || !validToT) {
-        return { valid: false, message: 'Permit Start Time and End Time are mandatory.' };
+        return {
+          valid: false,
+          message: 'Permit Start Time and End Time are mandatory.',
+          fieldId: 'field-valid-from-datetime',
+          targetTab: 'general'
+        };
       }
       if (!supvName.trim()) {
-        return { valid: false, message: 'Supervisor Name is mandatory.' };
+        return {
+          valid: false,
+          message: 'Supervisor Name is mandatory.',
+          fieldId: 'field-supv-name',
+          targetTab: 'general'
+        };
       }
       if (!supvPhone.trim()) {
         setSupvPhoneTouched(true);
-        return { valid: false, message: 'Supervisor Phone is mandatory. Enter a valid 10-digit mobile number.' };
+        return {
+          valid: false,
+          message: 'Supervisor Phone is mandatory. Enter a valid 10-digit mobile number.',
+          fieldId: 'field-supv-phone',
+          targetTab: 'general'
+        };
       }
       const supvPhoneVal = validatePhoneNumber(supvPhone, true);
       if (!supvPhoneVal.isValid) {
         setSupvPhoneTouched(true);
-        return { valid: false, message: `Supervisor Phone: ${supvPhoneVal.error}` };
+        return {
+          valid: false,
+          message: `Supervisor Phone: ${supvPhoneVal.error}`,
+          fieldId: 'field-supv-phone',
+          targetTab: 'general'
+        };
       }
       if (!execDept.trim()) {
-        return { valid: false, message: 'Execution Department is mandatory. Select the responsible department.' };
+        return {
+          valid: false,
+          message: 'Execution Department is mandatory. Select the responsible department.',
+          fieldId: 'field-exec-dept-container',
+          targetTab: 'general'
+        };
       }
       if (filteredPlantOptions.length > 0 && !execPlant.trim()) {
-        return { valid: false, message: `Executing Sub Working Plant is mandatory for ${execDept}. Select a sub working plant.` };
+        return {
+          valid: false,
+          message: `Executing Sub Working Plant is mandatory for ${execDept}. Select a sub working plant.`,
+          fieldId: 'field-exec-dept-container',
+          targetTab: 'general'
+        };
+      }
+      if (!gasTestRequired || (gasTestRequired !== 'Y' && gasTestRequired !== 'N' && gasTestRequired !== 'X')) {
+        return {
+          valid: false,
+          message: 'Gas Testing Required choice is mandatory in Section 2.6. Select Yes or No.',
+          fieldId: 'field-gas-testing-required',
+          targetTab: 'general'
+        };
+      }
+      if (!isolationRequired || (isolationRequired !== 'X' && isolationRequired !== 'Y' && isolationRequired !== ' ' && isolationRequired !== 'N')) {
+        return {
+          valid: false,
+          message: 'Isolation Required (LOTO) choice is mandatory in Section 2.6. Select Yes or No.',
+          fieldId: 'field-isolation-required',
+          targetTab: 'general'
+        };
+      }
+      if ((isolationRequired === 'X' || isolationRequired === 'Y') && !isolationNo.trim()) {
+        return {
+          valid: false,
+          message: 'Isolation Certificate No is mandatory when physical isolation is required in Section 2.6.',
+          fieldId: 'field-isolation-no',
+          targetTab: 'general'
+        };
+      }
+      if ((gasTestRequired === 'Y' || gasTestRequired === 'X') && !gasTestFreqHr) {
+        return {
+          valid: false,
+          message: 'Atmospheric gas retest frequency interval is mandatory when gas testing is required in Section 2.6.',
+          fieldId: 'field-gas-test-freq',
+          targetTab: 'general'
+        };
       }
     }
     if (tab === 'procedure') {
       if (sitePlan.nature.length === 0) {
-        return { valid: false, message: 'Nature of Work is mandatory. Select at least one planned work activity in Section B.' };
+        return {
+          valid: false,
+          message: 'Nature of Work is mandatory. Select at least one planned work activity in Section B.',
+          fieldId: 'field-nature-of-work',
+          targetTab: 'procedure'
+        };
+      }
+      if (sitePlan.nature.includes('Other') && !(sitePlan.fields.OTHER_NATURE || sitePlan.fields.NOTE)?.trim()) {
+        return {
+          valid: false,
+          message: 'Please specify the other nature of work in Section B.',
+          fieldId: 'procedure-other-nature',
+          targetTab: 'procedure'
+        };
       }
       if (sitePlan.tools.length === 0) {
-        return { valid: false, message: 'Tools & Equipment declaration is mandatory. Select at least one tool in Section C.' };
+        return {
+          valid: false,
+          message: 'Tools & Equipment declaration is mandatory. Select at least one tool in Section C.',
+          fieldId: 'field-tools-equipment',
+          targetTab: 'procedure'
+        };
+      }
+      if (sitePlan.tools.includes('Other') && !(sitePlan.fields.OTHER_TOOLS || sitePlan.fields.NOTE)?.trim()) {
+        return {
+          valid: false,
+          message: 'Please specify the other tools & equipment in Section C.',
+          fieldId: 'procedure-other-tools',
+          targetTab: 'procedure'
+        };
+      }
+      if ((permitType === 'OTHER' || sitePlan.additionalTypes.includes('OTHER')) && !sitePlan.fields.OTHR?.trim()) {
+        return {
+          valid: false,
+          message: 'Please specify the scope and required controls for Other work in Section A / D.',
+          fieldId: 'procedure-field-OTHR',
+          targetTab: 'procedure'
+        };
       }
       if (!sitePlan.fields.JSA1?.trim()) {
-        return { valid: false, message: 'Signed JSA document reference is mandatory in Section D.' };
+        return {
+          valid: false,
+          message: 'Signed JSA document reference is mandatory in Section D.',
+          fieldId: 'procedure-field-JSA1',
+          targetTab: 'procedure'
+        };
       }
       if (!sitePlan.fields.JSA2?.trim()) {
-        return { valid: false, message: 'JSA team / joint site visit notes are mandatory in Section D.' };
+        return {
+          valid: false,
+          message: 'JSA team / joint site visit notes are mandatory in Section D.',
+          fieldId: 'procedure-field-JSA2',
+          targetTab: 'procedure'
+        };
       }
       if (!sitePlan.fields.SHFT?.trim()) {
-        return { valid: false, message: 'Planned shift end time is mandatory in Section D.' };
+        return {
+          valid: false,
+          message: 'Planned shift end time is mandatory in Section D.',
+          fieldId: 'procedure-field-SHFT',
+          targetTab: 'procedure'
+        };
       }
       if (!sitePlan.fields.ISSR?.trim()) {
-        return { valid: false, message: 'Proposed Issuer SAP user ID is mandatory in Section D.' };
+        return {
+          valid: false,
+          message: 'Proposed Issuer SAP user ID is mandatory in Section D.',
+          fieldId: 'procedure-field-ISSR',
+          targetTab: 'procedure'
+        };
       }
       if (!sitePlan.fields.ACCP?.trim()) {
-        return { valid: false, message: 'Proposed Acceptor SAP user ID is mandatory in Section D.' };
+        return {
+          valid: false,
+          message: 'Proposed Acceptor SAP user ID is mandatory in Section D.',
+          fieldId: 'procedure-field-ACCP',
+          targetTab: 'procedure'
+        };
       }
       if (!sitePlan.fields.OPER?.trim()) {
-        return { valid: false, message: 'Proposed Area Operator SAP user ID is mandatory in Section D.' };
+        return {
+          valid: false,
+          message: 'Proposed Area Operator SAP user ID is mandatory in Section D.',
+          fieldId: 'procedure-field-OPER',
+          targetTab: 'procedure'
+        };
       }
     }
     if (tab === 'workers') {
       if (workers.length === 0) {
-        return { valid: false, message: 'Add at least one crew member in Crew Muster before proceeding.' };
+        if (newWorkerName.trim() && newWorkerPhone.trim()) {
+          const phoneCheck = validatePhoneNumber(newWorkerPhone, true);
+          if (phoneCheck.isValid) {
+            const hasId = (newWorkerType === 'EMP' && newWorkerEmpId.trim()) || (newWorkerType === 'CONT' && newWorkerContractorName.trim());
+            if (hasId) {
+              const newWorker: WorkerRecord = {
+                PermitNo: permitNo,
+                ItemNo: '1',
+                WorkerTypeCode: newWorkerType,
+                WorkerName: newWorkerName.toUpperCase(),
+                PhoneNo: newWorkerPhone.trim(),
+                ContractorId: '',
+                ContractorName: newWorkerType === 'CONT' ? newWorkerContractorName.trim() : '',
+                EmpId: newWorkerType === 'EMP' ? newWorkerEmpId.trim() : '',
+                Shift: shift
+              };
+              setWorkers([newWorker]);
+              setPersonsQty(1);
+              setNewWorkerName('');
+              setNewWorkerPhone('');
+              setNewWorkerEmpId('');
+              setNewWorkerContractorName('');
+              return { valid: true };
+            }
+          }
+        }
+        return {
+          valid: false,
+          message: 'Add at least one crew member in Crew Muster before proceeding.',
+          fieldId: 'field-worker-name',
+          targetTab: 'workers'
+        };
+      }
+    }
+    if (tab === 'ppe') {
+      if (newPpeCode.trim() && newPpeDescription.trim()) {
+        const nextNo = String(ppeItems.length + 1);
+        const autoPpe: PPERecord = {
+          PermitNo: '',
+          ItemNo: nextNo,
+          PpeCode: newPpeCode.trim(),
+          PpeDesc: newPpeDescription.trim(),
+          IsRequired: 'Y',
+          IsAvailable: 'N',
+          IsIssued: 'N',
+          CheckedBy: '',
+          CheckedAt: null,
+          Remarks: ''
+        };
+        setPpeItems((prev) => [...prev, autoPpe]);
+        setNewPpeCode('');
+        setNewPpeDescription('');
+      } else if (ppeItems.length === 0) {
+        if (newPpeCode.trim() && !newPpeDescription.trim()) {
+          return {
+            valid: false,
+            message: 'PPE Description is mandatory for the entered PPE Code. Click "+" to add it.',
+            fieldId: 'field-ppe-desc',
+            targetTab: 'ppe'
+          };
+        }
+        return {
+          valid: false,
+          message: 'Personal Protective Equipment (PPE) declaration is mandatory. Add at least one required PPE item.',
+          fieldId: 'field-ppe-code',
+          targetTab: 'ppe'
+        };
       }
     }
     if (tab === 'hazards') {
-      if (hazards.length === 0) {
-        return { valid: false, message: 'Add at least one hazard and required risk control before proceeding.' };
+      if (newHazardDesc.trim() && newControlDesc.trim()) {
+        const cellDef = getRiskMatrixCell(selectedMatrixCell.c, selectedMatrixCell.l);
+        const autoH: HazardControlRecord = {
+          PermitNo: permitNo,
+          ItemNo: String(hazards.length + 1),
+          HazardCode: newHazardCode,
+          HazardDesc: newHazardDesc.toUpperCase(),
+          RiskLevel: cellDef.sapRiskLevel,
+          ControlCode: newControlCode,
+          ControlDesc: newControlDesc,
+          ControlStatus: 'OPEN',
+          ResponsibleUser: user?.id || personResp,
+          VerifiedBy: '',
+          VerifiedAt: null,
+          Remarks: `[5x5 S=${selectedMatrixCell.c}, L=${selectedMatrixCell.l}, Score=${cellDef.score}: ${cellDef.riskLabel.toUpperCase()}] MANDATORY CONTROL VERIFICATION`
+        };
+        setHazards((prev) => [...prev, autoH]);
+        setNewHazardDesc('');
+        setNewControlDesc('');
+      } else if (hazards.length === 0) {
+        if (newHazardDesc.trim() && !newControlDesc.trim()) {
+          return {
+            valid: false,
+            message: 'Control Description is mandatory for the entered hazard.',
+            fieldId: 'field-control-desc',
+            targetTab: 'hazards'
+          };
+        }
+        return {
+          valid: false,
+          message: 'Add at least one hazard and required risk control before proceeding.',
+          fieldId: 'field-hazard-desc',
+          targetTab: 'hazards'
+        };
       }
     }
     if (tab === 'gas-isolation') {
       const isIso = isolationRequired === 'X' || isolationRequired === 'Y';
       if (isIso && !isolationNo.trim()) {
-        return { valid: false, message: 'Isolation certificate number is required when positive isolation is selected.' };
+        return {
+          valid: false,
+          message: 'Isolation certificate number is required when positive isolation is selected.',
+          fieldId: 'field-isolation-no',
+          targetTab: 'gas-isolation'
+        };
       }
       const isGas = gasTestRequired === 'X' || gasTestRequired === 'Y';
       if (isGas && !gasTestFreqHr) {
-        return { valid: false, message: 'Gas test frequency interval (1h or 2h) is required when gas testing is selected.' };
+        return {
+          valid: false,
+          message: 'Gas test frequency interval (1h or 2h) is required when gas testing is selected.',
+          fieldId: 'field-gas-test-freq',
+          targetTab: 'gas-isolation'
+        };
       }
     }
     return { valid: true };
@@ -878,6 +1309,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     const validation = validateTab(activeTab);
     if (!validation.valid && validation.message) {
       toast.warning(validation.message, { title: 'Mandatory Field Missing' });
+      if (validation.fieldId) {
+        jumpToField(validation.fieldId, validation.targetTab || activeTab);
+      }
       return;
     }
     if (currentIndex < tabs.length - 1) {
@@ -890,12 +1324,18 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     const targetIndex = tabs.indexOf(targetKey);
     const currentIndex = tabs.indexOf(activeTab);
 
-    // If moving forward, validate current tab first
+    // If moving forward, validate all steps sequentially up to targetIndex
     if (targetIndex > currentIndex) {
-      const validation = validateTab(activeTab);
-      if (!validation.valid && validation.message) {
-        toast.warning(validation.message, { title: 'Mandatory Field Missing' });
-        return;
+      for (let i = currentIndex; i < targetIndex; i++) {
+        const stepToValidate = tabs[i];
+        const validation = validateTab(stepToValidate);
+        if (!validation.valid && validation.message) {
+          toast.warning(validation.message, { title: 'Mandatory Field Missing' });
+          if (validation.fieldId) {
+            jumpToField(validation.fieldId, validation.targetTab || stepToValidate);
+          }
+          return;
+        }
       }
     }
     setActiveTab(targetKey);
@@ -907,6 +1347,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       const msg = 'Worker Full Name is mandatory.';
       toast.warning(msg, { title: 'Mandatory Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
+      jumpToField('field-worker-name', 'workers');
       return;
     }
     if (!newWorkerPhone.trim()) {
@@ -914,6 +1355,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       const msg = 'Worker Phone Number is mandatory. Enter a 10-digit mobile number.';
       toast.warning(msg, { title: 'Mandatory Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
+      jumpToField('field-worker-phone', 'workers');
       return;
     }
     const workerPhoneCheck = validatePhoneNumber(newWorkerPhone, true);
@@ -922,18 +1364,21 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       const msg = `Worker Phone: ${workerPhoneCheck.error}`;
       toast.warning(msg, { title: 'Invalid Phone Number' });
       setNotificationBanner({ type: 'error', message: msg });
+      jumpToField('field-worker-phone', 'workers');
       return;
     }
     if (newWorkerType === 'EMP' && !newWorkerEmpId.trim()) {
       const msg = 'Employee ID is mandatory for company employee workers.';
       toast.warning(msg, { title: 'Mandatory Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
+      jumpToField('field-worker-id', 'workers');
       return;
     }
     if (newWorkerType === 'CONT' && !newWorkerContractorName.trim()) {
       const msg = 'Contractor Company Name is mandatory for contractor workers.';
       toast.warning(msg, { title: 'Mandatory Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
+      jumpToField('field-worker-id', 'workers');
       return;
     }
     const nextItemNo = (Math.max(0, ...workers.map(row => Number(row.ItemNo))) + 1).toString();
@@ -966,10 +1411,18 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   // 8. Add Hazard Control Handler
   const handleAddHazard = () => {
-    if (!newHazardDesc.trim() || !newControlDesc.trim()) {
-      const msg = 'Enter both the hazard description and its required control measure.';
+    if (!newHazardDesc.trim()) {
+      const msg = 'Hazard Description is mandatory.';
       toast.warning(msg, { title: 'Mandatory Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
+      jumpToField('field-hazard-desc', 'hazards');
+      return;
+    }
+    if (!newControlDesc.trim()) {
+      const msg = 'Control Description is mandatory.';
+      toast.warning(msg, { title: 'Mandatory Field Missing' });
+      setNotificationBanner({ type: 'error', message: msg });
+      jumpToField('field-control-desc', 'hazards');
       return;
     }
     const nextItemNo = (Math.max(0, ...hazards.map(row => Number(row.ItemNo))) + 1).toString();
@@ -1050,13 +1503,15 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       PersonsQty: personsQty,
 
       ValidFromD: validFromD || null,
-      ValidFromT: validFromT,
+      ValidFromT: validFromT ? (validFromT.length === 5 ? `${validFromT}:00` : validFromT) : '',
       ValidToD: validToD || null,
-      ValidToT: validToT,
+      ValidToT: validToT ? (validToT.length === 5 ? `${validToT}:00` : validToT) : '',
 
       GasTestFreqHr: (gasTestRequired === 'Y' || gasTestRequired === 'X') ? gasTestFreqHr : '',
       GasTestRequired: (gasTestRequired === 'Y' || gasTestRequired === 'X') ? 'X' : ' ',
-      Status: isolationRequired && gasTestRequired ? initialPermitStatus(isolationRequired, gasTestRequired) : 'INTD',
+      Status: isOnlyColdWork
+        ? 'APPR'
+        : (isolationRequired && gasTestRequired ? initialPermitStatus(isolationRequired, gasTestRequired) : 'INTD'),
 
       RefPermitNo: '',
 
@@ -1101,7 +1556,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
       _Worker: workers,
       _PPE: ppeItems,
-      _Safety: [...sitePlanRows(permitType, sitePlan), ...safetyChecklist],
+      _Safety: [...sitePlanRows(permitType, sitePlan), ...safetyChecklist.filter(s => !s.ItemCode?.startsWith('Q'))],
       _HazardControl: hazards,
       _Isolation: [],
       _WorkType: workTypeRecords,
@@ -1160,7 +1615,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     chkRecords,
     equipmentRecords,
     natwRecords,
-    excludeChildNavs
+    excludeChildNavs,
+    isOnlyColdWork
   ]);
 
   const requestPreview = useMemo(() => {
@@ -1174,15 +1630,15 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const handleSubmitDeepInsert = async () => {
     if (submissionLock.current || submissionResponse || creationUncertain) return;
     if (!workSelection) {
-      setActiveTab('work');
       toast.warning('Select a work reference before submitting the permit.', { title: 'Work Reference Required' });
       setNotificationBanner({ type: 'error', message: 'Select a work reference before submitting the permit.' });
+      jumpToField('field-work-selection', 'work');
       return;
     }
-    if (tplnr.length > 30) {
-      setActiveTab('general');
-      toast.error('The selected functional location exceeds the 30-character limit of PermitInfo.', { title: 'Validation Error' });
-      setNotificationBanner({ type: 'error', message: 'The selected functional location exceeds the 30-character limit of PermitInfo. Please resolve the location with the SAP team before submitting.' });
+    if (tplnr.length > 40) {
+      toast.error('The selected functional location exceeds the 40-character limit of PermitInfo.', { title: 'Validation Error' });
+      setNotificationBanner({ type: 'error', message: 'The selected functional location exceeds the 40-character limit of PermitInfo. Please resolve the location with the SAP team before submitting.' });
+      jumpToField('field-tplnr', 'general');
       return;
     }
     if (!user) {
@@ -1190,44 +1646,83 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setNotificationBanner({ type: 'error', message: 'Sign in to SAP before creating a permit.' });
       return;
     }
-    if (!execDept.trim()) {
-      setActiveTab('general');
-      toast.warning('Select the execution department before submitting the permit.', { title: 'Execution Department Required' });
-      setNotificationBanner({ type: 'error', message: 'Select the execution department before submitting the permit.' });
-      return;
+
+    // Sequentially validate all steps to catch any missing mandatory fields and auto-jump
+    const tabsToValidate: TabKey[] = ['general', 'procedure', 'workers', 'ppe', 'hazards', 'gas-isolation'];
+    for (const stepKey of tabsToValidate) {
+      const result = validateTab(stepKey);
+      if (!result.valid && result.message) {
+        toast.warning(result.message, { title: 'Mandatory Field Missing' });
+        setNotificationBanner({ type: 'error', message: result.message });
+        if (result.fieldId) {
+          jumpToField(result.fieldId, result.targetTab || stepKey);
+        }
+        return;
+      }
     }
-    if (filteredPlantOptions.length > 0 && !execPlant.trim()) {
-      setActiveTab('general');
-      toast.warning(`Select the sub working plant for ${execDept}.`, { title: 'Sub Working Plant Required' });
-      setNotificationBanner({ type: 'error', message: `Select the sub working plant for ${execDept}.` });
-      return;
-    }
-    if (!supvPhone.trim()) {
-      setActiveTab('general');
-      setSupvPhoneTouched(true);
-      toast.warning('Supervisor Phone Number is mandatory. Enter a 10-digit mobile number.', { title: 'Supervisor Phone Required' });
-      setNotificationBanner({ type: 'error', message: 'Supervisor Phone Number is mandatory.' });
-      return;
-    }
-    const supvPhoneCheck = validatePhoneNumber(supvPhone, true);
-    if (!supvPhoneCheck.isValid) {
-      setActiveTab('general');
-      setSupvPhoneTouched(true);
-      toast.warning(`Supervisor Phone: ${supvPhoneCheck.error}`, { title: 'Invalid Phone Number' });
-      setNotificationBanner({ type: 'error', message: `Supervisor Phone: ${supvPhoneCheck.error}` });
-      return;
-    }
+
     try {
       preparePermitCreate(fullPayload);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Check the permit details.';
       toast.warning(msg, { title: 'Mandatory Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
+      if (msg.includes('ExecDept')) jumpToField('field-exec-dept-container', 'general');
+      else if (msg.includes('PermitType')) jumpToField('field-permit-type', 'general');
+      else if (msg.includes('JobDesc')) jumpToField('field-job-desc', 'general');
+      else if (msg.includes('SupvName')) jumpToField('field-supv-name', 'general');
+      else if (msg.includes('ValidFrom')) jumpToField('field-valid-from-datetime', 'general');
+      else if (msg.includes('ValidTo')) jumpToField('field-valid-to-datetime', 'general');
+      else if (msg.includes('crew') || msg.includes('worker')) jumpToField('field-worker-name', 'workers');
+      else if (msg.includes('ppe') || msg.includes('protective')) jumpToField('field-ppe-code', 'ppe');
+      else if (msg.includes('hazard')) jumpToField('field-hazard-desc', 'hazards');
+      else if (msg.includes('gas')) jumpToField('field-gas-test-freq', 'gas-isolation');
       return;
     }
     submissionLock.current = true;
     setIsSubmitting(true);
     setNotificationBanner(null);
+
+    // If revising a rejected permit, update changed fields and execute .Resubmit bound action
+    if (revisionPermit) {
+      try {
+        const updates: Partial<PermitInfoRecord> = {
+          JobDesc: jobDesc,
+          AreaLoc: areaLoc,
+          ExecDept: execDept,
+          ExecAgency: execAgency,
+          SupvName: supvName,
+          SupvPhone: supvPhone,
+          SafetyOfficer: safetyOfficer,
+          Shift: shift,
+          ValidFromD: validFromD,
+          ValidFromT: validFromT.length === 5 ? `${validFromT}:00` : validFromT,
+          ValidToD: validToD,
+          ValidToT: validToT.length === 5 ? `${validToT}:00` : validToT,
+          CreatorComment: creatorComment,
+          GasTestFreqHr: gasTestFreqHr
+        };
+        await sitePermitApi.reviseAndResubmit(
+          revisionPermit.Permit_No,
+          updates,
+          creatorComment || 'Resubmitted after addressing reviewer remarks',
+          revisionPermit['@odata.etag']
+        );
+        toast.success(
+          `Permit ${revisionPermit.Permit_No} revised and resubmitted for approval via SAP .Resubmit action!`,
+          { title: 'Permit Revised & Resubmitted', duration: 7000 }
+        );
+        onBack?.();
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to resubmit permit to SAP Gateway.', {
+          title: 'Resubmission Failed'
+        });
+      } finally {
+        submissionLock.current = false;
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     try {
       const response = await permitCreateApi.createPermitDeepInsert(fullPayload);
@@ -1264,6 +1759,16 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         }
       } catch (cacheErr) {
         console.warn('[PermitCreateModule] Could not cache created permit:', cacheErr);
+      }
+
+      // Automatically back-link the Isolation Certificate with the newly generated SAP Permit Number
+      if (isolationNo.trim() && response.Permit_No) {
+        try {
+          await isolationApi.update(isolationNo.trim(), { PermitNo: response.Permit_No });
+          console.log(`[PermitCreateModule] Successfully linked Permit ${response.Permit_No} to Isolation Certificate ${isolationNo.trim()}`);
+        } catch (linkErr) {
+          console.warn('[PermitCreateModule] Could not auto-backlink isolation certificate:', linkErr);
+        }
       }
 
       const successMsg = `SAP OData V4 Deep Insert Successful! Permit ${response.Permit_No} created in status ${response.Status || 'not confirmed'}.`;
@@ -1342,8 +1847,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           </div>
           <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
             <span className="text-slate-600 font-medium">Initial Status:</span>
-            <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-              {submissionResponse.Status || 'CRTD'}
+            <span className={`font-mono font-bold px-2 py-0.5 rounded ${(submissionResponse.Status || fullPayload.Status) === 'APPR'
+                ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                : (submissionResponse.Status || fullPayload.Status) === 'INTD'
+                  ? 'text-indigo-700 bg-indigo-50 border border-indigo-200'
+                  : 'text-amber-700 bg-amber-50 border border-amber-200'
+              }`}>
+              {submissionResponse.Status || fullPayload.Status || (isOnlyColdWork ? 'APPR' : 'CRTD')}
             </span>
           </div>
           <div className="flex justify-between items-center py-1">
@@ -1416,10 +1926,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-mono text-[11px] text-slate-400">PTW /</span>
                 <h1 className="font-display font-bold text-sm sm:text-base text-slate-900 leading-tight">
-                  Create Permit Request
+                  {revisionPermit ? `Revise Permit: ${revisionPermit.Permit_No}` : 'Create Permit Request'}
                 </h1>
-                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-[#006398] border border-blue-200">
-                  SAP Auto-Numbered
+                <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                  revisionPermit ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-blue-100 text-[#006398] border-blue-200'
+                }`}>
+                  {revisionPermit ? 'Revision Mode (REJT)' : 'SAP Auto-Numbered'}
                 </span>
                 {lastSaved && (
                   <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
@@ -1511,13 +2023,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                   type="button"
                   onClick={() => handleTabSelect(st.key)}
                   disabled={isDisabled}
-                  className={`px-2 py-1.5 rounded-xl text-left transition-all flex items-center justify-between gap-1 select-none ${
-                    isDisabled
+                  className={`px-2 py-1.5 rounded-xl text-left transition-all flex items-center justify-between gap-1 select-none ${isDisabled
                       ? 'opacity-40 cursor-not-allowed bg-slate-100/60 text-slate-400 border border-transparent'
                       : isCurrent
-                      ? 'bg-white text-[#006398] font-bold border border-[#006398] shadow-xs ring-1 ring-[#006398]/30 -translate-y-0.5'
-                      : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 hover:border-slate-300 hover:shadow-2xs'
-                  }`}
+                        ? 'bg-white text-[#006398] font-bold border border-[#006398] shadow-xs ring-1 ring-[#006398]/30 -translate-y-0.5'
+                        : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 hover:border-slate-300 hover:shadow-2xs'
+                    }`}
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className={`material-symbols-outlined text-[15px] shrink-0 ${isCurrent ? 'text-[#006398]' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
@@ -1528,9 +2039,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                     </span>
                   </div>
                   {st.count !== undefined && st.count > 0 && (
-                    <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${
-                      isCurrent ? 'bg-sky-100 text-[#006398]' : 'bg-slate-100 text-slate-600'
-                    }`}>
+                    <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${isCurrent ? 'bg-sky-100 text-[#006398]' : 'bg-slate-100 text-slate-600'
+                      }`}>
                       {st.count}
                     </span>
                   )}
@@ -1549,6 +2059,41 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         </div>
       </header>
 
+      {/* Revision Mode Rejection Reason Banner */}
+      {revisionPermit && (
+        <div className="mb-3.5 p-4 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50/40 to-amber-50 shadow-xs">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-amber-700 text-2xl mt-0.5">edit_note</span>
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h4 className="font-bold text-amber-950 text-sm">
+                  Revising Rejected Permit: <span className="font-mono text-amber-900">{revisionPermit.Permit_No}</span>
+                </h4>
+                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                  STATUS: REJECTED ({revisionPermit.Status})
+                </span>
+              </div>
+              {(() => {
+                const rej = revisionPermit._Approval?.find(a => a.Action === 'RJ' || a.Action === 'REJECTED' || a.Action === 'REJT');
+                if (!rej) return null;
+                return (
+                  <div className="p-2.5 rounded-xl bg-white/90 border border-rose-200 text-xs text-rose-950 space-y-1">
+                    <div className="font-mono font-bold text-rose-800 text-[11px] flex items-center justify-between">
+                      <span>Approver {rej.SignedBy || 'Reviewer'} noted:</span>
+                      <span>{rej.ActionDate || ''} {rej.ActionTime || ''}</span>
+                    </div>
+                    <p className="text-slate-800 font-medium italic">&ldquo;{rej.Comments || 'Please correct requested items before resubmitting.'}&rdquo;</p>
+                  </div>
+                );
+              })()}
+              <p className="text-xs text-amber-900 leading-relaxed">
+                Edit the fields requested by the approver across the tabs below. Once ready, click <strong>&ldquo;Save Changes & Resubmit for Approval&rdquo;</strong> to update the SAP record and trigger the bound action <code className="font-mono font-bold text-[#006398]">.Resubmit</code>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Creation Uncertain Diagnostic & Recovery Card */}
       {creationUncertain && (
         <div className="mb-3.5 p-4 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50/50 to-amber-50 shadow-xs">
@@ -1564,7 +2109,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 </span>
               </div>
               <p className="mt-1 text-xs text-amber-900 leading-relaxed">
-                The permit request was dispatched to SAP Gateway, but SAP returned an internal error (HTTP 500) or connection timeout. 
+                The permit request was dispatched to SAP Gateway, but SAP returned an internal error (HTTP 500) or connection timeout.
                 Because SAP began processing the request before the failure, a permit may or may not have been created in the SAP database.
               </p>
 
@@ -1660,13 +2205,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       {/* Notification Alert Banner */}
       {notificationBanner && (
         <div
-          className={`mb-3 p-3 rounded-xl border flex items-center justify-between text-xs font-sans shadow-2xs ${
-            notificationBanner.type === 'success'
+          className={`mb-3 p-3 rounded-xl border flex items-center justify-between text-xs font-sans shadow-2xs ${notificationBanner.type === 'success'
               ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
               : notificationBanner.type === 'error'
-              ? 'bg-rose-50 border-rose-300 text-rose-900'
-              : 'bg-blue-50 border-blue-300 text-blue-900'
-          }`}
+                ? 'bg-rose-50 border-rose-300 text-rose-900'
+                : 'bg-blue-50 border-blue-300 text-blue-900'
+            }`}
         >
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px]">
@@ -1776,6 +2320,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       )}
                     </div>
                     <select
+                      id="field-permit-type"
                       value={toSapPermitType(permitType) || permitType}
                       onChange={(e) => void handleSelectPermitType(e.target.value)}
                       className="ptw-select font-mono text-xs bg-white"
@@ -1784,17 +2329,17 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       {(permitTypeOptions.length > 0
                         ? permitTypeOptions
                         : [
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'COLD', Config_Desc: 'COLD WORK' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'CSE', Config_Desc: 'CONFINED SPACE ENTRY' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'EXCV', Config_Desc: 'EXCAVATION' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'HOT', Config_Desc: 'HOT WORK' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'HYD_PNEU', Config_Desc: 'HYDRAULIC & PNEUMATIC SYSTEM' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'LBRK', Config_Desc: 'LINE BREAK' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'RAD', Config_Desc: 'RADIOGRAPHY' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'RIG', Config_Desc: 'RIGGING' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'W@H', Config_Desc: 'WORK AT HEIGHT' },
-                            { Config_Type: 'PERMIT_TYPE', Config_Code: 'ELEC', Config_Desc: 'ELECTRICAL' },
-                          ]
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'COLD', Config_Desc: 'COLD WORK' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'CSE', Config_Desc: 'CONFINED SPACE ENTRY' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'EXCV', Config_Desc: 'EXCAVATION' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'HOT', Config_Desc: 'HOT WORK' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'HYD_PNEU', Config_Desc: 'HYDRAULIC & PNEUMATIC SYSTEM' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'LBRK', Config_Desc: 'LINE BREAK' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'RAD', Config_Desc: 'RADIOGRAPHY' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'RIG', Config_Desc: 'RIGGING' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'W@H', Config_Desc: 'WORK AT HEIGHT' },
+                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'ELEC', Config_Desc: 'ELECTRICAL' },
+                        ]
                       ).map((item) => (
                         <option key={item.Config_Code} value={item.Config_Code}>
                           {item.Config_Desc} ({item.Config_Code})
@@ -1813,11 +2358,10 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         <div
                           key={t.code}
                           onClick={() => void handleSelectPermitType(t.sapCode)}
-                          className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                            isSelected
+                          className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${isSelected
                               ? 'bg-sky-50/80 border-[#006398] shadow-xs text-[#006398] ring-2 ring-[#006398]/20'
                               : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 text-slate-600'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? 'bg-[#006398] text-white' : 'bg-slate-100 text-slate-500'}`}>
@@ -2009,6 +2553,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         Work Area (AreaLoc) <span className="text-red-500">*</span>
                       </label>
                       <input
+                        id="field-area-loc"
                         type="text"
                         required
                         maxLength={40}
@@ -2017,6 +2562,11 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         placeholder="e.g. Caustic Unit / Tank Farm"
                         className="ptw-input font-mono"
                       />
+                      {workSelection?.reference?.LocationDesc && (
+                        <p className="mt-1 text-[11px] text-slate-500 truncate" title={workSelection.reference.LocationDesc}>
+                          📍 <span className="text-slate-600 font-medium">{workSelection.reference.LocationDesc}</span>
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -2027,25 +2577,44 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         onChange={(e) => setArbpl(e.target.value)}
                         className="ptw-input font-mono"
                       />
+                      {workSelection?.reference?.WorkCenterDesc && (
+                        <p className="mt-1 text-[11px] text-slate-500 truncate" title={workSelection.reference.WorkCenterDesc}>
+                          ⚙️ <span className="text-slate-600 font-medium">{workSelection.reference.WorkCenterDesc}</span>
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="ptw-label">Equipment No (Equnr)</label>
+                      <div className="flex items-center justify-between">
+                        <label className="ptw-label">Equipment No (Equnr)</label>
+                        <span className="text-[10px] font-mono text-slate-400">Max 18</span>
+                      </div>
                       <input
+                        id="field-equnr"
                         type="text"
+                        maxLength={18}
                         value={equnr}
                         onChange={(e) => setEqunr(e.target.value)}
                         className="ptw-input font-mono"
+                        placeholder="e.g. 10002931"
                       />
                     </div>
 
                     <div>
-                      <label className="ptw-label">Functional Location (Tplnr)</label>
+                      <div className="flex items-center justify-between">
+                        <label className="ptw-label">Functional Location (Tplnr)</label>
+                        <span className={`text-[10px] font-mono ${tplnr.length > 40 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+                          {tplnr.length}/40
+                        </span>
+                      </div>
                       <input
+                        id="field-tplnr"
                         type="text"
+                        maxLength={40}
                         value={tplnr}
                         onChange={(e) => setTplnr(e.target.value)}
                         className="ptw-input font-mono"
+                        placeholder="e.g. GFL-DHJ-U04-CDU"
                       />
                     </div>
                   </div>
@@ -2055,6 +2624,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       Job Description (JobDesc) <span className="text-red-500">*</span>
                     </label>
                     <textarea
+                      id="field-job-desc"
                       value={jobDesc}
                       onChange={(e) => setJobDesc(e.target.value)}
                       rows={2}
@@ -2125,13 +2695,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         {(shiftOptions.length > 0
                           ? shiftOptions
                           : [
-                              { Config_Code: 'A', Config_Desc: 'SHIFT A' },
-                              { Config_Code: 'B', Config_Desc: 'SHIFT B' },
-                              { Config_Code: 'C', Config_Desc: 'SHIFT C' },
-                              { Config_Code: 'EXTENDED DAY', Config_Desc: 'EXTENDED DAY' },
-                              { Config_Code: 'EXTENDED NIGHT', Config_Desc: 'EXTENDED NIGHT' },
-                              { Config_Code: 'G', Config_Desc: 'SHIFT GENERAL' },
-                            ]
+                            { Config_Code: 'A', Config_Desc: 'SHIFT A' },
+                            { Config_Code: 'B', Config_Desc: 'SHIFT B' },
+                            { Config_Code: 'C', Config_Desc: 'SHIFT C' },
+                            { Config_Code: 'EXTENDED DAY', Config_Desc: 'EXTENDED DAY' },
+                            { Config_Code: 'EXTENDED NIGHT', Config_Desc: 'EXTENDED NIGHT' },
+                            { Config_Code: 'G', Config_Desc: 'SHIFT GENERAL' },
+                          ]
                         ).map((s) => (
                           <option key={s.Config_Code} value={s.Config_Code}>
                             {s.Config_Code} — {s.Config_Desc}
@@ -2180,6 +2750,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         <span className="text-[10px] text-slate-400 font-mono">On-site Lead</span>
                       </label>
                       <input
+                        id="field-supv-name"
                         type="text"
                         required
                         maxLength={60}
@@ -2197,23 +2768,23 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                           <span className="text-red-500 font-bold">*</span>
                         </label>
                         <span
-                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${
-                            supvPhoneValidation.isValid
+                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${supvPhoneValidation.isValid
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold'
                               : supvPhone.trim().length > 0
-                              ? 'bg-amber-50 text-amber-800 border-amber-300 font-medium'
-                              : 'bg-slate-100 text-slate-500 border-slate-200'
-                          }`}
+                                ? 'bg-amber-50 text-amber-800 border-amber-300 font-medium'
+                                : 'bg-slate-100 text-slate-500 border-slate-200'
+                            }`}
                         >
                           {supvPhoneValidation.isValid
                             ? `✓ ${supvPhoneValidation.digitCount} digits`
                             : supvPhone.trim().length > 0
-                            ? `${supvPhoneValidation.digitCount}/10 digits`
-                            : '10 digits required'}
+                              ? `${supvPhoneValidation.digitCount}/10 digits`
+                              : '10 digits required'}
                         </span>
                       </div>
                       <div className="relative">
                         <input
+                          id="field-supv-phone"
                           type="tel"
                           maxLength={16}
                           value={supvPhone}
@@ -2223,20 +2794,18 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                           }}
                           onBlur={() => setSupvPhoneTouched(true)}
                           placeholder="9876543210"
-                          className={`ptw-input font-mono text-xs pr-8 transition-colors ${
-                            supvPhoneTouched && !supvPhoneValidation.isValid
+                          className={`ptw-input font-mono text-xs pr-8 transition-colors ${supvPhoneTouched && !supvPhoneValidation.isValid
                               ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/20'
                               : supvPhoneValidation.isValid
-                              ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500/20'
-                              : ''
-                          }`}
+                                ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500/20'
+                                : ''
+                            }`}
                         />
                         {supvPhone.trim() && (
                           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
                             <span
-                              className={`material-symbols-outlined text-[16px] ${
-                                supvPhoneValidation.isValid ? 'text-emerald-600' : 'text-amber-500'
-                              }`}
+                              className={`material-symbols-outlined text-[16px] ${supvPhoneValidation.isValid ? 'text-emerald-600' : 'text-amber-500'
+                                }`}
                             >
                               {supvPhoneValidation.isValid ? 'check_circle' : 'error'}
                             </span>
@@ -2315,65 +2884,76 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 font-sans text-xs">
                   {/* Valid From Group (5 cols) */}
                   <div className="md:col-span-5 p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
-                    <span className="font-mono text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[15px] text-[#006398]">play_circle</span>
-                      <span>Permit Start Window (Valid From)</span>
-                      <span className="text-red-500 font-bold">*</span>
-                    </span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-medium block mb-1">Date *</label>
-                        <input
-                          type="date"
-                          required
-                          value={validFromD}
-                          onChange={(e) => setValidFromD(e.target.value)}
-                          className="ptw-input font-mono text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-medium block mb-1">Time (IST) *</label>
-                        <input
-                          type="time"
-                          step="1"
-                          required
-                          value={validFromT}
-                          onChange={(e) => setValidFromT(e.target.value)}
-                          className="ptw-input font-mono text-xs"
-                        />
-                      </div>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-mono text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px] text-[#006398]">play_circle</span>
+                        <span>Permit Start Window (Valid From)</span>
+                        <span className="text-red-500 font-bold">*</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleSetStartNow}
+                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#006398]/10 text-[#006398] hover:bg-[#006398]/20 transition flex items-center gap-1 shrink-0"
+                        title="Set to Current Date & Time (IST)"
+                      >
+                        <span className="material-symbols-outlined text-[12px]">schedule</span>
+                        <span>Now</span>
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium block mb-1">Date & Time (IST) *</label>
+                      <input
+                        id="field-valid-from-datetime"
+                        type="datetime-local"
+                        required
+                        value={validFromDateTime}
+                        onChange={(e) => handleValidFromDateTimeChange(e.target.value)}
+                        className="ptw-input font-mono text-xs w-full bg-white shadow-2xs"
+                      />
                     </div>
                   </div>
 
                   {/* Valid To Group (5 cols) */}
                   <div className="md:col-span-5 p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
-                    <span className="font-mono text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[15px] text-amber-600">stop_circle</span>
-                      <span>Permit Expiry Window (Valid To)</span>
-                      <span className="text-red-500 font-bold">*</span>
-                    </span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-medium block mb-1">Date *</label>
-                        <input
-                          type="date"
-                          required
-                          value={validToD}
-                          onChange={(e) => setValidToD(e.target.value)}
-                          className="ptw-input font-mono text-xs"
-                        />
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-mono text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px] text-amber-600">stop_circle</span>
+                        <span>Permit Expiry Window (Valid To)</span>
+                        <span className="text-red-500 font-bold">*</span>
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleSetPlus8Hours}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 hover:bg-amber-200 transition flex items-center gap-0.5"
+                          title="Auto-calculate 8 hours from Start Window"
+                        >
+                          <span className="material-symbols-outlined text-[11px]">hourglass_top</span>
+                          <span>+8h Max</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSetShiftEnd}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 hover:bg-slate-300 transition flex items-center gap-0.5"
+                          title="Snap to shift end boundary (17:30 / 23:00 / 09:00)"
+                        >
+                          <span className="material-symbols-outlined text-[11px]">wb_twilight</span>
+                          <span>Shift</span>
+                        </button>
                       </div>
-                      <div>
-                        <label className="text-[10px] text-slate-500 font-medium block mb-1">Time (IST) *</label>
-                        <input
-                          type="time"
-                          step="1"
-                          required
-                          value={validToT}
-                          onChange={(e) => setValidToT(e.target.value)}
-                          className="ptw-input font-mono text-xs"
-                        />
-                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium block mb-1">Date & Time (IST) *</label>
+                      <input
+                        id="field-valid-to-datetime"
+                        type="datetime-local"
+                        required
+                        value={validToDateTime}
+                        onChange={(e) => handleValidToDateTimeChange(e.target.value)}
+                        className="ptw-input font-mono text-xs w-full bg-white shadow-2xs"
+                      />
                     </div>
                   </div>
 
@@ -2387,6 +2967,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                     <div>
                       <label className="text-[10px] text-slate-500 font-medium block mb-1">Retest Period</label>
                       <select
+                        id="field-gas-test-freq"
                         value={gasTestFreqHr}
                         disabled={gasTestRequired !== 'Y'}
                         onChange={(e) => setGasTestFreqHr(e.target.value)}
@@ -2412,7 +2993,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                   {/* Gas Testing Required Card */}
                   <div className="ptw-card p-4 bg-sky-50/50 border-sky-200 flex flex-col justify-between">
                     <div>
-                      <fieldset>
+                      <fieldset id="field-gas-testing-required" className="p-1 rounded-xl transition-all">
                         <legend className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                           <span className="material-symbols-outlined text-[16px] text-sky-600">air</span>
                           <span>Gas Testing Required</span>
@@ -2437,10 +3018,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       <p className="mt-2.5 text-xs text-slate-600 font-sans leading-relaxed">
                         {!isolationRequired || !gasTestRequired
                           ? 'Select both requirements to determine the initial permit status.'
-                          : initialPermitStatus(isolationRequired, gasTestRequired) === 'INTD'
-                          ? 'Initial Status: INTD. All required isolation and gas-test approvals must be completed in SAP before CRTD.'
-                          : 'Initial Status: CRTD. No isolation or gas-test approval is requested.'}{' '}
-                        CRTD does not authorize field work.
+                          : isOnlyColdWork
+                            ? 'Initial Status: APPR (Approved). Cold Work without additional categories does not require approver sign-off and is pre-authorized synchronously.'
+                            : initialPermitStatus(isolationRequired, gasTestRequired) === 'INTD'
+                              ? 'Initial Status: INTD. All required isolation and gas-test approvals must be completed in SAP before CRTD.'
+                              : 'Initial Status: CRTD. No isolation or gas-test approval is requested.'}{' '}
+                        {isOnlyColdWork ? 'Directly authorized for field execution.' : 'CRTD does not authorize field work.'}
                       </p>
                     </div>
                     {gasTestRequired === 'Y' && (
@@ -2454,7 +3037,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                   {/* Isolation Required Card */}
                   <div className="ptw-card p-4 bg-amber-50/50 border-amber-200 flex flex-col justify-between">
                     <div>
-                      <fieldset>
+                      <fieldset id="field-isolation-required" className="p-1 rounded-xl transition-all">
                         <legend className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                           <span className="material-symbols-outlined text-[16px] text-amber-600">lock</span>
                           <span>Isolation Required (LOTO)</span>
@@ -2501,6 +3084,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                             Isolation Certificate No <span className="text-red-500 font-bold">*</span>
                           </label>
                           <input
+                            id="field-isolation-no"
                             type="text"
                             list="available-isolations"
                             placeholder="e.g. ISO0000012"
@@ -2553,176 +3137,176 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
             >
               <div className="space-y-6">
 
-              {/* Workers Table */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-                <table className="w-full text-left border-collapse text-xs font-sans">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase">
-                      <th className="py-2.5 px-3">Item #</th>
-                      <th className="py-2.5 px-3">Type</th>
-                      <th className="py-2.5 px-3">Worker Name</th>
-                      <th className="py-2.5 px-3">Phone</th>
-                      <th className="py-2.5 px-3">Employee / Contractor ID</th>
-                      <th className="py-2.5 px-3">Shift</th>
-                      <th className="py-2.5 px-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
-                    {workers.map((worker) => (
-                      <tr key={worker.ItemNo} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-2.5 px-3 font-mono text-slate-500">{worker.ItemNo}</td>
-                        <td className="py-2.5 px-3">
-                          <span
-                            className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
-                              worker.WorkerTypeCode === 'EMP'
-                                ? 'bg-blue-100 text-[#006398]'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}
-                          >
-                            {worker.WorkerTypeCode}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 font-bold text-slate-800">{worker.WorkerName}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-600">{worker.PhoneNo}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-600">
-                          {worker.WorkerTypeCode === 'EMP' ? worker.EmpId : `${worker.ContractorName} (${worker.ContractorId})`}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-600">{worker.Shift}</td>
-                        <td className="py-2.5 px-3 text-right">
-                          <button
-                            onClick={() => handleRemoveWorker(worker.ItemNo)}
-                            className="text-rose-600 hover:text-rose-800 font-mono text-xs"
-                            title="Remove Worker"
-                          >
-                            Remove
-                          </button>
-                        </td>
+                {/* Workers Table */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                  <table className="w-full text-left border-collapse text-xs font-sans">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase">
+                        <th className="py-2.5 px-3">Item #</th>
+                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Worker Name</th>
+                        <th className="py-2.5 px-3">Phone</th>
+                        <th className="py-2.5 px-3">Employee / Contractor ID</th>
+                        <th className="py-2.5 px-3">Shift</th>
+                        <th className="py-2.5 px-3 text-right">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-sans">
+                      {workers.map((worker) => (
+                        <tr key={worker.ItemNo} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-2.5 px-3 font-mono text-slate-500">{worker.ItemNo}</td>
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${worker.WorkerTypeCode === 'EMP'
+                                  ? 'bg-blue-100 text-[#006398]'
+                                  : 'bg-amber-100 text-amber-800'
+                                }`}
+                            >
+                              {worker.WorkerTypeCode}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-slate-800">{worker.WorkerName}</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600">{worker.PhoneNo}</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600">
+                            {worker.WorkerTypeCode === 'EMP' ? worker.EmpId : `${worker.ContractorName} (${worker.ContractorId})`}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600">{worker.Shift}</td>
+                          <td className="py-2.5 px-3 text-right">
+                            <button
+                              onClick={() => handleRemoveWorker(worker.ItemNo)}
+                              className="text-rose-600 hover:text-rose-800 font-mono text-xs"
+                              title="Remove Worker"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-              {/* Add Worker Inline Strip */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <span className="block font-mono text-xs font-bold text-slate-800 uppercase mb-3">
-                  Add Worker to Ledger
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs font-sans">
-                  <div>
-                    <label className="block text-slate-600 font-semibold mb-1">
-                      Worker Type <span className="text-red-500 font-bold">*</span>
-                    </label>
-                    <select
-                      value={newWorkerType}
-                      onChange={(e) => setNewWorkerType(e.target.value as any)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs"
-                    >
-                      {(workerTypeOptions.length > 0
-                        ? workerTypeOptions
-                        : [
+                {/* Add Worker Inline Strip */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                  <span className="block font-mono text-xs font-bold text-slate-800 uppercase mb-3">
+                    Add Worker to Ledger
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs font-sans">
+                    <div>
+                      <label className="block text-slate-600 font-semibold mb-1">
+                        Worker Type <span className="text-red-500 font-bold">*</span>
+                      </label>
+                      <select
+                        value={newWorkerType}
+                        onChange={(e) => setNewWorkerType(e.target.value as any)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs"
+                      >
+                        {(workerTypeOptions.length > 0
+                          ? workerTypeOptions
+                          : [
                             { Config_Code: 'EMP', Config_Desc: 'EMPLOYEE' },
                             { Config_Code: 'CONT', Config_Desc: 'CONTRACTOR' },
                           ]
-                      ).map((wt) => (
-                        <option key={wt.Config_Code} value={wt.Config_Code}>
-                          {wt.Config_Desc} ({wt.Config_Code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-600 font-semibold mb-1">
-                      Full Name <span className="text-red-500 font-bold">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={newWorkerName}
-                      onChange={(e) => setNewWorkerName(e.target.value)}
-                      placeholder="e.g. JOHN DOE"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs uppercase"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-slate-600 font-semibold text-xs">
-                        Phone Number <span className="text-red-500 font-bold">*</span>
-                      </label>
-                      <span
-                        className={`text-[9px] font-mono px-1 py-0.2 rounded border transition-colors ${
-                          workerPhoneValidation.isValid
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold'
-                            : newWorkerPhone.trim().length > 0
-                            ? 'bg-amber-50 text-amber-800 border-amber-300 font-medium'
-                            : 'bg-slate-100 text-slate-500 border-slate-200'
-                        }`}
-                      >
-                        {workerPhoneValidation.isValid
-                          ? '✓ 10 digits'
-                          : newWorkerPhone.trim()
-                          ? `${workerPhoneValidation.digitCount}/10`
-                          : '10 digits'}
-                      </span>
+                        ).map((wt) => (
+                          <option key={wt.Config_Code} value={wt.Config_Code}>
+                            {wt.Config_Desc} ({wt.Config_Code})
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <input
-                      type="tel"
-                      maxLength={20}
-                      value={newWorkerPhone}
-                      onChange={(e) => {
-                        const sanitized = sanitizePhoneNumber(e.target.value, 20);
-                        setNewWorkerPhone(sanitized);
-                      }}
-                      onBlur={() => setWorkerPhoneTouched(true)}
-                      placeholder="9876543210"
-                      className={`w-full px-2.5 py-1.5 bg-white border rounded-lg font-mono text-xs transition-colors ${
-                        workerPhoneTouched && !workerPhoneValidation.isValid
-                          ? 'border-rose-400 bg-rose-50/20'
-                          : workerPhoneValidation.isValid
-                          ? 'border-emerald-400'
-                          : 'border-slate-300'
-                      }`}
-                    />
-                    {workerPhoneTouched && !workerPhoneValidation.isValid && workerPhoneValidation.error && (
-                      <p className="mt-0.5 text-[10px] text-rose-600 font-sans">
-                        {workerPhoneValidation.error}
-                      </p>
-                    )}
-                  </div>
 
-                  <div>
-                    <label className="block text-slate-600 font-semibold mb-1">
-                      {newWorkerType === 'EMP' ? 'Employee ID' : 'Contractor Co.'} <span className="text-red-500 font-bold">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={newWorkerType === 'EMP' ? newWorkerEmpId : newWorkerContractorName}
-                      onChange={(e) =>
-                        newWorkerType === 'EMP'
-                          ? setNewWorkerEmpId(e.target.value)
-                          : setNewWorkerContractorName(e.target.value)
-                      }
-                      placeholder={newWorkerType === 'EMP' ? 'EMP105' : 'ABC INFRA'}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs uppercase"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-slate-600 font-semibold mb-1">
+                        Full Name <span className="text-red-500 font-bold">*</span>
+                      </label>
+                      <input
+                        id="field-worker-name"
+                        type="text"
+                        value={newWorkerName}
+                        onChange={(e) => setNewWorkerName(e.target.value)}
+                        placeholder="e.g. JOHN DOE"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs uppercase"
+                      />
+                    </div>
 
-                  <div className="flex items-end">
-                    <button
-                      type="button"
-                      onClick={handleAddWorker}
-                      className="w-full px-3 py-1.5 bg-[#006398] hover:bg-[#004f7a] text-white rounded-lg font-mono font-bold text-xs flex items-center justify-center gap-1 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">add</span>
-                      <span>Add Worker</span>
-                    </button>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-600 font-semibold text-xs">
+                           Phone Number <span className="text-red-500 font-bold">*</span>
+                        </label>
+                        <span
+                          className={`text-[9px] font-mono px-1 py-0.2 rounded border transition-colors ${workerPhoneValidation.isValid
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold'
+                              : newWorkerPhone.trim().length > 0
+                                ? 'bg-amber-50 text-amber-800 border-amber-300 font-medium'
+                                : 'bg-slate-100 text-slate-500 border-slate-200'
+                            }`}
+                        >
+                          {workerPhoneValidation.isValid
+                            ? '✓ 10 digits'
+                            : newWorkerPhone.trim()
+                              ? `${workerPhoneValidation.digitCount}/10`
+                              : '10 digits'}
+                        </span>
+                      </div>
+                      <input
+                        id="field-worker-phone"
+                        type="tel"
+                        maxLength={20}
+                        value={newWorkerPhone}
+                        onChange={(e) => {
+                          const sanitized = sanitizePhoneNumber(e.target.value, 20);
+                          setNewWorkerPhone(sanitized);
+                        }}
+                        onBlur={() => setWorkerPhoneTouched(true)}
+                        placeholder="9876543210"
+                        className={`w-full px-2.5 py-1.5 bg-white border rounded-lg font-mono text-xs transition-colors ${workerPhoneTouched && !workerPhoneValidation.isValid
+                            ? 'border-rose-400 bg-rose-50/20'
+                            : workerPhoneValidation.isValid
+                              ? 'border-emerald-400'
+                              : 'border-slate-300'
+                          }`}
+                      />
+                      {workerPhoneTouched && !workerPhoneValidation.isValid && workerPhoneValidation.error && (
+                        <p className="mt-0.5 text-[10px] text-rose-600 font-sans">
+                          {workerPhoneValidation.error}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 font-semibold mb-1">
+                        {newWorkerType === 'EMP' ? 'Employee ID' : 'Contractor Co.'} <span className="text-red-500 font-bold">*</span>
+                      </label>
+                      <input
+                        id="field-worker-id"
+                        type="text"
+                        value={newWorkerType === 'EMP' ? newWorkerEmpId : newWorkerContractorName}
+                        onChange={(e) =>
+                          newWorkerType === 'EMP'
+                            ? setNewWorkerEmpId(e.target.value)
+                            : setNewWorkerContractorName(e.target.value)
+                        }
+                        placeholder={newWorkerType === 'EMP' ? 'EMP105' : 'ABC INFRA'}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs uppercase"
+                      />
+                    </div>
+
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={handleAddWorker}
+                        className="w-full px-3 py-1.5 bg-[#006398] hover:bg-[#004f7a] text-white rounded-lg font-mono font-bold text-xs flex items-center justify-center gap-1 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">add</span>
+                        <span>Add Worker</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </SectionCard>
-        )}
+            </SectionCard>
+          )}
 
           {/* TAB 3: PPE & Safety Checklist */}
           {activeTab === 'ppe' && (
@@ -2733,350 +3317,410 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               subtitle="Specify required, available, and issued safety equipment for field operations."
               icon="security"
               badge={
-                <span className="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-blue-100 text-[#006398]">
-                  {ppeItems.length} PPE Requirements
-                </span>
+                ppeItems.length === 0 ? (
+                  <span className="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    Required * (Min 1 PPE Item)
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-blue-100 text-[#006398]">
+                    {ppeItems.length} PPE Requirements ✓
+                  </span>
+                )
               }
             >
               <div className="space-y-6">
-              {/* Add PPE with SAP F4 Value Help & Dropdown */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[#006398] text-[18px]">shield</span>
-                    <span>Add Personal Protective Equipment (SAP Config)</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsPpeHelpOpen(true)}
-                    className="px-3 py-1.5 bg-[#006398] hover:bg-[#004f7a] text-white rounded-lg font-mono font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
-                    title="Open SAP PPE Catalog Value Help Modal"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">search</span>
-                    <span>F4 Value Help</span>
-                  </button>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-12 items-end">
-                  {/* Quick Select Dropdown */}
-                  <div className="sm:col-span-5">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Quick Dropdown
-                    </label>
-                    <select
-                      value={newPpeCode}
-                      onChange={(e) => {
-                        const code = e.target.value;
-                        setNewPpeCode(code);
-                        const matched = ppeCatalog.find(p => p.Config_Code === code);
-                        if (matched) setNewPpeDescription(matched.Config_Desc);
-                      }}
-                      className="block w-full border border-slate-300 rounded-lg p-2 text-xs bg-white font-mono truncate"
+                {/* Add PPE with SAP F4 Value Help & Dropdown */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[#006398] text-[18px]">shield</span>
+                      <span>Add Personal Protective Equipment (SAP Config)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsPpeHelpOpen(true)}
+                      className="px-3 py-1.5 bg-[#006398] hover:bg-[#004f7a] text-white rounded-lg font-mono font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                      title="Open SAP PPE Catalog Value Help Modal"
                     >
-                      <option value="">-- Select from 28 PPEs --</option>
-                      {ppeCatalog.map((p) => (
-                        <option key={p.Config_Code} value={p.Config_Code}>
-                          [{p.Parent_Code || 'GEN'}] {p.Config_Code} - {p.Config_Desc}
-                        </option>
-                      ))}
-                    </select>
+                      <span className="material-symbols-outlined text-[16px]">search</span>
+                      <span>F4 Value Help</span>
+                    </button>
                   </div>
 
-                  {/* PPE Code */}
-                  <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      PPE Code *
-                    </label>
-                    <div className="relative">
-                      <input
+                  <div className="grid gap-3 sm:grid-cols-12 items-end">
+                    {/* Quick Select Dropdown */}
+                    <div className="sm:col-span-5">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Quick Dropdown
+                      </label>
+                      <select
                         value={newPpeCode}
-                        onChange={(e) => setNewPpeCode(e.target.value.toUpperCase())}
-                        placeholder="e.g. SAFHELM"
-                        maxLength={10}
-                        className="block w-full border border-slate-300 rounded-lg p-2 pr-8 text-xs font-mono uppercase bg-white"
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          setNewPpeCode(code);
+                          const matched = ppeCatalog.find(p => p.Config_Code === code);
+                          if (matched) setNewPpeDescription(matched.Config_Desc);
+                        }}
+                        className="block w-full border border-slate-300 rounded-lg p-2 text-xs bg-white font-mono truncate"
+                      >
+                        <option value="">-- Select from 28 PPEs --</option>
+                        {ppeCatalog.map((p) => (
+                          <option key={p.Config_Code} value={p.Config_Code}>
+                            [{p.Parent_Code || 'GEN'}] {p.Config_Code} - {p.Config_Desc}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* PPE Code */}
+                    <div className="sm:col-span-3">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        PPE Code *
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="field-ppe-code"
+                          value={newPpeCode}
+                          onChange={(e) => setNewPpeCode(e.target.value.toUpperCase())}
+                          placeholder="e.g. SAFHELM"
+                          maxLength={10}
+                          className="block w-full border border-slate-300 rounded-lg p-2 pr-8 text-xs font-mono uppercase bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsPpeHelpOpen(true)}
+                          className="absolute right-2 top-2 text-slate-400 hover:text-[#006398]"
+                          title="F4 Search Help"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">search</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* PPE Description */}
+                    <div className="sm:col-span-3">
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Description *
+                      </label>
+                      <input
+                        id="field-ppe-desc"
+                        value={newPpeDescription}
+                        onChange={(e) => setNewPpeDescription(e.target.value)}
+                        placeholder="e.g. SAFETY HELMET"
+                        className="block w-full border border-slate-300 rounded-lg p-2 text-xs bg-white"
                       />
+                    </div>
+
+                    {/* Add Button */}
+                    <div className="sm:col-span-1">
                       <button
                         type="button"
-                        onClick={() => setIsPpeHelpOpen(true)}
-                        className="absolute right-2 top-2 text-slate-400 hover:text-[#006398]"
-                        title="F4 Search Help"
+                        id="btn-add-ppe"
+                        className="w-full rounded-lg bg-[#006398] hover:bg-[#004f7a] p-2 text-xs font-mono font-bold text-white transition-colors flex items-center justify-center gap-1 shadow-2xs"
+                        onClick={() => {
+                          if (!newPpeCode.trim()) {
+                            toast.warning('PPE Code is mandatory. Select from dropdown or enter code.', { title: 'Mandatory Field Missing' });
+                            jumpToField('field-ppe-code', 'ppe');
+                            return;
+                          }
+                          if (!newPpeDescription.trim()) {
+                            toast.warning('PPE Description is mandatory.', { title: 'Mandatory Field Missing' });
+                            jumpToField('field-ppe-desc', 'ppe');
+                            return;
+                          }
+                          const code = newPpeCode.trim().toUpperCase();
+                          const desc = newPpeDescription.trim();
+                          setPpeItems(prev => [
+                            ...prev,
+                            {
+                              PermitNo: '',
+                              ItemNo: String(prev.length + 1),
+                              PpeCode: code,
+                              PpeDesc: desc,
+                              IsRequired: 'Y',
+                              IsAvailable: 'N',
+                              IsIssued: 'N',
+                              CheckedBy: '',
+                              CheckedAt: null,
+                              Remarks: ''
+                            }
+                          ]);
+                          setNewPpeCode('');
+                          setNewPpeDescription('');
+                          toast.success(`Added PPE: ${code} - ${desc}`, { title: 'PPE Added' });
+                        }}
+                        title="Add PPE Requirement"
                       >
-                        <span className="material-symbols-outlined text-[16px]">search</span>
+                        <span className="material-symbols-outlined text-[16px]">add</span>
                       </button>
                     </div>
                   </div>
-
-                  {/* PPE Description */}
-                  <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Description *
-                    </label>
-                    <input
-                      value={newPpeDescription}
-                      onChange={(e) => setNewPpeDescription(e.target.value)}
-                      placeholder="e.g. SAFETY HELMET"
-                      className="block w-full border border-slate-300 rounded-lg p-2 text-xs bg-white"
-                    />
-                  </div>
-
-                  {/* Add Button */}
-                  <div className="sm:col-span-1">
-                    <button
-                      type="button"
-                      className="w-full rounded-lg bg-[#006398] hover:bg-[#004f7a] p-2 text-xs font-mono font-bold text-white transition-colors flex items-center justify-center gap-1"
-                      onClick={() => {
-                        if (!newPpeCode.trim() || !newPpeDescription.trim()) return;
-                        setPpeItems(prev => [
-                          ...prev,
-                          {
-                            PermitNo: '',
-                            ItemNo: String(prev.length + 1),
-                            PpeCode: newPpeCode.trim(),
-                            PpeDesc: newPpeDescription.trim(),
-                            IsRequired: 'Y',
-                            IsAvailable: 'N',
-                            IsIssued: 'N',
-                            CheckedBy: '',
-                            CheckedAt: null,
-                            Remarks: ''
-                          }
-                        ]);
-                        setNewPpeCode('');
-                        setNewPpeDescription('');
-                      }}
-                      title="Add PPE Requirement"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">add</span>
-                    </button>
-                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-display font-bold text-base text-slate-900">
-                    Personal Protective Equipment Matrix (_PPE)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Specify required, available, and issued safety equipment for field operations.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPpeItems((prev) =>
-                      prev.map((item) => ({ ...item, IsRequired: 'Y', IsAvailable: 'Y', IsIssued: 'Y' }))
-                    )
-                  }
-                  className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-mono font-bold hover:bg-emerald-100"
-                >
-                  ✓ Confirm All Available & Issued
-                </button>
-              </div>
-
-              {/* PPE Table */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-                <table className="w-full text-left border-collapse text-xs font-sans">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase">
-                      <th className="py-2.5 px-3">Item #</th>
-                      <th className="py-2.5 px-3">PPE Code</th>
-                      <th className="py-2.5 px-3">Description</th>
-                      <th className="py-2.5 px-3 text-center">Required</th>
-                      <th className="py-2.5 px-3 text-center">Available</th>
-                      <th className="py-2.5 px-3 text-center">Issued</th>
-                      <th className="py-2.5 px-3">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {ppeItems.map((ppe, idx) => (
-                      <tr key={ppe.ItemNo} className="hover:bg-slate-50/60">
-                        <td className="py-2.5 px-3 font-mono text-slate-500">{ppe.ItemNo}</td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-[#006398]">{ppe.PpeCode}</td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{ppe.PpeDesc}</td>
-                        <td className="py-2.5 px-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={ppe.IsRequired === 'Y'}
-                            onChange={(e) => {
-                              const checked = e.target.checked ? 'Y' : 'N';
-                              setPpeItems((prev) =>
-                                prev.map((p, i) => (i === idx ? { ...p, IsRequired: checked } : p))
-                              );
-                            }}
-                            className="h-4 w-4 rounded text-[#006398] focus:ring-[#006398]"
-                          />
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={ppe.IsAvailable === 'Y'}
-                            onChange={(e) => {
-                              const checked = e.target.checked ? 'Y' : 'N';
-                              setPpeItems((prev) =>
-                                prev.map((p, i) => (i === idx ? { ...p, IsAvailable: checked } : p))
-                              );
-                            }}
-                            className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
-                          />
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={ppe.IsIssued === 'Y'}
-                            onChange={(e) => {
-                              const checked = e.target.checked ? 'Y' : 'N';
-                              setPpeItems((prev) =>
-                                prev.map((p, i) => (i === idx ? { ...p, IsIssued: checked } : p))
-                              );
-                            }}
-                            className="h-4 w-4 rounded text-[#006398] focus:ring-[#006398]"
-                          />
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <input
-                            type="text"
-                            value={ppe.Remarks}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setPpeItems((prev) =>
-                                prev.map((p, i) => (i === idx ? { ...p, Remarks: val } : p))
-                              );
-                            }}
-                            className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Safety Checklist (_Safety) */}
-              <div className="pt-4 border-t border-slate-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-display font-bold text-base text-slate-900">
-                      Safety Inspection Checklist (_Safety)
+                      Personal Protective Equipment Matrix (_PPE)
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Verified safety preparations and mandatory questionnaire responses for{' '}
-                      {PERMIT_CATEGORIES.find((c) => c.code === permitType || c.sapCode === permitType)?.label || permitType || 'permit'}.
+                      Specify required, available, and issued safety equipment for field operations.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {allActiveCategories.map((catCode) => {
-                      const catDef = PERMIT_CATEGORIES.find((c) => c.code === catCode || c.sapCode === catCode);
-                      const qCount = (categoryQuestions[catCode] || []).length;
-                      const pStat = checklistProgressMap[catCode];
-                      const answered = pStat?.answered || 0;
-                      return (
-                        <button
-                          key={catCode}
-                          type="button"
-                          onClick={() => void handleOpenChecklistForCategory(catCode)}
-                          className="px-3.5 py-1.5 rounded-xl border border-[#006398] text-[#006398] hover:bg-[#006398] hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs shrink-0"
-                          title={`Open ${catDef?.label || catCode} Compliance Questionnaire`}
-                        >
-                          <span className="material-symbols-outlined text-[15px]">fact_check</span>
-                          <span>{catDef?.label || catCode} ({answered}/{qCount})</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPpeItems((prev) =>
+                        prev.map((item) => ({ ...item, IsRequired: 'Y', IsAvailable: 'Y', IsIssued: 'Y' }))
+                      )
+                    }
+                    className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-mono font-bold hover:bg-emerald-100"
+                  >
+                    ✓ Confirm All Available & Issued
+                  </button>
                 </div>
-                <div className="space-y-3">
-                  {/* Add Custom Safety Check Toolbar */}
-                  <div className="p-3 bg-slate-50/90 border border-slate-200 rounded-xl space-y-2">
-                    <span className="font-mono text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[#006398] text-[16px]">add_task</span>
-                      <span>Add Custom Safety Check Item</span>
-                    </span>
-                    <div className="grid gap-2 sm:grid-cols-12 items-end">
-                      <div className="sm:col-span-3">
-                        <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Check Code (Max 4 chars)</label>
-                        <input
-                          maxLength={4}
-                          value={newSafetyCode}
-                          onChange={e => setNewSafetyCode(e.target.value.toUpperCase())}
-                          placeholder="e.g. S01"
-                          className="ptw-input font-mono uppercase text-xs"
-                        />
+
+                {/* PPE Table */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                  <table className="w-full text-left border-collapse text-xs font-sans">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase">
+                        <th className="py-2.5 px-3">Item #</th>
+                        <th className="py-2.5 px-3">PPE Code</th>
+                        <th className="py-2.5 px-3">Description</th>
+                        <th className="py-2.5 px-3 text-center">Required</th>
+                        <th className="py-2.5 px-3 text-center">Available</th>
+                        <th className="py-2.5 px-3 text-center">Issued</th>
+                        <th className="py-2.5 px-3">Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {ppeItems.map((ppe, idx) => (
+                        <tr key={ppe.ItemNo} className="hover:bg-slate-50/60">
+                          <td className="py-2.5 px-3 font-mono text-slate-500">{ppe.ItemNo}</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-[#006398]">{ppe.PpeCode}</td>
+                          <td className="py-2.5 px-3 font-semibold text-slate-800">{ppe.PpeDesc}</td>
+                          <td className="py-2.5 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={ppe.IsRequired === 'Y'}
+                              onChange={(e) => {
+                                const checked = e.target.checked ? 'Y' : 'N';
+                                setPpeItems((prev) =>
+                                  prev.map((p, i) => (i === idx ? { ...p, IsRequired: checked } : p))
+                                );
+                              }}
+                              className="h-4 w-4 rounded text-[#006398] focus:ring-[#006398]"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={ppe.IsAvailable === 'Y'}
+                              onChange={(e) => {
+                                const checked = e.target.checked ? 'Y' : 'N';
+                                setPpeItems((prev) =>
+                                  prev.map((p, i) => (i === idx ? { ...p, IsAvailable: checked } : p))
+                                );
+                              }}
+                              className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={ppe.IsIssued === 'Y'}
+                              onChange={(e) => {
+                                const checked = e.target.checked ? 'Y' : 'N';
+                                setPpeItems((prev) =>
+                                  prev.map((p, i) => (i === idx ? { ...p, IsIssued: checked } : p))
+                                );
+                              }}
+                              className="h-4 w-4 rounded text-[#006398] focus:ring-[#006398]"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <input
+                              type="text"
+                              value={ppe.Remarks}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setPpeItems((prev) =>
+                                  prev.map((p, i) => (i === idx ? { ...p, Remarks: val } : p))
+                                );
+                              }}
+                              className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Compliance Questionnaires (_CHK) */}
+                <div className="pt-4 border-t border-slate-200 space-y-4">
+                  <div className="p-4 bg-sky-50/70 border border-sky-200/90 rounded-2xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#006398] text-[20px]">fact_check</span>
+                          <h3 className="font-display font-bold text-base text-slate-900">
+                            Compliance Checklists (_CHK)
+                          </h3>
+                          <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-[#006398] text-white">
+                            SAP Entity _CHK
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                          Statutory compliance questionnaire responses are saved into SAP child table <strong className="font-mono text-slate-900">_CHK</strong> (not _Safety). Click below to complete each active category questionnaire.
+                        </p>
                       </div>
-                      <div className="sm:col-span-7">
-                        <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Check Description</label>
-                        <input
-                          maxLength={100}
-                          value={newSafetyDescription}
-                          onChange={e => setNewSafetyDescription(e.target.value)}
-                          placeholder="e.g. Verify area barricading and equipment certification"
-                          className="ptw-input text-xs"
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <button
-                          type="button"
-                          className="w-full py-2 px-3 rounded-xl bg-[#006398] hover:bg-[#004f7a] text-white text-xs font-bold font-mono transition-colors flex items-center justify-center gap-1 shadow-2xs"
-                          onClick={() => {
-                            if (!newSafetyCode.trim() || !newSafetyDescription.trim()) return;
-                            setSafetyChecklist(prev => [...prev, { PermitNo: '', ItemNo: String(prev.length + 1), Category: 'GEN', ItemCode: newSafetyCode.trim(), Response: 'NO', ValueText: newSafetyDescription.trim(), ValueNum: 0, Unit: '', ReferenceNo: '', ResponsibleUser: user?.id || '', VerifiedBy: '', VerifiedAt: null, Remarks: '' }]);
-                            setNewSafetyCode('');
-                            setNewSafetyDescription('');
-                          }}
-                        >
-                          <span className="material-symbols-outlined text-[15px]">add</span>
-                          <span>Add Check</span>
-                        </button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {allActiveCategories.map((catCode) => {
+                          const catDef = PERMIT_CATEGORIES.find((c) => c.code === catCode || c.sapCode === catCode);
+                          const qCount = (categoryQuestions[catCode] || []).length;
+                          const pStat = checklistProgressMap[catCode];
+                          const answered = pStat?.answered || 0;
+                          const isComplete = answered === qCount && qCount > 0;
+                          return (
+                            <button
+                              key={catCode}
+                              type="button"
+                              onClick={() => void handleOpenChecklistForCategory(catCode)}
+                              className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs shrink-0 ${isComplete
+                                  ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
+                                  : 'bg-white border-[#006398] text-[#006398] hover:bg-[#006398] hover:text-white'
+                                }`}
+                              title={`Open ${catDef?.label || catCode} Compliance Questionnaire`}
+                            >
+                              <span className="material-symbols-outlined text-[15px]">
+                                {isComplete ? 'verified' : 'fact_check'}
+                              </span>
+                              <span>{catDef?.label || catCode} ({answered}/{qCount})</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
 
-                  {safetyChecklist.map((item, idx) => (
-                    <div
-                      key={item.ItemNo}
-                      className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
-                          {item.Category} #{item.ItemCode}
+                  {/* Custom Safety Inspection Checks (_Safety) */}
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[#006398] text-[18px]">verified_user</span>
+                          <h4 className="font-display font-bold text-sm text-slate-900">
+                            Custom Safety Inspection Checks (_Safety)
+                          </h4>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Additional field safety checks stored in SAP child table _Safety.
+                        </p>
+                      </div>
+                      {safetyChecklist.length > 0 && (
+                        <span className="font-mono text-[11px] text-slate-500">
+                          {safetyChecklist.length} Custom {safetyChecklist.length === 1 ? 'Check' : 'Checks'}
                         </span>
-                        <div>
-                          <span className="font-semibold text-slate-800">{item.ValueText}</span>
-                          <span className="block text-[11px] text-slate-500">{item.Remarks}</span>
+                      )}
+                    </div>
+
+                    {/* Add Custom Safety Check Toolbar */}
+                    <div className="p-3 bg-slate-50/90 border border-slate-200 rounded-xl space-y-2">
+                      <span className="font-mono text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[#006398] text-[16px]">add_task</span>
+                        <span>Add Custom Safety Check Item</span>
+                      </span>
+                      <div className="grid gap-2 sm:grid-cols-12 items-end">
+                        <div className="sm:col-span-3">
+                          <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Check Code (Max 4 chars)</label>
+                          <input
+                            maxLength={4}
+                            value={newSafetyCode}
+                            onChange={e => setNewSafetyCode(e.target.value.toUpperCase())}
+                            placeholder="e.g. S01"
+                            className="ptw-input font-mono uppercase text-xs"
+                          />
+                        </div>
+                        <div className="sm:col-span-7">
+                          <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Check Description</label>
+                          <input
+                            maxLength={100}
+                            value={newSafetyDescription}
+                            onChange={e => setNewSafetyDescription(e.target.value)}
+                            placeholder="e.g. Verify area barricading and equipment certification"
+                            className="ptw-input text-xs"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <button
+                            type="button"
+                            className="w-full py-2 px-3 rounded-xl bg-[#006398] hover:bg-[#004f7a] text-white text-xs font-bold font-mono transition-colors flex items-center justify-center gap-1 shadow-2xs"
+                            onClick={() => {
+                              if (!newSafetyCode.trim() || !newSafetyDescription.trim()) return;
+                              setSafetyChecklist(prev => [...prev, { PermitNo: '', ItemNo: String(prev.length + 1), Category: 'GEN', ItemCode: newSafetyCode.trim(), Response: 'NO', ValueText: newSafetyDescription.trim(), ValueNum: 0, Unit: '', ReferenceNo: '', ResponsibleUser: user?.id || '', VerifiedBy: '', VerifiedAt: null, Remarks: '' }]);
+                              setNewSafetyCode('');
+                              setNewSafetyDescription('');
+                            }}
+                          >
+                            <span className="material-symbols-outlined text-[15px]">add</span>
+                            <span>Add Check</span>
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2 font-mono">
-                        {['YES', 'NO', 'NA'].map((resp) => (
-                          <button
-                            key={resp}
-                            type="button"
-                            onClick={() =>
-                              setSafetyChecklist((prev) =>
-                                prev.map((s, i) => (i === idx ? { ...s, Response: resp } : s))
-                              )
-                            }
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                              item.Response === resp
-                                ? resp === 'YES'
-                                  ? 'bg-emerald-600 text-white shadow-xs'
-                                  : resp === 'NO'
-                                  ? 'bg-rose-600 text-white shadow-xs'
-                                  : 'bg-slate-600 text-white shadow-xs'
-                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            {resp}
-                          </button>
-                        ))}
-                      </div>
                     </div>
-                  ))}
+
+                    {safetyChecklist.length === 0 ? (
+                      <div className="p-4 bg-slate-50/60 border border-dashed border-slate-200 rounded-xl text-center text-xs text-slate-500 font-medium">
+                        No custom safety checks added. Mandatory site preparations from Client Procedure (Section D) are automatically serialized into _Safety.
+                      </div>
+                    ) : (
+                      safetyChecklist.map((item, idx) => (
+                        <div
+                          key={item.ItemNo || idx}
+                          className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
+                              {item.Category} #{item.ItemCode}
+                            </span>
+                            <div>
+                              <span className="font-semibold text-slate-800">{item.ValueText}</span>
+                              <span className="block text-[11px] text-slate-500">{item.Remarks}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 font-mono">
+                            {['YES', 'NO', 'NA'].map((resp) => (
+                              <button
+                                key={resp}
+                                type="button"
+                                onClick={() =>
+                                  setSafetyChecklist((prev) =>
+                                    prev.map((s, i) => (i === idx ? { ...s, Response: resp } : s))
+                                  )
+                                }
+                                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${item.Response === resp
+                                    ? resp === 'YES'
+                                      ? 'bg-emerald-600 text-white shadow-xs'
+                                      : resp === 'NO'
+                                        ? 'bg-rose-600 text-white shadow-xs'
+                                        : 'bg-slate-600 text-white shadow-xs'
+                                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                  }`}
+                              >
+                                {resp}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </SectionCard>
-        )}
+            </SectionCard>
+          )}
 
           {/* STEP 6: Hazard Controls & Interactive 5x5 Risk Assessment Matrix */}
           {activeTab === 'hazards' && (
@@ -3200,15 +3844,15 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       </dd>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <dt className="text-slate-500 font-medium">SAP Child Table _WorkType (Multi-Work)</dt>
+                      <dt className="text-slate-500 font-medium">SAP Child Table _WorkType</dt>
                       <dd className="mt-1 font-mono font-bold text-slate-900">
                         {workTypeRecords.length > 0 ? (
                           <span className="text-[#006398]">
-                            {workTypeRecords.length} Categories ({workTypeRecords.map(w => w.WorkType).join(', ')})
+                            {workTypeRecords.length} {workTypeRecords.length === 1 ? 'Category' : 'Categories'} ({workTypeRecords.map(w => w.WorkType).join(', ')})
                           </span>
                         ) : (
                           <span className="text-slate-500 font-normal">
-                            Single Work Type (Primary Only)
+                            Not assigned
                           </span>
                         )}
                       </dd>
@@ -3234,7 +3878,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       <dd className="mt-1 font-mono font-bold text-slate-900">
                         {natwRecords.length > 0 ? (
                           <span className="text-indigo-700">
-                            {natwRecords.length} Selected ({natwRecords.map(n => n.NatwCode).join(', ')})
+                            {natwRecords.length} Selected ({natwRecords.map(n => n.OtherText ? `${n.NatwCode} (${n.OtherText})` : n.NatwCode).join(', ')})
                           </span>
                         ) : (
                           <span className="text-amber-600 font-normal">
@@ -3248,7 +3892,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       <dd className="mt-1 font-mono font-bold text-slate-900">
                         {equipmentRecords.length > 0 ? (
                           <span className="text-amber-700">
-                            {equipmentRecords.length} Declared ({equipmentRecords.map(e => e.EquipCode).join(', ')})
+                            {equipmentRecords.length} Declared ({equipmentRecords.map(e => e.OtherText ? `${e.EquipCode} (${e.OtherText})` : e.EquipCode).join(', ')})
                           </span>
                         ) : (
                           <span className="text-amber-600 font-normal">
@@ -3338,7 +3982,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 <span className="material-symbols-outlined text-[17px]">
                   {isSubmitting ? 'sync' : 'verified'}
                 </span>
-                <span>{isSubmitting ? 'Submitting to SAP...' : 'Create permit request'}</span>
+                <span>{isSubmitting ? 'Submitting to SAP...' : revisionPermit ? 'Save Changes & Resubmit for Approval' : 'Create permit request'}</span>
               </button>
             )}
           </div>

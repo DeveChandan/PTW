@@ -943,7 +943,15 @@ class GasTesterApiService {
       list.push(...FALLBACK_PENDING_PERMITS);
     }
 
-    return list;
+    // 4. Return sorted by creation date/time and latest permit number descending
+    return list.sort((a, b) => {
+      const dtA = `${a.Erdat || ''} ${a.Erzet || ''}`.trim();
+      const dtB = `${b.Erdat || ''} ${b.Erzet || ''}`.trim();
+      if (dtA && dtB && dtA !== dtB) {
+        return dtB.localeCompare(dtA);
+      }
+      return (b.Permit_No || '').localeCompare(a.Permit_No || '', undefined, { numeric: true });
+    });
   }
 }
 

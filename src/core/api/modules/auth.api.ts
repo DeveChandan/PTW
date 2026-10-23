@@ -99,6 +99,34 @@ export const authApi = {
   },
 
   /**
+   * Fetches assigned user roles directly from the SAP UserRole entity set
+   * Service endpoint: /sap/opu/odata4/sap/zptw_mamagement_srv/srvd_a2x/sap/zptw_services/0001/UserRole
+   */
+  async fetchUserRoles(userId: string, client: string = '200'): Promise<Array<{
+    SAP_USER: string;
+    PTW_ROLE: string;
+    ACTIVE: boolean;
+  }>> {
+    const cleanId = userId.trim().toUpperCase();
+    try {
+      const response = await odataClient.get<ODataCollectionResponse<{
+        SAP_USER: string;
+        PTW_ROLE: string;
+        ACTIVE: boolean;
+      }>>(ODATA_ENTITIES.USER_ROLE, {
+        params: {
+          $filter: `SAP_USER eq '${cleanId.replace(/'/g, "''")}'`,
+          'sap-client': client,
+        },
+        timeout: 5000,
+      });
+      return response.data?.value || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
    * Triggers SAP ICF session termination
    */
   async triggerIcfLogoff(): Promise<void> {

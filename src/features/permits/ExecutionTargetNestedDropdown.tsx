@@ -3,6 +3,7 @@ import { SapConfigRecord } from '../../core/types/config.types';
 import { formatExecutionTarget } from './PermitCreateModule';
 
 interface ExecutionTargetNestedDropdownProps {
+  id?: string;
   execDept: string;
   execPlant: string;
   onChange: (dept: string, plant: string) => void;
@@ -12,6 +13,7 @@ interface ExecutionTargetNestedDropdownProps {
 }
 
 export const ExecutionTargetNestedDropdown: React.FC<ExecutionTargetNestedDropdownProps> = ({
+  id = 'field-exec-dept-container',
   execDept,
   execPlant,
   onChange,
@@ -122,6 +124,7 @@ export const ExecutionTargetNestedDropdown: React.FC<ExecutionTargetNestedDropdo
     <div className="relative w-full" ref={containerRef}>
       {/* Trigger Button Field matching standard ptw-select height & styling */}
       <div
+        id={id}
         role="button"
         tabIndex={disabled ? -1 : 0}
         onClick={() => !disabled && setIsOpen((prev) => !prev)}

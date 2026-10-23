@@ -21,6 +21,7 @@ const MODULE_DOMAINS: Record<ModuleId, { domain: 'PERMITS' | 'ISOLATION' | 'CLEA
   'permit-issuer': { domain: 'CLEARANCES', badge: 'Toolbox & Handover' },
   'permit-area-owner': { domain: 'CLEARANCES', badge: 'Area Authority' },
   report: { domain: 'SYSTEM', badge: 'Analytics & Audit' },
+  'safety-map': { domain: 'SYSTEM', badge: 'Plot Plan Layout' },
   admin: { domain: 'SYSTEM', badge: 'Master Data & Roles' }
 };
 
@@ -172,6 +173,18 @@ const MODULE_THEMES: Record<
     kpiValue: 'OSHA & KPI',
     kpiLabel: 'Permit & Audit Records'
   },
+  'safety-map': {
+    cardBg: 'bg-gradient-to-br from-white via-[#f0f9ff] to-sky-50/70',
+    cardBorder: 'border-sky-200/90 hover:border-sky-400',
+    cardShadow: 'shadow-[0_1px_3px_0_rgba(15,23,42,0.04),0_8px_20px_-4px_rgba(0,99,152,0.1),inset_0_1px_0_0_rgba(255,255,255,1)] hover:shadow-[0_16px_32px_-6px_rgba(0,99,152,0.18),0_4px_12px_rgba(15,23,42,0.04),inset_0_1px_0_0_rgba(255,255,255,1)]',
+    iconBg: 'bg-gradient-to-br from-sky-50 to-white text-[#006398] border-sky-200/90 shadow-[0_2px_6px_rgba(0,99,152,0.15),inset_0_1px_0_rgba(255,255,255,0.9)]',
+    text: 'text-[#006398]',
+    border: 'border-sky-200',
+    accent: 'bg-[#006398]',
+    accentGradient: 'from-sky-500 via-[#006398] to-[#004f7a]',
+    kpiValue: '26 Districts',
+    kpiLabel: 'Demarcation Layout'
+  },
   admin: {
     cardBg: 'bg-gradient-to-br from-white via-[#fff8f8] to-rose-50/70',
     cardBorder: 'border-rose-200/90 hover:border-rose-400',
@@ -198,14 +211,70 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
     return authorizedModules.filter((mod) => MODULE_DOMAINS[mod.id]?.domain === selectedDomain);
   }, [authorizedModules, selectedDomain]);
 
+  // Human-friendly role information for the user
+  const userRoleDisplay = useMemo(() => {
+    if (!user) return { title: 'Standard Operator', icon: 'person', tag: 'Standard' };
+    const roles = user.roles || [];
+    const isAdmin = roles.some((r) => r === 'PTW_ADMIN' || r === 'ZPTW_ADMIN' || r === 'Z_MOBILE_PI_SHEET');
+    if (isAdmin || authorizedModules.length === MODULE_REGISTRY.length) {
+      return {
+        title: 'PTW Administrator',
+        icon: 'admin_panel_settings',
+        tag: 'Full Access'
+      };
+    }
+    if (roles.some((r) => r.includes('APPR'))) {
+      return {
+        title: 'Permit Approver',
+        icon: 'draw',
+        tag: 'Clearance'
+      };
+    }
+    if (roles.some((r) => r.includes('ISSU'))) {
+      return {
+        title: 'Permit Issuer',
+        icon: 'verified',
+        tag: 'Issuance'
+      };
+    }
+    if (roles.some((r) => r.includes('AOPR') || r.includes('AREA'))) {
+      return {
+        title: 'Area Operator',
+        icon: 'domain',
+        tag: 'Area Authority'
+      };
+    }
+    if (roles.some((r) => r.includes('GAS'))) {
+      return {
+        title: 'Gas Tester',
+        icon: 'air',
+        tag: 'Sampling'
+      };
+    }
+    if (roles.some((r) => r.includes('HOLD'))) {
+      return {
+        title: 'Permit Holder',
+        icon: 'engineering',
+        tag: 'Field Execution'
+      };
+    }
+    return {
+      title: 'Operational Specialist',
+      icon: 'badge',
+      tag: `${roles.length} Role${roles.length === 1 ? '' : 's'}`
+    };
+  }, [user, authorizedModules]);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8 animate-in fade-in duration-300 font-sans">
-      {/* Top Welcome & KPI Summary Bar with Multi-Layered Depth */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-white via-sky-50/25 to-blue-50/40 border border-slate-200/80 rounded-3xl p-6 lg:p-7 shadow-[0_2px_4px_rgba(15,23,42,0.03),0_12px_28px_-6px_rgba(0,99,152,0.08),inset_0_1px_0_0_rgba(255,255,255,1)] flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-gradient-to-br from-sky-200/20 to-blue-300/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-6 animate-in fade-in duration-200 font-sans">
+      {/* Top Welcome & Executive Command Bar */}
+      <div className="relative overflow-hidden bg-white/95 border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_20px_-4px_rgba(0,99,152,0.06)] flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        {/* Top subtle brand accent stripe */}
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#006398] via-sky-500 to-indigo-600" />
         
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="w-14 h-14 rounded-2xl bg-white border border-sky-200/80 shadow-[0_4px_12px_-2px_rgba(0,99,152,0.12),inset_0_1px_0_rgba(255,255,255,1)] flex items-center justify-center p-2 shrink-0">
+        {/* Left: Branding & User Welcome */}
+        <div className="flex items-center gap-3.5 relative z-10">
+          <div className="w-12 h-12 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-center p-1.5 shrink-0">
             <img
               src="https://gfl.co.in/assets/images/New_GFL-Logo29.webp"
               alt="GFL"
@@ -215,42 +284,85 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
               }}
             />
           </div>
-          <div>
+          <div className="space-y-0.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-display font-bold text-2xl text-slate-900 tracking-tight">
+              <h1 className="font-display font-extrabold text-xl text-slate-900 tracking-tight">
                 PTW Module Command Center
               </h1>
-              <span className="text-[11px] font-mono font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20 px-2.5 py-0.5 rounded-full shadow-xs">
-                Client 200 · S/4HANA
+              <span className="text-[10px] font-mono font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20 px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-1">
+                <span>Client {user?.client || '200'}</span>
+                <span>&middot;</span>
+                <span>S/4HANA</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Live OData V4</span>
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Welcome back, <strong className="text-slate-800 font-semibold">{user?.fullName || user?.id}</strong>.
+            <p className="text-xs text-slate-500">
+              Welcome back, <strong className="text-slate-900 font-bold">{user?.fullName || user?.id}</strong>.
               Select an authorized operational workspace below.
             </p>
           </div>
         </div>
 
-        {/* 4 Tactile Summary Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono relative z-10">
-          <div className="bg-gradient-to-b from-sky-50/90 to-sky-100/50 border border-sky-200/90 rounded-2xl px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_6px_rgba(0,99,152,0.06)] hover:-translate-y-0.5 transition-transform">
-            <span className="block text-[10px] uppercase text-sky-700/80 font-bold">Authorized</span>
-            <span className="text-base font-bold text-[#006398]">{authorizedModules.length} Modules</span>
+        {/* Right: Sleek Bento Stat Badges (No awkward text truncation!) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono relative z-10 shrink-0">
+          {/* Card 1: Assigned Role */}
+          <div
+            className="bg-slate-50/80 hover:bg-slate-100/70 border border-slate-200/80 rounded-xl px-3.5 py-2 transition-all flex items-center gap-2.5"
+            title={`Assigned Roles: ${user?.roles.join(', ') || 'None'}`}
+          >
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[#006398] shadow-2xs shrink-0">
+              <span className="material-symbols-outlined text-[17px]">{userRoleDisplay.icon}</span>
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[9px] uppercase text-slate-400 font-bold tracking-wider">Role</span>
+              <span className="text-xs font-bold text-slate-800 truncate block">
+                {userRoleDisplay.title}
+              </span>
+            </div>
           </div>
-          <div className="bg-gradient-to-b from-emerald-50/90 to-emerald-100/50 border border-emerald-200/90 rounded-2xl px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_6px_rgba(5,150,105,0.06)] hover:-translate-y-0.5 transition-transform">
-            <span className="block text-[10px] uppercase text-emerald-700/80 font-bold">Role Match</span>
-            <span className="text-xs font-bold text-emerald-800 truncate block">{user?.roles.join(', ') || 'NONE'}</span>
+
+          {/* Card 2: Authorized Modules */}
+          <div className="bg-slate-50/80 hover:bg-slate-100/70 border border-slate-200/80 rounded-xl px-3.5 py-2 transition-all flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shadow-2xs shrink-0">
+              <span className="material-symbols-outlined text-[17px]">apps</span>
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[9px] uppercase text-slate-400 font-bold tracking-wider">Authorized</span>
+              <span className="text-xs font-bold text-slate-900 block">
+                <span className="text-emerald-700 font-extrabold">{authorizedModules.length}</span>
+                <span className="text-slate-400 font-normal"> / {MODULE_REGISTRY.length}</span>
+              </span>
+            </div>
           </div>
-          <div className="bg-gradient-to-b from-slate-50/90 to-slate-100/70 border border-slate-200/90 rounded-2xl px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_6px_rgba(15,23,42,0.04)] hover:-translate-y-0.5 transition-transform">
-            <span className="block text-[10px] uppercase text-slate-500 font-bold">Plant Facility</span>
-            <span className="text-xs font-bold text-slate-800">1000 Complex</span>
+
+          {/* Card 3: Plant Facility */}
+          <div className="bg-slate-50/80 hover:bg-slate-100/70 border border-slate-200/80 rounded-xl px-3.5 py-2 transition-all flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+              <span className="material-symbols-outlined text-[17px]">factory</span>
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[9px] uppercase text-slate-400 font-bold tracking-wider">Plant Facility</span>
+              <span className="text-xs font-bold text-slate-800 truncate block">
+                {user?.plant || '1002'} Dahej
+              </span>
+            </div>
           </div>
-          <div className="bg-gradient-to-b from-emerald-50/90 to-emerald-100/50 border border-emerald-200/90 rounded-2xl px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_6px_rgba(5,150,105,0.06)] hover:-translate-y-0.5 transition-transform">
-            <span className="block text-[10px] uppercase text-emerald-700/80 font-bold">Safety Link</span>
-            <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
-              NORMAL
-            </span>
+
+          {/* Card 4: Safety Link */}
+          <div className="bg-slate-50/80 hover:bg-slate-100/70 border border-slate-200/80 rounded-xl px-3.5 py-2 transition-all flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-2xs shrink-0">
+              <span className="material-symbols-outlined text-[17px]">verified_user</span>
+            </div>
+            <div className="min-w-0">
+              <span className="block text-[9px] uppercase text-slate-400 font-bold tracking-wider">Safety Link</span>
+              <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>NORMAL</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -412,7 +524,7 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
       {/* Footer Info Strip */}
       <div className="border-t border-slate-200 pt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-mono gap-2">
         <span>Gujarat Fluorochemicals Limited · NetWeaver BSP OData V4</span>
-        <span>SAP Client: 200 · Plant: 1000 · Procedure Rev {PROCEDURE.revision}</span>
+        <span>SAP Client: 200 · Plant: 1002 · Procedure Rev {PROCEDURE.revision}</span>
       </div>
     </div>
   );

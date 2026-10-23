@@ -24,10 +24,16 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [showGuidelines, setShowGuidelines] = useState<boolean>(false);
   const [showPendingQueue, setShowPendingQueue] = useState<boolean>(true);
+  const [pendingSortOrder, setPendingSortOrder] = useState<'LATEST' | 'OLDEST'>('LATEST');
   const [viewMode, setViewMode] = useState<'GROUPED' | 'FLAT'>('GROUPED');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [permitStatusFilter, setPermitStatusFilter] = useState<'ALL' | 'AWAITING' | 'DANGER' | 'WARNING' | 'SAFE'>('ALL');
   const [copiedPermit, setCopiedPermit] = useState<string | null>(null);
+
+  // Guarantee view changes open from the top
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [viewMode, showPendingQueue]);
 
   const handleCopyPermit = (permitNo: string) => {
     if (!permitNo) return;
@@ -398,7 +404,8 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
       const dtA = `${a.latestTest?.TestDate || ''} ${a.latestTest?.TestTime || ''}`;
       const dtB = `${b.latestTest?.TestDate || ''} ${b.latestTest?.TestTime || ''}`;
       if (dtA !== dtB) return dtB.localeCompare(dtA);
-      return a.permitKey.localeCompare(b.permitKey);
+      // For pending initial permits, show latest permit numbers first
+      return b.permitKey.localeCompare(a.permitKey, undefined, { numeric: true });
     });
   }, [filteredTests, pendingPermits, searchQuery]);
 
@@ -423,10 +430,33 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
     return groupedPermits.filter(g => g.status === permitStatusFilter);
   }, [groupedPermits, permitStatusFilter]);
 
-  // Quick lookup of permits awaiting initial gas testing
+  // Quick lookup of permits awaiting initial gas testing with configurable sort order (default: latest permit no. first)
   const pendingPermitsAwaitingTest = useMemo(() => {
-    return groupedPermits.filter(g => g.isPendingInitialTest && g.permitNo);
-  }, [groupedPermits]);
+    const list = groupedPermits.filter(g => g.isPendingInitialTest && g.permitNo);
+
+    return list.slice().sort((a, b) => {
+      // 1. Sort by creation date & time if available on permitInfo
+      const dtA = `${a.permitInfo?.Erdat || ''} ${a.permitInfo?.Erzet || ''}`.trim();
+      const dtB = `${b.permitInfo?.Erdat || ''} ${b.permitInfo?.Erzet || ''}`.trim();
+
+      let cmp = 0;
+      if (dtA && dtB && dtA !== dtB) {
+        cmp = dtB.localeCompare(dtA);
+      }
+
+      // 2. Natural alphanumeric descending on Permit_No (e.g. PTW0000055 > PTW0000013)
+      if (cmp === 0) {
+        cmp = (b.permitNo || '').localeCompare(a.permitNo || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      // 3. Fallback to permitKey
+      if (cmp === 0) {
+        cmp = (b.permitKey || '').localeCompare(a.permitKey || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return pendingSortOrder === 'LATEST' ? cmp : -cmp;
+    });
+  }, [groupedPermits, pendingSortOrder]);
 
   // Header Record Gas Test button handler
   const handleHeaderRecordClick = () => {
@@ -864,16 +894,33 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowPendingQueue(!showPendingQueue)}
-              className="text-xs font-semibold text-amber-900 hover:text-amber-950 flex items-center gap-1"
-            >
-              <span>{showPendingQueue ? 'Collapse Queue' : 'Expand Queue'}</span>
-              <span className={`material-symbols-outlined text-[16px] transition-transform ${showPendingQueue ? 'rotate-180' : ''}`}>
-                expand_more
-              </span>
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Sort Order Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setPendingSortOrder(prev => prev === 'LATEST' ? 'OLDEST' : 'LATEST')}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-white/95 hover:bg-white text-amber-900 border border-amber-300/80 shadow-2xs hover:border-amber-400 hover:shadow-xs transition active:scale-95"
+                title={`Sort permits: currently showing ${pendingSortOrder === 'LATEST' ? 'Latest Permit No. first' : 'Oldest Permit No. first'}. Click to toggle.`}
+              >
+                <span className="material-symbols-outlined text-[15px] text-amber-700">
+                  {pendingSortOrder === 'LATEST' ? 'arrow_downward' : 'arrow_upward'}
+                </span>
+                <span className="font-mono text-[11px] font-bold">
+                  {pendingSortOrder === 'LATEST' ? 'Latest PTW# First' : 'Oldest PTW# First'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPendingQueue(!showPendingQueue)}
+                className="text-xs font-semibold text-amber-900 hover:text-amber-950 flex items-center gap-1"
+              >
+                <span>{showPendingQueue ? 'Collapse Queue' : 'Expand Queue'}</span>
+                <span className={`material-symbols-outlined text-[16px] transition-transform ${showPendingQueue ? 'rotate-180' : ''}`}>
+                  expand_more
+                </span>
+              </button>
+            </div>
           </div>
 
           {showPendingQueue && (

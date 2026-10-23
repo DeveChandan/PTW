@@ -44,11 +44,15 @@ test('confined space entry maps CONF to CSE in outbound SAP payload and accepts 
 });
 
 test('primary permit type and multiple additional work categories are mapped to SAP child table _WorkType', () => {
-  // Single category (primary only, no additional categories): _WorkType is omitted
+  // Single category (primary only, no additional categories): primary permit type is passed in _WorkType
   const singlePlan = completePlan();
   const singleBody = preparePermitCreate(payload('HOT', singlePlan));
   assert.equal(singleBody.PermitType, 'HOT');
-  assert.equal(singleBody._WorkType, undefined);
+  assert.ok(Array.isArray(singleBody._WorkType));
+  assert.equal(singleBody._WorkType.length, 1);
+  assert.deepEqual(singleBody._WorkType, [
+    { SeqNo: '1', WorkType: 'HOT' }
+  ]);
 
   // Multiple categories selected in Section A: primary HOT, additional CONF (CSE) and EXCV
   const multiPlan = completePlan();
@@ -132,6 +136,7 @@ test('compliance checklist responses across categories are validated and seriali
       Remarks: ''
     }
   ]);
+  assert.ok(!bodyWithChk._Safety.some(r => r.ItemCode?.startsWith('Q')), 'Compliance checklist items must not be added to _Safety entity');
 
   // Validation: Missing QuestionnaireId rejected
   assert.throws(() => preparePermitCreate({
@@ -292,6 +297,34 @@ test('nature of work and tools/equipment are serialized into SAP child tables _N
   assert.equal(explicitBody._Equipment.length, 1);
   assert.equal(explicitBody._Equipment[0].ItemNo, '1');
   assert.equal(explicitBody._Equipment[0].OtherText, 'Inverter 400A');
+});
+
+test('other checkboxes in nature and tools capture user input into OtherText and _Safety', () => {
+  const plan = completePlan();
+  plan.nature = ['Welding / gas cutting', 'Other'];
+  plan.tools = ['Welding machine', 'Other'];
+  plan.fields.OTHER_NATURE = 'Refractory lining repair';
+  plan.fields.OTHER_TOOLS = 'Special diamond wire cutter';
+
+  const body = preparePermitCreate(payload('HOT', plan));
+
+  assert.ok(Array.isArray(body._NATW));
+  assert.equal(body._NATW.length, 2);
+  const otherNatw = body._NATW.find(n => n.NatwCode === 'OTHER');
+  assert.ok(otherNatw);
+  assert.equal(otherNatw.OtherText, 'Refractory lining repair');
+  assert.equal(otherNatw.NatwDesc, 'Other: Refractory lining repair');
+
+  assert.ok(Array.isArray(body._Equipment));
+  assert.equal(body._Equipment.length, 2);
+  const otherEquip = body._Equipment.find(e => e.EquipCode === 'OTHER');
+  assert.ok(otherEquip);
+  assert.equal(otherEquip.OtherText, 'Special diamond wire cutter');
+  assert.equal(otherEquip.EquipDesc, 'Other: Special diamond wire cutter');
+
+  // Verify _Safety row contains the specific user input
+  assert.ok(body._Safety.some(s => s.ItemCode === 'NATR' && s.Remarks === 'Other: Refractory lining repair'));
+  assert.ok(body._Safety.some(s => s.ItemCode === 'TOOL' && s.Remarks === 'Other: Special diamond wire cutter'));
 });
 
 test('legacy gas writes cannot silently persist a manufactured pass flag', async () => {

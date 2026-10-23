@@ -1,6 +1,7 @@
 import React from 'react';
 
 export interface SectionCardProps {
+  id?: string;
   sectionTag?: string; // e.g. "SECTION A", "STEP 1"
   title: string;
   subtitle?: string;
@@ -73,6 +74,7 @@ const THEME_STYLES = {
 };
 
 export const SectionCard: React.FC<SectionCardProps> = ({
+  id,
   sectionTag,
   title,
   subtitle,
@@ -90,7 +92,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   const overflowClass = overflow === 'visible' || className.includes('overflow-visible') ? 'overflow-visible' : 'overflow-hidden';
 
   return (
-    <section className={`rounded-2xl border ${t.cardBorder} ${t.cardShadow} ${t.accentBorder} ${overflowClass} transition-all duration-200 ${className}`}>
+    <section id={id} className={`rounded-2xl border ${t.cardBorder} ${t.cardShadow} ${t.accentBorder} ${overflowClass} transition-all duration-200 ${className}`}>
       {/* Section Header */}
       <div className={`p-4 sm:p-5 ${t.headerBg} flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${headerClassName}`}>
         <div className="flex items-start sm:items-center gap-3.5">

@@ -144,6 +144,34 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
     return false;
   };
 
+  // Extract Other Nature text if present
+  const otherNatureText = useMemo(() => {
+    if (Array.isArray(permit?._NATW)) {
+      const otherRow = permit._NATW.find((n: any) => n.NatwCode === 'OTHER' || (n.NatwDesc || '').toLowerCase().startsWith('other'));
+      if (otherRow?.OtherText?.trim()) return otherRow.OtherText.trim();
+      if (otherRow?.NatwDesc?.includes(':')) return otherRow.NatwDesc.split(':').slice(1).join(':').trim();
+    }
+    if (Array.isArray(permit?._Safety)) {
+      const otherRow = permit._Safety.find((s: any) => s.ItemCode === 'NATR' && (s.Remarks || '').toLowerCase().startsWith('other'));
+      if (otherRow?.Remarks?.includes(':')) return otherRow.Remarks.split(':').slice(1).join(':').trim();
+    }
+    return '';
+  }, [permit]);
+
+  // Extract Other Tool text if present
+  const otherToolText = useMemo(() => {
+    if (Array.isArray(permit?._Equipment)) {
+      const otherRow = permit._Equipment.find((e: any) => e.EquipCode === 'OTHER' || (e.EquipDesc || '').toLowerCase().startsWith('other'));
+      if (otherRow?.OtherText?.trim()) return otherRow.OtherText.trim();
+      if (otherRow?.EquipDesc?.includes(':')) return otherRow.EquipDesc.split(':').slice(1).join(':').trim();
+    }
+    if (Array.isArray(permit?._Safety)) {
+      const otherRow = permit._Safety.find((s: any) => s.ItemCode === 'TOOL' && (s.Remarks || '').toLowerCase().startsWith('other'));
+      if (otherRow?.Remarks?.includes(':')) return otherRow.Remarks.split(':').slice(1).join(':').trim();
+    }
+    return '';
+  }, [permit]);
+
   // Section E Hazard Lookup
   const hazardSet = useMemo(() => {
     const set = new Set<string>();
@@ -347,7 +375,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
               <CheckSquare checked={hasNature('radiation') || isCategory('RAD')} label="Radiation Sources" />
               <CheckSquare checked={hasNature('grinding') || hasNature('drilling')} label="Grinding/Drilling/Cutting" />
               <CheckSquare checked={hasNature('online sealing')} label="Online Sealing" />
-              <CheckSquare checked={hasNature('other')} label="Others" extraText="__________" />
+              <CheckSquare checked={hasNature('other')} label="Others" extraText={otherNatureText ? `(${otherNatureText})` : "__________"} />
             </div>
           </div>
 
@@ -378,7 +406,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
               <CheckSquare checked={hasTool('mechanical handy')} label="Mechanical Handy Tools" />
 
               <CheckSquare checked={hasTool('insulated')} label="Electrical Insulated Tools" />
-              <CheckSquare checked={hasTool('other')} label="Others" extraText="__________" />
+              <CheckSquare checked={hasTool('other')} label="Others" extraText={otherToolText ? `(${otherToolText})` : "__________"} />
             </div>
           </div>
 

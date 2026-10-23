@@ -8,7 +8,14 @@ export type ConfigType =
   | 'ISOLATION_TYPE'
   | 'ISOLATED_STATE'
   | 'ISOL_METHOD'
-  | 'DEISOLATED_STATE';
+  | 'DEISOLATED_STATE'
+  | 'PTW_ADMIN'
+  | 'PTW_APPROVAL_ROLE'
+  | 'PTW_AREA_OPP_ROLE'
+  | 'PTW_GASTESTER_ROLE'
+  | 'PTW_HOLDER_ROLE'
+  | 'PTW_ISSUER_ROLE'
+  | 'PTW_SAFETY_ROLE';
 
 export interface SapConfigRecord {
   Config_Type: ConfigType | string;
