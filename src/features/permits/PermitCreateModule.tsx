@@ -1171,6 +1171,95 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           targetTab: 'procedure'
         };
       }
+
+      const allActiveCategories = [permitType, ...(sitePlan.additionalTypes || [])];
+      const hasHotWork = allActiveCategories.includes('HOT');
+      const hasConfinedSpace = allActiveCategories.includes('CONF') || allActiveCategories.includes('CSE');
+      const hasRigging = allActiveCategories.includes('RIGG') || allActiveCategories.includes('RIG');
+
+      // 1. Hot Work: Fire Watch Name is mandatory
+      if (hasHotWork && !(sitePlan.fields.FWNM || sitePlan.fields.FWAT)?.trim()) {
+        return {
+          valid: false,
+          message: 'Fire watch person name (FireWatchName) is mandatory for Hot Work operations in Section D.',
+          fieldId: 'procedure-field-FWNM',
+          targetTab: 'procedure'
+        };
+      }
+
+      // 2. Confined Space: Standby Person Name & Rescue Plan are mandatory
+      if (hasConfinedSpace) {
+        if (!(sitePlan.fields.SBNM || sitePlan.fields.STBY)?.trim()) {
+          return {
+            valid: false,
+            message: 'Standby person name (StandByName) is mandatory for Confined Space Entry in Section D.',
+            fieldId: 'procedure-field-SBNM',
+            targetTab: 'procedure'
+          };
+        }
+        if (!sitePlan.fields.RESC?.trim()) {
+          return {
+            valid: false,
+            message: 'Rescue plan reference (RiggingPlanRescuePlan) is mandatory for Confined Space Entry in Section D.',
+            fieldId: 'procedure-field-RESC',
+            targetTab: 'procedure'
+          };
+        }
+      }
+
+      // 3. Rigging: Rigging Plan is mandatory
+      if (hasRigging && !sitePlan.fields.RIGP?.trim()) {
+        return {
+          valid: false,
+          message: 'Rigging plan and approval reference (RiggingPlanRescuePlan) is mandatory for Rigging operations in Section D.',
+          fieldId: 'procedure-field-RIGP',
+          targetTab: 'procedure'
+        };
+      }
+
+      // 4. Fire Watch Contact Phone (FWCT): Mandatory 10-digit phone for Hot Work
+      if (hasHotWork) {
+        const fwContact = (sitePlan.fields.FWCT || '').trim();
+        if (!fwContact || fwContact === '0') {
+          return {
+            valid: false,
+            message: 'Fire watch contact phone (FireWatchContact) is mandatory for Hot Work operations in Section D. Enter a valid 10-digit mobile number.',
+            fieldId: 'procedure-field-FWCT',
+            targetTab: 'procedure'
+          };
+        }
+        const fwVal = validatePhoneNumber(fwContact, true);
+        if (!fwVal.isValid) {
+          return {
+            valid: false,
+            message: `Fire Watch Contact Phone: ${fwVal.error}`,
+            fieldId: 'procedure-field-FWCT',
+            targetTab: 'procedure'
+          };
+        }
+      }
+
+      // 5. Standby Person Contact Phone (SBCT): Mandatory 10-digit phone for Confined Space Entry
+      if (hasConfinedSpace) {
+        const sbContact = (sitePlan.fields.SBCT || '').trim();
+        if (!sbContact || sbContact === '0') {
+          return {
+            valid: false,
+            message: 'Standby person contact phone (StandByContact) is mandatory for Confined Space Entry in Section D. Enter a valid 10-digit mobile number.',
+            fieldId: 'procedure-field-SBCT',
+            targetTab: 'procedure'
+          };
+        }
+        const sbVal = validatePhoneNumber(sbContact, true);
+        if (!sbVal.isValid) {
+          return {
+            valid: false,
+            message: `Standby Person Contact Phone: ${sbVal.error}`,
+            fieldId: 'procedure-field-SBCT',
+            targetTab: 'procedure'
+          };
+        }
+      }
     }
     if (tab === 'workers') {
       if (workers.length === 0) {
@@ -1554,6 +1643,18 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
       LastChangedAt: null,
 
+      FireWatchName: (sitePlan.fields.FWNM || sitePlan.fields.FWAT || '').trim(),
+      FireWatchContact: (sitePlan.fields.FWCT || '').trim() || '0',
+      StandByName: (sitePlan.fields.SBNM || sitePlan.fields.STBY || '').trim(),
+      StandByContact: (sitePlan.fields.SBCT || '').trim() || '0',
+      ChemicalContent: (sitePlan.fields.CHEM || '').trim(),
+      RiggingPlanRescuePlan: (() => {
+        const rig = (sitePlan.fields.RIGP || '').trim();
+        const resc = (sitePlan.fields.RESC || '').trim();
+        if (rig && resc) return `${rig} / ${resc}`;
+        return rig || resc || '';
+      })(),
+
       _Worker: workers,
       _PPE: ppeItems,
       _Safety: [...sitePlanRows(permitType, sitePlan), ...safetyChecklist.filter(s => !s.ItemCode?.startsWith('Q'))],
@@ -1677,6 +1778,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       else if (msg.includes('ppe') || msg.includes('protective')) jumpToField('field-ppe-code', 'ppe');
       else if (msg.includes('hazard')) jumpToField('field-hazard-desc', 'hazards');
       else if (msg.includes('gas')) jumpToField('field-gas-test-freq', 'gas-isolation');
+      else if (msg.includes('FWCT') || msg.includes('Fire watch contact')) jumpToField('procedure-field-FWCT', 'procedure');
+      else if (msg.includes('SBCT') || msg.includes('Standby person contact') || msg.includes('Standby Contact')) jumpToField('procedure-field-SBCT', 'procedure');
+      else if (msg.includes('Fire watch') || msg.includes('FireWatchName')) jumpToField('procedure-field-FWNM', 'procedure');
+      else if (msg.includes('Standby') || msg.includes('StandByName')) jumpToField('procedure-field-SBNM', 'procedure');
+      else if (msg.includes('Rescue plan') || msg.includes('rescue')) jumpToField('procedure-field-RESC', 'procedure');
+      else if (msg.includes('Rigging plan') || msg.includes('rigging')) jumpToField('procedure-field-RIGP', 'procedure');
       return;
     }
     submissionLock.current = true;
@@ -1752,7 +1859,15 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
             JobDesc: response.JobDesc || fullPayload.JobDesc || '',
             Werks: response.Werks || fullPayload.Werks || '',
             Erdat: response.Erdat || new Date().toISOString().slice(0, 10),
-            Erzet: response.Erzet || '00:00:00'
+            Erzet: response.Erzet || '00:00:00',
+            _WorkType: (response._WorkType && response._WorkType.length > 0) ? response._WorkType : fullPayload._WorkType,
+            additionalTypes: sitePlan.additionalTypes || [],
+            FireWatchName: response.FireWatchName || fullPayload.FireWatchName || '',
+            FireWatchContact: response.FireWatchContact || fullPayload.FireWatchContact || '0',
+            StandByName: response.StandByName || fullPayload.StandByName || '',
+            StandByContact: response.StandByContact || fullPayload.StandByContact || '0',
+            ChemicalContent: response.ChemicalContent || fullPayload.ChemicalContent || '',
+            RiggingPlanRescuePlan: response.RiggingPlanRescuePlan || fullPayload.RiggingPlanRescuePlan || ''
           };
           const updated = [newEntry, ...stored.filter((p: any) => p?.Permit_No !== response.Permit_No)].slice(0, 50);
           window.localStorage.setItem('ptw_recent_created_permits', JSON.stringify(updated));
@@ -3903,6 +4018,40 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100"><dt className="text-slate-500 font-medium">JSA Reference</dt><dd className="mt-1 font-mono font-bold text-slate-900">{sitePlan.fields.JSA1 || 'Required'}</dd></div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100"><dt className="text-slate-500 font-medium">Signatories (Proposed)</dt><dd className="mt-1 font-semibold text-slate-900">{sitePlan.fields.ISSR || '—'} (Issuer) / {sitePlan.fields.ACCP || '—'} (Acceptor) / {sitePlan.fields.OPER || '—'} (Operator)</dd></div>
+                    {(sitePlan.fields.FWNM || sitePlan.fields.FWAT) && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <dt className="text-slate-500 font-medium">Fire Watch (FireWatchName)</dt>
+                        <dd className="mt-1 font-semibold text-slate-900">
+                          {sitePlan.fields.FWNM || sitePlan.fields.FWAT}
+                          {sitePlan.fields.FWCT ? ` (Ph: ${sitePlan.fields.FWCT})` : ' (Ph: 0)'}
+                        </dd>
+                      </div>
+                    )}
+                    {(sitePlan.fields.SBNM || sitePlan.fields.STBY) && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <dt className="text-slate-500 font-medium">Standby Person (StandByName)</dt>
+                        <dd className="mt-1 font-semibold text-slate-900">
+                          {sitePlan.fields.SBNM || sitePlan.fields.STBY}
+                          {sitePlan.fields.SBCT ? ` (Ph: ${sitePlan.fields.SBCT})` : ' (Ph: 0)'}
+                        </dd>
+                      </div>
+                    )}
+                    {(sitePlan.fields.RIGP || sitePlan.fields.RESC) && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <dt className="text-slate-500 font-medium">Rigging / Rescue Plan (RiggingPlanRescuePlan)</dt>
+                        <dd className="mt-1 font-mono font-bold text-slate-900">
+                          {sitePlan.fields.RIGP && sitePlan.fields.RESC
+                            ? `${sitePlan.fields.RIGP} / ${sitePlan.fields.RESC}`
+                            : sitePlan.fields.RIGP || sitePlan.fields.RESC}
+                        </dd>
+                      </div>
+                    )}
+                    {sitePlan.fields.CHEM && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <dt className="text-slate-500 font-medium">Chemical Content (ChemicalContent)</dt>
+                        <dd className="mt-1 font-semibold text-slate-900">{sitePlan.fields.CHEM}</dd>
+                      </div>
+                    )}
                   </dl>
                   {requestPreview.error && <p role="alert" className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">{requestPreview.error}</p>}
                 </div>

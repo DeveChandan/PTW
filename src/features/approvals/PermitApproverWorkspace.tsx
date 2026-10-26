@@ -546,7 +546,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
         return p.Status === 'CRTD';
       }
       if (filterStatus === 'APPROVED') {
-        return p.Status === 'ISSU' || p.Status === 'ACTV' || p.Status === 'APPR';
+        return p.Status === 'ISSU' || p.Status === 'ACTV' || p.Status === 'APPR' || p.Status === 'ACCP';
       }
       if (filterStatus === 'REJECTED') {
         return p.Status === 'REJT' || p.Status === 'CANC';
@@ -561,7 +561,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
   }, [permits]);
 
   const approvedCount = useMemo(() => {
-    return permits.filter(p => p.Status === 'ISSU' || p.Status === 'ACTV' || p.Status === 'APPR').length;
+    return permits.filter(p => p.Status === 'ISSU' || p.Status === 'ACTV' || p.Status === 'APPR' || p.Status === 'ACCP').length;
   }, [permits]);
 
   const rejectedCount = useMemo(() => {
@@ -908,7 +908,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                 const catDef = PERMIT_CATEGORIES.find(c => c.code === item.PermitType || c.sapCode === item.PermitType);
                 const catLabel = catDef?.label || item.PermitType;
                 const badgeColorClass = getCategoryBadgeClass(item.PermitType);
-                const isApprovedState = item.Status === 'APPR' || item.Status === 'ISSU' || item.Status === 'ACTV';
+                const isApprovedState = item.Status === 'APPR' || item.Status === 'ACCP' || item.Status === 'ISSU' || item.Status === 'ACTV';
 
                 return (
                   <div
@@ -1059,7 +1059,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                         {selectedPermit.Permit_No}
                       </span>
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase ${
-                        selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV' || selectedPermit.Status === 'APPR'
+                        selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV' || selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ACCP'
                           ? 'bg-emerald-100 text-emerald-800'
                           : isPermitRejected
                           ? 'bg-rose-100 text-rose-800'
@@ -1611,7 +1611,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
                 {(() => {
                   const activeApprovals = getActiveCycleApprovals(selectedPermit._Approval, selectedPermit.Status);
-                  const isFullyApproved = selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV';
+                  const isFullyApproved = selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ACCP' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV';
                   const hasAppr1 = activeApprovals.some(a => (a.RoleId === 'PTW_APPR1' || (a.Stage === 'APPR' && a.SeqNo === '1')) && (a.Action === 'AP' || a.Action === 'APPROVED')) ||
                     activeApprovals.filter(a => a.Action === 'AP' || a.Action === 'APPROVED').some(a => a.RoleId === 'PTW_APPR1');
                   const hasAppr2 = activeApprovals.some(a => (a.RoleId === 'PTW_APPR2' || (a.Stage === 'APPR' && a.SeqNo === '2')) && (a.Action === 'AP' || a.Action === 'APPROVED'));
@@ -1775,7 +1775,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                       Status is permanently recorded in SAP as <span className="font-mono font-bold text-rose-700">REJT</span>. To continue with this activity, a new permit request must be submitted.
                     </div>
                   </div>
-                ) : nextStepInfo.isFullyApproved || selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV' ? (
+                ) : nextStepInfo.isFullyApproved || selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ACCP' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV' ? (
                   <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 text-center space-y-2">
                     <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs">
                       <span className="material-symbols-outlined text-[28px]">verified</span>
@@ -1792,6 +1792,41 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                         ? 'Required approvers have signed this permit in SAP according to the shift matrix. The permit status is APPROVED.'
                         : 'All required approvals have been completed in SAP. The permit status is APPROVED and fully authorized for site execution.'}
                     </p>
+
+                    {/* Quick Acceptor Handover Action */}
+                    {selectedPermit.Status === 'APPR' && (
+                      <div className="mt-4 pt-4 border-t border-emerald-200/60 flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          disabled={submitting}
+                          onClick={async () => {
+                            setSubmitting(true);
+                            try {
+                              await permitApproverApi.executeAcceptPermitAction({
+                                permitNo: selectedPermit.Permit_No,
+                                comments: 'I have read the precautions and safety measures mentioned herein and I agree to abide by the same. The safeguards have been implemented. Tool box talk given to persons working/impacted.'
+                              });
+                              toast.success(
+                                `Permit ${selectedPermit.Permit_No} accepted by Acceptor via SAP .acceptPermit action!`,
+                                { title: 'Permit Accepted' }
+                              );
+                              await loadPermitDetail(selectedPermit.Permit_No);
+                              void loadPermits();
+                            } catch (e) {
+                              toast.error(e instanceof Error ? e.message : 'Failed to accept permit', {
+                                title: 'Acceptance Error'
+                              });
+                            } finally {
+                              setSubmitting(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">task_alt</span>
+                          <span>Execute Permit Acceptor (.acceptPermit)</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>

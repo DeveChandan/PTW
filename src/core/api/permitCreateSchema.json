@@ -462,6 +462,48 @@
       "scale": null,
       "nullable": true
     },
+    "FireWatchName": {
+      "type": "Edm.String",
+      "maxLength": "60",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "FireWatchContact": {
+      "type": "Edm.String",
+      "maxLength": "20",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "StandByName": {
+      "type": "Edm.String",
+      "maxLength": "60",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "StandByContact": {
+      "type": "Edm.String",
+      "maxLength": "20",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "ChemicalContent": {
+      "type": "Edm.String",
+      "maxLength": "100",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "RiggingPlanRescuePlan": {
+      "type": "Edm.String",
+      "maxLength": "100",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
     "SAP__Messages": {
       "type": "Collection(com.sap.gateway.srvd_a2x.zptw_services.v0001.SAP__Message)",
       "maxLength": null,

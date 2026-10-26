@@ -56,6 +56,15 @@ export default defineConfig(({ mode }) => {
                 );
               }
             });
+            proxy.on('error', (err, _req, res) => {
+              if (res && 'writeHead' in res && !(res as any).headersSent) {
+                (res as any).writeHead(503, { 'Content-Type': 'application/json' });
+                (res as any).end(JSON.stringify({
+                  error: 'SAP_GATEWAY_OFFLINE',
+                  message: `Cannot connect to SAP Gateway (${sapTarget}): ${err.message}. Please verify VPN connection.`
+                }));
+              }
+            });
           }
         },
         // Proxy SAP User Info and Fiori Launchpad Services
@@ -75,6 +84,15 @@ export default defineConfig(({ mode }) => {
                 proxyRes.headers['set-cookie'] = sc.map((c) =>
                   c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=\w+/gi, '; SameSite=Lax')
                 );
+              }
+            });
+            proxy.on('error', (err, _req, res) => {
+              if (res && 'writeHead' in res && !(res as any).headersSent) {
+                (res as any).writeHead(503, { 'Content-Type': 'application/json' });
+                (res as any).end(JSON.stringify({
+                  error: 'SAP_GATEWAY_OFFLINE',
+                  message: `Cannot connect to SAP Gateway (${sapTarget}): ${err.message}. Please verify VPN connection.`
+                }));
               }
             });
           }
@@ -103,6 +121,15 @@ export default defineConfig(({ mode }) => {
                 proxyRes.headers['set-cookie'] = sc.map((c) =>
                   c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=\w+/gi, '; SameSite=Lax')
                 );
+              }
+            });
+            proxy.on('error', (err, _req, res) => {
+              if (res && 'writeHead' in res && !(res as any).headersSent) {
+                (res as any).writeHead(503, { 'Content-Type': 'application/json' });
+                (res as any).end(JSON.stringify({
+                  error: 'SAP_GATEWAY_OFFLINE',
+                  message: `Cannot connect to SAP Gateway (${sapTarget}): ${err.message}. Please verify VPN connection.`
+                }));
               }
             });
           }

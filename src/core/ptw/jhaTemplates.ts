@@ -647,8 +647,346 @@ export const JHA_TEMPLATES: JhaTemplate[] = [
         residualRisk: { score: 3, level: 'Negligible', likelihood: 'Rare', severity: 'Moderate' }
       }
     ]
+  },
+
+  // 7. Excavation and Trenching Work
+  {
+    id: 'EXCAVATION',
+    title: 'Job Hazard Analysis (JHA) for Excavation & Trenching Work',
+    subtitle: 'JSA Template: Underground excavation, manual & mechanical trenching',
+    categoryCode: 'EXCV',
+    matchingCategories: ['EXCV'],
+    matchingNatures: ['Excavation', 'Civil work', 'Road closure'],
+    generalGuidelines: GENERAL_SAFETY_GUIDELINES,
+    rows: [
+      {
+        activity: 'Pre-excavation scanning & utility clearance',
+        hazard: 'Underground live power cables, gas pipes, instrument cables',
+        consequence: 'Fatal electrocution, fire/explosion, plant communication disruption',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'Obtain underground service clearance certificate and layout drawings from CES Electrical & Instrumentation.',
+          'Cable detector and metal locator scan must be performed prior to any digging activity.',
+          'Manual trial pits to a depth of 1 meter to be excavated before using mechanical excavators (JCB / Poclain).',
+          'Barricade perimeter with caution tape and blinking flashers to prevent unauthorized vehicle access.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      },
+      {
+        activity: 'Trench excavation and soil stability',
+        hazard: 'Trench wall collapse, soil sliding, cave-in',
+        consequence: 'Worker burial, asphyxiation, fatal crush injury',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'Excavations deeper than 1.2 meters must be provided with proper shoring, shielding, or stepped benching (slope angle ≤ 45°).',
+          'Excavated earth / spoil heaps must be deposited at least 1 meter away from the edge of the excavation.',
+          'Daily pre-work inspection of trench walls by designated safety supervisor, especially after rain.',
+          'Heavy vehicular movement prohibited within 3 meters of trench edges.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      },
+      {
+        activity: 'Access, egress and personnel fall protection',
+        hazard: 'Tripping, slipping, fall of personnel or tools into open pit',
+        consequence: 'Severe head trauma, multiple fractures',
+        initialRisk: { score: 12, level: 'Medium', likelihood: 'Possible', severity: 'Serious' },
+        mitigationMeasures: [
+          'Rigid hard barricading (1.1m height with toe board) must be erected around the entire excavated pit.',
+          'Secured access ladders must be provided every 7.5 meters along the trench, extending at least 1 meter above ground level.',
+          'Adequate illumination (24V flameproof hand lamps for dark trenches) to be provided.',
+          'Mandatory PPE: safety helmet with chin strap, safety shoes, high-visibility vest.'
+        ],
+        residualRisk: { score: 3, level: 'Negligible', likelihood: 'Rare', severity: 'Moderate' }
+      },
+      {
+        activity: 'Hazardous atmosphere and water accumulation',
+        hazard: 'Toxic/asphyxiant gas ingress, dewatering pump failure',
+        consequence: 'Loss of consciousness, drowning',
+        initialRisk: { score: 12, level: 'Medium', likelihood: 'Possible', severity: 'Serious' },
+        mitigationMeasures: [
+          'Atmosphere testing for Oxygen, H2S, and Flammable gases required before entering trenches deeper than 1.5 meters.',
+          'Submersible dewatering pump with tested ELCB must be deployed if ground water accumulates.',
+          'Full body rescue harness with lifeline and retrieval tripod kept on standby.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      }
+    ]
+  },
+
+  // 8. Heavy Rigging and Crane Lifting Operations
+  {
+    id: 'RIGGING_LIFTING',
+    title: 'Job Hazard Analysis (JHA) for Heavy Rigging & Crane Lifting Operations',
+    subtitle: 'JSA Template: Heavy mechanical lifting with mobile crane, winch & farana',
+    categoryCode: 'RIGG',
+    matchingCategories: ['RIGG', 'RIG'],
+    matchingNatures: ['Material handling', 'Civil work'],
+    generalGuidelines: GENERAL_SAFETY_GUIDELINES,
+    rows: [
+      {
+        activity: 'Crane positioning & ground setup',
+        hazard: 'Ground subsidence, soft soil, crane tilting / toppling',
+        consequence: 'Catastrophic crane collapse, equipment damage, fatality',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'Soil bearing capacity to be verified; ground must be compacted, level and firm.',
+          'Heavy duty steel/wooden spreader mats must be placed under all outrigger floats.',
+          'All outriggers must be 100% fully extended and locked before starting lift.',
+          '360-degree tail swing radius of the crane counterweight must be barricaded.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      },
+      {
+        activity: 'Rigging gear inspection and hitching',
+        hazard: 'Sling snap, shackle failure, improper load balance',
+        consequence: 'Dropped load, fatal crush injury',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'All lifting tackles, web slings, D-shackles, and wire ropes must have valid Form-11 third-party test certificates and current color code.',
+          'Safe Working Load (SWL) must be clearly stamped and never exceeded (lift load ≤ 75% rated capacity for critical lifts).',
+          'Softeners / corner pads must be placed at sharp load edges to prevent sling cutting.',
+          'Certified rigger must inspect slings before every lift; damaged slings discarded immediately.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      },
+      {
+        activity: 'Load lifting, maneuvering and placement',
+        hazard: 'Load swing, collision with structures, personnel in drop zone',
+        consequence: 'Impact injury, fatal crush, structural collapse',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'Cordon off lifting zone; strictly NO personnel permitted under suspended load at any time.',
+          'Use non-conductive polypropylene tag lines of adequate length to guide and control load rotation.',
+          'Designated certified signalman wearing fluorescent vest must give standard hand signals to crane operator.',
+          'Monitor wind speed using anemometer; stop lifting immediately if wind speed exceeds 25 km/h.',
+          'Maintain safe distance of at least 5 meters from live overhead electrical power cables.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      }
+    ]
+  },
+
+  // 9. Electrical Isolation and Maintenance Work
+  {
+    id: 'ELECTRICAL',
+    title: 'Job Hazard Analysis (JHA) for Electrical Isolation & Maintenance',
+    subtitle: 'JSA Template: Electrical maintenance, testing, breaker racking & LOTO',
+    categoryCode: 'ELEC',
+    matchingCategories: ['ELEC'],
+    matchingNatures: ['Electrical systems', 'Instrumentation'],
+    generalGuidelines: GENERAL_SAFETY_GUIDELINES,
+    rows: [
+      {
+        activity: 'Electrical isolation and Lockout-Tagout (LOTO)',
+        hazard: 'Inadvertent energization, back-feed, arc flash',
+        consequence: 'Fatal electrical shock, severe arc flash thermal burns',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'Positive electrical isolation at MCC / Breaker switchgear by authorized CES Electrical Officer.',
+          'Padlock applied to breaker handle with individual danger tag stating permit number and officer details.',
+          'Zero energy verification: Test breaker terminal using calibrated voltage tester, test tester on known source before and after.',
+          'Discharge residual capacitive charge and apply portable safety grounding leads to line.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      },
+      {
+        activity: 'Maintenance on switchboards, transformers and motors',
+        hazard: 'Electric shock, short circuit sparks, hand tool slippage',
+        consequence: 'Electrical burns, tissue damage, fire',
+        initialRisk: { score: 12, level: 'Medium', likelihood: 'Possible', severity: 'Serious' },
+        mitigationMeasures: [
+          'Use only 1000V certified insulated hand tools (VDE tested).',
+          'Wear Class 0 / Class 2 electrical insulating rubber gloves with leather over-gloves.',
+          'Wear 40 cal/cm² Arc Flash face shield and flame retardant arc-rated clothing.',
+          'Maintain clear working space around panels; insulating rubber mats placed in front of switchboards.'
+        ],
+        residualRisk: { score: 3, level: 'Negligible', likelihood: 'Rare', severity: 'Moderate' }
+      },
+      {
+        activity: 'Testing, de-isolation and re-energization',
+        hazard: 'Flashover upon energization, loose terminal arcing',
+        consequence: 'Arc blast explosion, fire',
+        initialRisk: { score: 12, level: 'Medium', likelihood: 'Possible', severity: 'Serious' },
+        mitigationMeasures: [
+          'Conduct Insulation Resistance (Megger) test before energizing.',
+          'Ensure all tools, temporary earths, and test leads are removed from cubicles.',
+          'Panel doors must be securely bolted closed before racking in breaker.',
+          'Personnel to stand clear of panel arc-relief vents during initial charging.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      }
+    ]
+  },
+
+  // 10. Industrial Radiography (NDT)
+  {
+    id: 'RADIOGRAPHY',
+    title: 'Job Hazard Analysis (JHA) for Industrial Radiography (NDT)',
+    subtitle: 'JSA Template: Non-destructive gamma/X-ray testing with radioactive sources',
+    categoryCode: 'RAD',
+    matchingCategories: ['RAD'],
+    matchingNatures: ['Radiation sources', 'Opening line / equipment'],
+    generalGuidelines: GENERAL_SAFETY_GUIDELINES,
+    rows: [
+      {
+        activity: 'Radiation cordon setup and pre-work survey',
+        hazard: 'Stray ionizing radiation, inadvertent public entry',
+        consequence: 'Radiation exposure, radiation sickness, genetic damage',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'BARC-approved Radiological Safety Officer (RSO) and certified RT Level-II technician must oversee operation.',
+          'Calculate safe distance (radiation dose ≤ 2 mR/hr at boundary); establish cordoned perimeter.',
+          'Install yellow/red radiation warning barricade tape with Trefoil symbols and danger signboards in local languages.',
+          'Audible horn / flashing beacon activated during source exposure.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      },
+      {
+        activity: 'Source camera transport and guide tube connection',
+        hazard: 'Source detachment, camera damage, shutter jamming',
+        consequence: 'Uncontrolled radiation emission, severe localized burns',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'Radiation camera (Iridium-192 / Cobalt-60) must have valid AERB transport license and lead shielding container.',
+          'Calibrated radiation survey meter and audible pocket dosimeters worn by all radiographers.',
+          'Secure camera with mechanical clamp to structure; avoid excessive bending of drive cables.',
+          'Check source pigtail lock mechanism before connecting guide tube.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      },
+      {
+        activity: 'Exposure execution and emergency retrieval',
+        hazard: 'Source stuck in guide tube, overexposure during exposure',
+        consequence: 'Severe radiation dose, medical emergency',
+        initialRisk: { score: 16, level: 'High', likelihood: 'Likely', severity: 'Serious' },
+        mitigationMeasures: [
+          'Emergency source retrieval kit (lead pot, long tongs 1.5m, lead sheet) must be kept on site.',
+          'Maximum exposure time strictly calculated and observed; source cranked back into camera immediately upon exposure completion.',
+          'Physical survey of guide tube using survey meter to confirm source has safely returned to shielded position.',
+          'TLD badge readings logged daily in AERB register.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      }
+    ]
+  },
+
+  // 11. General Cold Mechanical and Civil Maintenance Work
+  {
+    id: 'GENERAL_COLD',
+    title: 'Job Hazard Analysis (JHA) for General Cold Maintenance Work',
+    subtitle: 'JSA Template: Routine piping, structural, valve & civil maintenance',
+    categoryCode: 'COLD',
+    matchingCategories: ['COLD', 'OTHER'],
+    matchingNatures: ['Civil work', 'Insulation', 'Painting', 'Opening line / equipment'],
+    generalGuidelines: GENERAL_SAFETY_GUIDELINES,
+    rows: [
+      {
+        activity: 'Area preparation, housekeeping & manual material handling',
+        hazard: 'Sharp edges, heavy loads, slip / trip hazards',
+        consequence: 'Musculoskeletal strain, cuts, puncture wounds',
+        initialRisk: { score: 9, level: 'Medium', likelihood: 'Possible', severity: 'Moderate' },
+        mitigationMeasures: [
+          'Clear work area of debris, scrap metal, oil spills and obstructions before starting work.',
+          'Keep manual lifting limited to max 20 kg per person; use team lifting or mechanical trolleys for heavier items.',
+          'Mandatory PPE: safety helmet, safety shoes with steel toe, cut-resistant level-5 hand gloves.'
+        ],
+        residualRisk: { score: 3, level: 'Negligible', likelihood: 'Rare', severity: 'Minor' }
+      },
+      {
+        activity: 'Hand and pneumatic / hydraulic tool operation',
+        hazard: 'Tool slippage, flying chips, vibration',
+        consequence: 'Hand / finger crush, eye injury',
+        initialRisk: { score: 9, level: 'Medium', likelihood: 'Possible', severity: 'Moderate' },
+        mitigationMeasures: [
+          'Inspect all hand tools for mushroom heads, cracked handles, or worn jaws; reject damaged tools.',
+          'Wear impact safety goggles and face shield when chiseling, chipping, or hammering.',
+          'Secure pneumatic hose connections with safety whip-checks and safety pins.'
+        ],
+        residualRisk: { score: 3, level: 'Negligible', likelihood: 'Rare', severity: 'Minor' }
+      },
+      {
+        activity: 'Piping & equipment cold unbolting and valve maintenance',
+        hazard: 'Residual trapped pressure or chemical droplets',
+        consequence: 'Skin irritation, chemical burns, eye splash',
+        initialRisk: { score: 12, level: 'Medium', likelihood: 'Possible', severity: 'Serious' },
+        mitigationMeasures: [
+          'Verify line isolation and depressurization before cracking any flange bolts.',
+          'Always loosen bottom/far bolts first away from operator with chemical face shield and PVC apron.',
+          'Place drip tray below flange to catch any residual liquid.'
+        ],
+        residualRisk: { score: 4, level: 'Low', likelihood: 'Rare', severity: 'Serious' }
+      }
+    ]
   }
 ];
+
+export interface DetectedJha {
+  template: JhaTemplate;
+  isPrimary: boolean;
+  workTypeCode: string;
+  sourceLabel: string;
+  categoryLabel: string;
+}
+
+/**
+ * Normalizes work type codes across SAP OData and client formats
+ */
+export function normalizeCategoryCode(code: string): string {
+  const c = (code || '').toUpperCase().trim();
+  if (c === 'W@H' || c === 'HEIGHT' || c === 'HGHT') return 'HGHT';
+  if (c === 'CSE' || c === 'CONF' || c === 'CONFINED') return 'CONF';
+  if (c === 'LBRK' || c === 'LINE' || c === 'LINE_BREAK') return 'LINE';
+  if (c === 'RIG' || c === 'RIGG' || c === 'RIGGING') return 'RIGG';
+  if (c === 'HYD_PNEU' || c === 'HYPN' || c === 'HYDRO') return 'HYPN';
+  if (c === 'ELEC' || c === 'ELECTRICAL') return 'ELEC';
+  if (c === 'EXCV' || c === 'EXCAVATION') return 'EXCV';
+  if (c === 'RAD' || c === 'RADIOGRAPHY') return 'RAD';
+  if (c === 'HOT' || c === 'HOT_WORK') return 'HOT';
+  if (c === 'COLD' || c === 'COLD_WORK') return 'COLD';
+  if (c === 'OTHER') return 'OTHER';
+  return c;
+}
+
+/**
+ * Returns human-readable label for a given work category code
+ */
+export function getCategoryLabel(code: string): string {
+  const norm = normalizeCategoryCode(code);
+  switch (norm) {
+    case 'HOT': return 'Hot Work';
+    case 'COLD': return 'Cold Work';
+    case 'CONF': return 'Confined Space Entry';
+    case 'HGHT': return 'Work at Height';
+    case 'LINE': return 'Line Breaking';
+    case 'EXCV': return 'Excavation';
+    case 'RIGG': return 'Rigging & Lifting';
+    case 'RAD': return 'Radiography';
+    case 'HYPN': return 'Hydraulic / Pneumatic / Hydro-Jetting';
+    case 'ELEC': return 'Electrical Work';
+    case 'OTHER': return 'Other Work';
+    default: return code;
+  }
+}
+
+/**
+ * Returns template ID for a specific canonical work category code
+ */
+export function getTemplateIdForCode(code: string, isHeightContext = false): string {
+  const norm = normalizeCategoryCode(code);
+  switch (norm) {
+    case 'HOT': return isHeightContext ? 'HOT_HEIGHT' : 'HOT_GROUND';
+    case 'CONF': return 'CSE_COLD';
+    case 'HGHT': return 'WORK_HEIGHT';
+    case 'LINE': return 'LINE_BREAK';
+    case 'HYPN': return 'HYDRO_JET';
+    case 'EXCV': return 'EXCAVATION';
+    case 'RIGG': return 'RIGGING_LIFTING';
+    case 'ELEC': return 'ELECTRICAL';
+    case 'RAD': return 'RADIOGRAPHY';
+    case 'COLD': return 'GENERAL_COLD';
+    default: return 'GENERAL_COLD';
+  }
+}
 
 /**
  * Intelligent helper to detect the best matching JHA template for a given permit
@@ -656,7 +994,7 @@ export const JHA_TEMPLATES: JhaTemplate[] = [
 export function detectBestJhaTemplate(permit: any): JhaTemplate {
   if (!permit) return JHA_TEMPLATES[0];
 
-  const permitType = (permit.PermitType || '').toUpperCase();
+  const permitType = normalizeCategoryCode(permit.PermitType || permit.actualType || '');
   const jobDesc = (permit.JobDesc || '').toLowerCase();
 
   // 1. Check for Hydro-jetting
@@ -670,7 +1008,7 @@ export function detectBestJhaTemplate(permit: any): JhaTemplate {
   }
 
   // 2. Check for Confined Space Entry
-  if (permitType === 'CONF' || permitType === 'CSE' || jobDesc.includes('confined') || jobDesc.includes('vessel entry')) {
+  if (permitType === 'CONF' || jobDesc.includes('confined') || jobDesc.includes('vessel entry')) {
     const found = JHA_TEMPLATES.find(t => t.id === 'CSE_COLD');
     if (found) return found;
   }
@@ -678,7 +1016,6 @@ export function detectBestJhaTemplate(permit: any): JhaTemplate {
   // 3. Check for Line Break / Blinding
   if (
     permitType === 'LINE' ||
-    permitType === 'LBRK' ||
     jobDesc.includes('line break') ||
     jobDesc.includes('blinding') ||
     jobDesc.includes('de-blinding') ||
@@ -695,7 +1032,7 @@ export function detectBestJhaTemplate(permit: any): JhaTemplate {
       jobDesc.includes('scaffold') ||
       jobDesc.includes('column') ||
       jobDesc.includes('structure') ||
-      (Array.isArray(permit._WorkType) && permit._WorkType.some((w: any) => w.WorkType === 'HGHT' || w.WorkType === 'W@H'));
+      (Array.isArray(permit._WorkType) && permit._WorkType.some((w: any) => normalizeCategoryCode(w.WorkType || '') === 'HGHT'));
     if (isHeight) {
       const found = JHA_TEMPLATES.find(t => t.id === 'HOT_HEIGHT');
       if (found) return found;
@@ -707,7 +1044,6 @@ export function detectBestJhaTemplate(permit: any): JhaTemplate {
   // 5. Check for Work at Height
   if (
     permitType === 'HGHT' ||
-    permitType === 'W@H' ||
     jobDesc.includes('height') ||
     jobDesc.includes('scaffolding') ||
     jobDesc.includes('ladder')
@@ -716,10 +1052,181 @@ export function detectBestJhaTemplate(permit: any): JhaTemplate {
     if (found) return found;
   }
 
-  // Default fallback based on permit type or ground hot work
+  // 6. Check for Excavation
+  if (permitType === 'EXCV' || jobDesc.includes('excavation') || jobDesc.includes('trench')) {
+    const found = JHA_TEMPLATES.find(t => t.id === 'EXCAVATION');
+    if (found) return found;
+  }
+
+  // 7. Check for Rigging / Lifting
+  if (permitType === 'RIGG' || jobDesc.includes('crane') || jobDesc.includes('rigging') || jobDesc.includes('lifting')) {
+    const found = JHA_TEMPLATES.find(t => t.id === 'RIGGING_LIFTING');
+    if (found) return found;
+  }
+
+  // 8. Check for Electrical
+  if (permitType === 'ELEC' || jobDesc.includes('electrical') || jobDesc.includes('transformer') || jobDesc.includes('breaker')) {
+    const found = JHA_TEMPLATES.find(t => t.id === 'ELECTRICAL');
+    if (found) return found;
+  }
+
+  // 9. Check for Radiography
+  if (permitType === 'RAD' || jobDesc.includes('radiography') || jobDesc.includes('x-ray') || jobDesc.includes('gamma')) {
+    const found = JHA_TEMPLATES.find(t => t.id === 'RADIOGRAPHY');
+    if (found) return found;
+  }
+
+  // 10. Default fallback based on permit type or cold maintenance
+  if (permitType === 'COLD') {
+    return JHA_TEMPLATES.find(t => t.id === 'GENERAL_COLD') || JHA_TEMPLATES[0];
+  }
+
   return JHA_TEMPLATES.find(t => t.matchingCategories.includes(permitType)) || JHA_TEMPLATES[0];
+}
+
+/**
+ * Intelligent helper that detects ALL applicable JHA templates for a permit:
+ * 1. Primary Permit Category JHA
+ * 2. All attached Additional Work Types (SAP child table _WorkType, additionalTypes array, and _Safety TYPE items)
+ * 3. Special nature / job description hazards (e.g. Hydro-jetting)
+ * 
+ * Returns an array of DetectedJha records with metadata distinguishing primary from additional work types.
+ */
+export function detectAllPermitJhaTemplates(permit: any): DetectedJha[] {
+  if (!permit) {
+    return [{
+      template: JHA_TEMPLATES[0],
+      isPrimary: true,
+      workTypeCode: 'HOT',
+      sourceLabel: 'Primary: Hot Work',
+      categoryLabel: 'Hot Work'
+    }];
+  }
+
+  const results: DetectedJha[] = [];
+  const addedTemplateIds = new Set<string>();
+
+  const addJha = (template: JhaTemplate, isPrimary: boolean, workTypeCode: string, sourceLabel: string, categoryLabel: string) => {
+    if (!addedTemplateIds.has(template.id)) {
+      addedTemplateIds.add(template.id);
+      results.push({
+        template,
+        isPrimary,
+        workTypeCode,
+        sourceLabel,
+        categoryLabel
+      });
+    }
+  };
+
+  const rawPrimary = permit.PermitType || permit.actualType || permit.primaryType || 'COLD';
+  const normPrimary = normalizeCategoryCode(rawPrimary);
+  const jobDesc = (permit.JobDesc || '').toLowerCase();
+
+  // 1. Collect all Additional Work Types from _WorkType child table, additionalTypes array, and _Safety
+  const rawAdditionalTypes: string[] = [];
+
+  // 1a. Child table _WorkType (direct array or OData V2 results wrapper)
+  if (Array.isArray(permit._WorkType)) {
+    permit._WorkType.forEach((w: any) => {
+      const code = typeof w === 'string' ? w : (w?.WorkType || w?.WorkTypeCode || '');
+      if (code) rawAdditionalTypes.push(code);
+    });
+  } else if (Array.isArray(permit._WorkType?.results)) {
+    permit._WorkType.results.forEach((w: any) => {
+      const code = typeof w === 'string' ? w : (w?.WorkType || w?.WorkTypeCode || '');
+      if (code) rawAdditionalTypes.push(code);
+    });
+  }
+
+  // 1b. Permitted additionalTypes array
+  if (Array.isArray(permit.additionalTypes)) {
+    permit.additionalTypes.forEach((t: string) => {
+      if (t) rawAdditionalTypes.push(t);
+    });
+  }
+
+  // 1c. _Safety child table with ItemCode === 'TYPE'
+  if (Array.isArray(permit._Safety)) {
+    permit._Safety
+      .filter((s: any) => s.ItemCode === 'TYPE' && s.Remarks)
+      .forEach((s: any) => rawAdditionalTypes.push(s.Remarks));
+  }
+
+  const normAdditionalCodes = Array.from(
+    new Set(rawAdditionalTypes.map(normalizeCategoryCode).filter(Boolean))
+  );
+
+  const hasHeight =
+    normAdditionalCodes.includes('HGHT') ||
+    jobDesc.includes('height') ||
+    jobDesc.includes('scaffold') ||
+    jobDesc.includes('column');
+
+  // 2. Add Primary JHA Template
+  let primaryTplId: string;
+  if (normPrimary === 'HOT') {
+    // If permit is Hot Work and has height, use HOT_HEIGHT if not adding WORK_HEIGHT separately
+    primaryTplId = hasHeight && !normAdditionalCodes.includes('HGHT') ? 'HOT_HEIGHT' : 'HOT_GROUND';
+  } else {
+    primaryTplId = getTemplateIdForCode(normPrimary, hasHeight);
+  }
+
+  const primaryTemplate = getJhaTemplateById(primaryTplId) || detectBestJhaTemplate(permit);
+  addJha(
+    primaryTemplate,
+    true,
+    normPrimary,
+    `Primary: ${getCategoryLabel(normPrimary)}`,
+    getCategoryLabel(normPrimary)
+  );
+
+  // 3. Add JHA Templates for each Additional Work Type (_WorkType)
+  normAdditionalCodes.forEach((addCode) => {
+    if (addCode && addCode !== normPrimary) {
+      const tplId = getTemplateIdForCode(addCode, false);
+      const template = getJhaTemplateById(tplId);
+      if (template) {
+        addJha(
+          template,
+          false,
+          addCode,
+          `Additional WorkType (${addCode}): ${getCategoryLabel(addCode)}`,
+          getCategoryLabel(addCode)
+        );
+      }
+    }
+  });
+
+  // 4. Check for Special Hazards in Nature of Work / Job Description
+  const hasHydro =
+    jobDesc.includes('hydro') ||
+    jobDesc.includes('jetting') ||
+    (Array.isArray(permit._NATW) && permit._NATW.some((n: any) => (n.NatureDesc || '').toLowerCase().includes('hydro')));
+  if (hasHydro && !addedTemplateIds.has('HYDRO_JET')) {
+    const hydroTpl = getJhaTemplateById('HYDRO_JET');
+    if (hydroTpl) {
+      addJha(
+        hydroTpl,
+        false,
+        'HYPN',
+        'Special Nature: High-Pressure Hydro-Jetting',
+        'Hydro-Jetting'
+      );
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Returns an array of all applicable JhaTemplate instances for a permit
+ */
+export function getAllApplicableJhaTemplates(permit: any): JhaTemplate[] {
+  return detectAllPermitJhaTemplates(permit).map(d => d.template);
 }
 
 export function getJhaTemplateById(id: string): JhaTemplate {
   return JHA_TEMPLATES.find(t => t.id === id) || JHA_TEMPLATES[0];
 }
+

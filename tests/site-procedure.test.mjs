@@ -10,12 +10,46 @@ const result = await build({
 const compiled = { exports: {} };
 new Function('require', 'module', 'exports', result.outputFiles[0].text)(createRequire(import.meta.url), compiled, compiled.exports);
 const { emptySitePlan, sitePlanRows, preparePermitCreate, preparationsFor, PERMIT_CATEGORIES, approvalGuidance, sitePermitApi, gasTesterApi, odataClient } = compiled.exports;
-const completePlan = () => ({ ...emptySitePlan(), nature: ['Welding / gas cutting'], tools: ['Welding machine'], fields: { JSA1: 'JSA-001', JSA2: 'Issuer, acceptor and contractor visited site', SHFT: '2099-01-01T16:00', ISSR: 'ISSUER', ACCP: 'ACCEPTOR', OPER: 'OPERATOR', OTHR: 'Special work scope' } });
+const completePlan = () => ({
+  ...emptySitePlan(),
+  nature: ['Welding / gas cutting'],
+  tools: ['Welding machine'],
+  fields: {
+    JSA1: 'JSA-001',
+    JSA2: 'Issuer, acceptor and contractor visited site',
+    SHFT: '2099-01-01T16:00',
+    ISSR: 'ISSUER',
+    ACCP: 'ACCEPTOR',
+    OPER: 'OPERATOR',
+    OTHR: 'Special work scope',
+    FWNM: 'Fire Watcher 01',
+    FWCT: '9876543210',
+    SBNM: 'Standby Person 01',
+    SBCT: '9876543211',
+    RESC: 'Rescue Plan RP-01',
+    RIGP: 'Rigging Plan RG-01',
+    CHEM: 'Nitrogen purge'
+  }
+});
+
 function payload(primary = 'HOT', plan = completePlan()) {
-  return { PermitType: primary, Werks: '1000', JobDesc: 'Maintain equipment', SupvName: 'Supervisor', Aufnr: '000000000123', Qmnum: '', AreaLoc: 'Area A', ExecDept: 'Maintenance',
+  return {
+    PermitType: primary, Werks: '1000', JobDesc: 'Maintain equipment', SupvName: 'Supervisor', Aufnr: '000000000123', Qmnum: '', AreaLoc: 'Area A', ExecDept: 'Maintenance',
     ValidFromD: '2099-01-01', ValidFromT: '08:00', ValidToD: '2099-01-01', ValidToT: '16:00', GasTestRequired: 'Y', GasTestFreqHr: '2', PersonsQty: 1, IsolationRequired: 'Y',
+    FireWatchName: (plan.fields.FWNM || plan.fields.FWAT || '').trim(),
+    FireWatchContact: (plan.fields.FWCT || '').trim() || '0',
+    StandByName: (plan.fields.SBNM || plan.fields.STBY || '').trim(),
+    StandByContact: (plan.fields.SBCT || '').trim() || '0',
+    ChemicalContent: (plan.fields.CHEM || '').trim(),
+    RiggingPlanRescuePlan: (() => {
+      const rig = (plan.fields.RIGP || '').trim();
+      const resc = (plan.fields.RESC || '').trim();
+      if (rig && resc) return `${rig} / ${resc}`;
+      return rig || resc || '';
+    })(),
     _Worker: [{ WorkerName: 'Worker', WorkerTypeCode: 'EMP', EmpId: 'W1' }], _HazardControl: [{ HazardDesc: 'Stored energy', ControlDesc: 'Isolate' }],
-    _Isolation: [], _Safety: sitePlanRows(primary, plan) };
+    _Isolation: [], _Safety: sitePlanRows(primary, plan)
+  };
 }
 
 test('every procedure category and combined work fits the SAP creation schema without fabricated signatures', () => {
@@ -330,3 +364,69 @@ test('other checkboxes in nature and tools capture user input into OtherText and
 test('legacy gas writes cannot silently persist a manufactured pass flag', async () => {
   await assert.rejects(gasTesterApi.recordTest({}), /SAP workflow action/);
 });
+
+test('special safety roles and plan references are validated and serialized into OData payload', () => {
+  const plan = completePlan();
+
+  // 1. Valid payload serializes all 6 fields
+  const body = preparePermitCreate(payload('HOT', plan));
+  assert.equal(body.FireWatchName, 'Fire Watcher 01');
+  assert.equal(body.FireWatchContact, '9876543210');
+  assert.equal(body.StandByName, 'Standby Person 01');
+  assert.equal(body.StandByContact, '9876543211');
+  assert.equal(body.ChemicalContent, 'Nitrogen purge');
+  assert.equal(body.RiggingPlanRescuePlan, 'Rigging Plan RG-01 / Rescue Plan RP-01');
+
+  // 2. Default contacts serialize as "0" when not applicable (e.g. COLD permit)
+  const defaultContactPayload = payload('COLD', plan);
+  defaultContactPayload.FireWatchContact = '0';
+  defaultContactPayload.StandByContact = '0';
+  const serializedDefaults = preparePermitCreate(defaultContactPayload);
+  assert.equal(serializedDefaults.FireWatchContact, '0');
+  assert.equal(serializedDefaults.StandByContact, '0');
+
+  // 3. Hot work enforces mandatory FireWatchName and mandatory 10-digit FireWatchContact
+  const noFwPayload = payload('HOT', plan);
+  noFwPayload.FireWatchName = '';
+  noFwPayload._Safety = noFwPayload._Safety.filter(r => r.ItemCode !== 'FWNM' && r.ItemCode !== 'FWAT');
+  assert.throws(() => preparePermitCreate(noFwPayload), /FireWatchName/);
+
+  const noFwPhonePayload = payload('HOT', plan);
+  noFwPhonePayload.FireWatchContact = '0';
+  noFwPhonePayload._Safety = noFwPhonePayload._Safety.filter(r => r.ItemCode !== 'FWCT');
+  assert.throws(() => preparePermitCreate(noFwPhonePayload), /FireWatchContact/);
+
+  // 4. Confined Space Entry enforces mandatory StandByName, StandByContact and Rescue plan
+  const confPlan = completePlan();
+  const confPayload = payload('CONF', confPlan);
+  confPayload.StandByName = '';
+  confPayload._Safety = confPayload._Safety.filter(r => r.ItemCode !== 'SBNM' && r.ItemCode !== 'STBY');
+  assert.throws(() => preparePermitCreate(confPayload), /StandByName/);
+
+  const confNoPhonePayload = payload('CONF', confPlan);
+  confNoPhonePayload.StandByContact = '0';
+  confNoPhonePayload._Safety = confNoPhonePayload._Safety.filter(r => r.ItemCode !== 'SBCT');
+  assert.throws(() => preparePermitCreate(confNoPhonePayload), /StandByContact/);
+
+  const confNoRescuePayload = payload('CONF', confPlan);
+  confNoRescuePayload.RiggingPlanRescuePlan = '';
+  confNoRescuePayload._Safety = confNoRescuePayload._Safety.filter(r => r.ItemCode !== 'RESC');
+  assert.throws(() => preparePermitCreate(confNoRescuePayload), /Rescue plan/);
+
+  // 5. Rigging enforces mandatory Rigging plan
+  const rigPlan = completePlan();
+  const rigPayload = payload('RIGG', rigPlan);
+  rigPayload.RiggingPlanRescuePlan = '';
+  rigPayload._Safety = rigPayload._Safety.filter(r => r.ItemCode !== 'RIGP');
+  assert.throws(() => preparePermitCreate(rigPayload), /Rigging plan/);
+
+  // 6. 10-digit phone number validation for FireWatchContact and StandByContact (< 10 digits rejected)
+  const invalidFwPhone = payload('HOT', plan);
+  invalidFwPhone.FireWatchContact = '9825';
+  assert.throws(() => preparePermitCreate(invalidFwPhone), /10 digits required/);
+
+  const invalidSbPhone = payload('CONF', confPlan);
+  invalidSbPhone.StandByContact = '12345';
+  assert.throws(() => preparePermitCreate(invalidSbPhone), /10 digits required/);
+});
+

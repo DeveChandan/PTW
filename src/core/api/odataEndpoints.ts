@@ -66,6 +66,10 @@ export const ODATA_ACTIONS = {
   APPROVE: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.approve',
   REJECT: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.reject',
   RESUBMIT: 'com.sap.gateway.srvd_a2x.zptw_services.v0001.Resubmit',
+  ACCEPT_PERMIT: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.acceptPermit',
+  REJECT_ACCEPTOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAcceptor',
+  COMPLETE_AREA_OPERATOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.completeAreaOperator',
+  REJECT_AREA_OPERATOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAreaOperator',
 } as const;
 
 /**

@@ -341,6 +341,104 @@ test('ODATA_ACTIONS.REJECT endpoint and reject action payload match SAP RAP spec
   assert.ok(!('Comments' in payload), 'Rejection payload uses Reason instead of Comments per SAP RAP definition');
 });
 
+// 7b. Test SAP RAP acceptPermit bound action endpoint and payload structure for permit accepter
+test('ODATA_ACTIONS.ACCEPT_PERMIT endpoint and acceptPermit payload match SAP RAP specification', () => {
+  const filePath = path.resolve(process.cwd(), 'src/core/api/odataEndpoints.ts');
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  assert.ok(
+    fileContent.includes("ACCEPT_PERMIT: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.acceptPermit'"),
+    'Action endpoint matches SAP RAP acceptPermit bound action path'
+  );
+
+  // Verify payload structure matches user specification:
+  // payload: accept: PermitNo, Comments
+  const samplePermit = 'PTW0000055';
+  const sampleComments = 'Precautions and safeguards verified on site. Toolbox talk given to crew. Permit accepted.';
+  const payload = {
+    PermitNo: samplePermit,
+    Comments: sampleComments
+  };
+
+  assert.equal(payload.PermitNo, 'PTW0000055');
+  assert.equal(payload.Comments, 'Precautions and safeguards verified on site. Toolbox talk given to crew. Permit accepted.');
+  assert.equal(typeof payload.PermitNo, 'string');
+  assert.equal(typeof payload.Comments, 'string');
+});
+
+// 7c. Test SAP RAP rejectAcceptor bound action endpoint and payload structure for permit accepter
+test('ODATA_ACTIONS.REJECT_ACCEPTOR endpoint and rejectAcceptor payload match SAP RAP specification', () => {
+  const filePath = path.resolve(process.cwd(), 'src/core/api/odataEndpoints.ts');
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  assert.ok(
+    fileContent.includes("REJECT_ACCEPTOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAcceptor'"),
+    'Action endpoint matches SAP RAP rejectAcceptor bound action path'
+  );
+
+  // Verify payload structure matches user specification:
+  // payload: reject: PermitNo, Reason
+  const samplePermit = 'PTW0000066';
+  const sampleReason = 'Toolbox talk could not be conducted with contractor crew / unsafe site condition';
+  const payload = {
+    PermitNo: samplePermit,
+    Reason: sampleReason
+  };
+
+  assert.equal(payload.PermitNo, 'PTW0000066');
+  assert.equal(payload.Reason, 'Toolbox talk could not be conducted with contractor crew / unsafe site condition');
+  assert.equal(typeof payload.PermitNo, 'string');
+  assert.equal(typeof payload.Reason, 'string');
+  assert.ok(!('Comments' in payload), 'Reject acceptor payload uses Reason instead of Comments per SAP RAP definition');
+});
+
+// 7d. Test SAP RAP completeAreaOperator bound action endpoint and payload structure for Area Operator
+test('ODATA_ACTIONS.COMPLETE_AREA_OPERATOR endpoint and completeAreaOperator payload match SAP RAP specification', () => {
+  const filePath = path.resolve(process.cwd(), 'src/core/api/odataEndpoints.ts');
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  assert.ok(
+    fileContent.includes("COMPLETE_AREA_OPERATOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.completeAreaOperator'"),
+    'Action endpoint matches SAP RAP completeAreaOperator bound action path'
+  );
+
+  // Verify payload structure matches user specification:
+  // payload: accept / complete: PermitNo, Comments
+  const samplePermit = 'PTW0000088';
+  const sampleComments = 'Area inspected and verified safe for maintenance activity. Process isolation confirmed.';
+  const payload = {
+    PermitNo: samplePermit,
+    Comments: sampleComments
+  };
+
+  assert.equal(payload.PermitNo, 'PTW0000088');
+  assert.equal(payload.Comments, 'Area inspected and verified safe for maintenance activity. Process isolation confirmed.');
+  assert.equal(typeof payload.PermitNo, 'string');
+  assert.equal(typeof payload.Comments, 'string');
+});
+
+// 7e. Test SAP RAP rejectAreaOperator bound action endpoint and payload structure for Area Operator
+test('ODATA_ACTIONS.REJECT_AREA_OPERATOR endpoint and rejectAreaOperator payload match SAP RAP specification', () => {
+  const filePath = path.resolve(process.cwd(), 'src/core/api/odataEndpoints.ts');
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  assert.ok(
+    fileContent.includes("REJECT_AREA_OPERATOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAreaOperator'"),
+    'Action endpoint matches SAP RAP rejectAreaOperator bound action path'
+  );
+
+  // Verify payload structure matches user specification:
+  // payload: reject: PermitNo, Reason
+  const samplePermit = 'PTW0000099';
+  const sampleReason = 'SIMOPS conflict with adjacent live production process';
+  const payload = {
+    PermitNo: samplePermit,
+    Reason: sampleReason
+  };
+
+  assert.equal(payload.PermitNo, 'PTW0000099');
+  assert.equal(payload.Reason, 'SIMOPS conflict with adjacent live production process');
+  assert.equal(typeof payload.PermitNo, 'string');
+  assert.equal(typeof payload.Reason, 'string');
+  assert.ok(!('Comments' in payload), 'Reject Area Operator payload uses Reason instead of Comments per SAP RAP definition');
+});
+
 // 8. Test getNextApprovalStep identifies rejected permits and sets isRejected flag
 test('getNextApprovalStep flags rejected permits with isRejected: true and blocks further approvals', () => {
   function calculateNextSeqNo(existingApprovals = []) {
@@ -909,6 +1007,45 @@ test('Resubmitted permit allows approvers to sign with auto-incremented SeqNo (C
   assert.equal(finalStep.isFullyApproved, true, 'Permit is fully approved in resubmitted cycle');
 });
 
+// 19. Test complete lifecycle: Approver (APPR) -> Accepter (.acceptPermit -> ACCP) -> Area Operator (.completeAreaOperator -> ACTV)
+test('Permit lifecycle progression: APPR -> Accepter (ACCP) -> Area Operator (ACTV)', () => {
+  // Step 1: Permit is approved by Area Approver -> Status becomes APPR
+  const permitApproved = {
+    Permit_No: '0000000100',
+    Status: 'APPR',
+    JobDesc: 'Hot work piping maintenance',
+    Werks: '1002'
+  };
 
+  // Step 2: Permit Acceptor Workspace filtering logic
+  const isPendingAcceptor = (status) => status === 'APPR';
+  const isAcceptedByAcceptor = (status) => status === 'ACCP' || status === 'ISSU' || status === 'ACTV';
 
+  assert.equal(isPendingAcceptor(permitApproved.Status), true, 'Approved permit (APPR) shows in Accepter Awaiting queue');
+  assert.equal(isAcceptedByAcceptor(permitApproved.Status), false, 'APPR permit is not yet accepted');
 
+  // Acceptor accepts via SAP .acceptPermit -> transitions to ACCP
+  const permitAccepted = {
+    ...permitApproved,
+    Status: 'ACCP'
+  };
+
+  assert.equal(isPendingAcceptor(permitAccepted.Status), false, 'ACCP permit no longer in Awaiting Acceptance queue');
+  assert.equal(isAcceptedByAcceptor(permitAccepted.Status), true, 'ACCP permit shows in Accepter Accepted queue');
+
+  // Step 3: Area Operator Workspace filtering logic
+  const isPendingAreaClearance = (status) => status === 'ACCP' || status === 'ISSU' || status === 'ISSD' || status === 'APPR';
+  const isCompletedAreaClearance = (status) => status === 'ACTV' || status === 'CLSD';
+
+  assert.equal(isPendingAreaClearance(permitAccepted.Status), true, 'Accepted permit (ACCP) shows in Area Operator Awaiting Clearance queue');
+  assert.equal(isCompletedAreaClearance(permitAccepted.Status), false, 'ACCP permit is not yet completed/active');
+
+  // Area Operator completes clearance via SAP .completeAreaOperator -> transitions to ACTV
+  const permitActive = {
+    ...permitAccepted,
+    Status: 'ACTV'
+  };
+
+  assert.equal(isPendingAreaClearance(permitActive.Status), false, 'ACTV permit is cleared and no longer pending');
+  assert.equal(isCompletedAreaClearance(permitActive.Status), true, 'ACTV permit shows in Area Operator Cleared / Active queue');
+});

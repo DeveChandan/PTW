@@ -356,11 +356,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <ToastContext.Provider value={contextValue}>
       {children}
 
-      {/* Floating Toast Container */}
+      {/* Floating Toast Container - positioned below header bar so top-right controls remain accessible */}
       <div
         aria-live="polite"
         aria-atomic="true"
-        className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[99999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-[calc(100vw-2rem)] sm:w-full pointer-events-none"
+        className="fixed top-20 right-4 sm:top-20 sm:right-6 z-[99999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-[calc(100vw-2rem)] sm:w-full pointer-events-none"
       >
         {toasts.map((item) => (
           <ToastCard key={item.id} item={item} onDismiss={dismiss} />

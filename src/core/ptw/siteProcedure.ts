@@ -4,7 +4,7 @@ export const PROCEDURE = { id: 'HSE/SAF/P/01', revision: '03', date: '2026-04-01
 export const PERMIT_CATEGORIES = [
   { code: 'COLD', sapCode: 'COLD', label: 'Cold work', icon: 'ac_unit', desc: 'Maintenance and non-hot work' },
   { code: 'HOT', sapCode: 'HOT', label: 'Hot work', icon: 'local_fire_department', desc: 'Welding, cutting and ignition sources' },
-  { code: 'CONF', sapCode: 'CSE', label: 'Confined space', icon: 'door_sliding', desc: 'Vessel, tank and restricted entry' },
+  { code: 'CONF', sapCode: 'CSE', label: 'Confined space Entry', icon: 'door_sliding', desc: 'Vessel, tank and restricted entry' },
   { code: 'EXCV', sapCode: 'EXCV', label: 'Excavation', icon: 'construction', desc: 'Underground services and entry clearance' },
   { code: 'HGHT', sapCode: 'W@H', label: 'Work at height', icon: 'height', desc: 'At and above 1.8 m; assess protection' },
   { code: 'LINE', sapCode: 'LBRK', label: 'Line breaking', icon: 'plumbing', desc: 'Opening hazardous lines or equipment' },
@@ -124,14 +124,16 @@ export const PLAN_FIELDS = [
   { code: 'AP02', label: 'Proposed Approver II SAP user ID', user: true },
   { code: 'AP03', label: 'Proposed Approver III SAP user ID', user: true },
   { code: 'DIST', label: 'Affected safety district / countersignature reference' },
-  { code: 'FWAT', label: 'Fire watch name and contact', applies: ['HOT'] },
-  { code: 'STBY', label: 'Standby person name and contact', applies: ['CONF', 'CSE'] },
-  { code: 'RESC', label: 'Rescue plan / arrangements reference', applies: ['CONF', 'CSE'], reference: true },
+  { code: 'FWNM', label: 'Fire watch person name (FireWatchName)', applies: ['HOT'], required: true },
+  { code: 'FWCT', label: 'Fire watch contact phone (FireWatchContact)', applies: ['HOT'], phone: true, required: true },
+  { code: 'SBNM', label: 'Standby person name (StandByName)', applies: ['CONF', 'CSE'], required: true },
+  { code: 'SBCT', label: 'Standby person contact phone (StandByContact)', applies: ['CONF', 'CSE'], phone: true, required: true },
+  { code: 'RESC', label: 'Rescue plan / arrangements reference (RiggingPlanRescuePlan)', applies: ['CONF', 'CSE'], reference: true, required: true },
   { code: 'DRAW', label: 'Isolation drawing reference', applies: ['CONF', 'CSE', 'LINE', 'LBRK'], reference: true },
-  { code: 'RIGP', label: 'Rigging plan and approval reference', applies: ['RIGG', 'RIG'], reference: true },
+  { code: 'RIGP', label: 'Rigging plan and approval reference (RiggingPlanRescuePlan)', applies: ['RIGG', 'RIG'], reference: true, required: true },
   { code: 'LOAD', label: 'Lifting load in metric tonnes', applies: ['RIGG', 'RIG'] },
   { code: 'DEPT', label: 'Excavation depth in metres', applies: ['EXCV'] },
-  { code: 'CHEM', label: 'Chemicals / contents of line or equipment', applies: ['LINE', 'LBRK', 'CONF', 'CSE'] },
+  { code: 'CHEM', label: 'Chemicals / contents of line or equipment (ChemicalContent)', applies: ['LINE', 'LBRK', 'CONF', 'CSE'] },
   { code: 'RADP', label: 'Supporting radiation permit reference', applies: ['RAD'], reference: true },
   { code: 'OTHR', label: 'Other work scope and controls', applies: ['OTHER'], required: true },
   { code: 'NOTE', label: 'Other tools / nature of work and preparation notes' },
@@ -199,6 +201,8 @@ export function sitePlanRows(primary: string, plan: SitePlan): SafetyRecord[] {
   });
   fieldsFor(types).forEach(field => {
     let value = (plan.fields[field.code] || '').trim();
+    if (field.code === 'FWNM' && !value && plan.fields.FWAT) value = plan.fields.FWAT.trim();
+    if (field.code === 'SBNM' && !value && plan.fields.STBY) value = plan.fields.STBY.trim();
     if (field.code === 'NOTE' && !value) {
       value = [
         plan.fields.OTHER_NATURE ? `Nature: ${plan.fields.OTHER_NATURE.trim()}` : '',
@@ -209,6 +213,24 @@ export function sitePlanRows(primary: string, plan: SitePlan): SafetyRecord[] {
     if ('reference' in field) record.ReferenceNo = value;
     rows.push(record);
   });
+
+  // Ensure legacy FWAT and STBY rows exist in _Safety for Annexure-V printout compatibility when applicable
+  const hasHot = types.some(t => t === 'HOT');
+  const hasConf = types.some(t => t === 'CONF' || t === 'CSE');
+
+  const fwName = (plan.fields.FWNM || plan.fields.FWAT || '').trim();
+  const fwContact = (plan.fields.FWCT || '').trim();
+  if (hasHot && fwName && !rows.some(r => r.ItemCode === 'FWAT')) {
+    const fwatVal = fwContact && fwContact !== '0' ? `${fwName} (${fwContact})` : fwName;
+    rows.push(row('FWAT', 'Fire watch name and contact', fwatVal));
+  }
+  const sbName = (plan.fields.SBNM || plan.fields.STBY || '').trim();
+  const sbContact = (plan.fields.SBCT || '').trim();
+  if (hasConf && sbName && !rows.some(r => r.ItemCode === 'STBY')) {
+    const stbyVal = sbContact && sbContact !== '0' ? `${sbName} (${sbContact})` : sbName;
+    rows.push(row('STBY', 'Standby person name and contact', stbyVal));
+  }
+
   preparationsFor(types).forEach(item => {
     const check = plan.checks[item.code];
     rows.push(row(item.code, item.label, check?.remarks || '', check?.response || 'NO'));
@@ -229,9 +251,45 @@ export function validateSitePermit(payload: PermitDeepInsertPayload): void {
   const value = (code: string) => rows.find(record => record.ItemCode === code)?.Remarks?.trim() || '';
   const types = [...new Set([payload.PermitType, ...rows.filter(record => record.ItemCode === 'TYPE').map(record => record.Remarks)])];
   if (types.some(type => !isSupportedCategory(type))) throw new Error('Select supported work categories.');
+
+  // Validate required plan fields with fallbacks
   for (const field of fieldsFor(types)) {
-    if ('required' in field && field.required && !value(field.code)) throw new Error(`Complete ${field.label}.`);
+    let val = value(field.code);
+    if (field.code === 'FWNM' && !val) val = payload.FireWatchName || value('FWAT') || '';
+    if (field.code === 'FWCT' && !val) val = (payload.FireWatchContact && payload.FireWatchContact !== '0' ? payload.FireWatchContact : '') || '';
+    if (field.code === 'SBNM' && !val) val = payload.StandByName || value('STBY') || '';
+    if (field.code === 'SBCT' && !val) val = (payload.StandByContact && payload.StandByContact !== '0' ? payload.StandByContact : '') || '';
+    if (field.code === 'RESC' && !val) val = payload.RiggingPlanRescuePlan || '';
+    if (field.code === 'RIGP' && !val) val = payload.RiggingPlanRescuePlan || '';
+    if ('required' in field && field.required && !val) throw new Error(`Complete ${field.label}.`);
   }
+
+  // Specific role and plan mandatory validations
+  if (types.includes('HOT')) {
+    const fw = payload.FireWatchName || value('FWNM') || value('FWAT');
+    if (!fw) throw new Error('Fire watch person name (FireWatchName) is mandatory for Hot Work operations.');
+    const fwContact = (payload.FireWatchContact || value('FWCT') || '').trim();
+    if (!fwContact || fwContact === '0') throw new Error('Fire watch contact phone (FireWatchContact) is mandatory for Hot Work operations.');
+    const digits = fwContact.replace(/\D/g, '');
+    if (digits.length < 10) throw new Error(`Fire watch contact phone is incomplete (${digits.length}/10 digits). 10 digits required.`);
+    if (digits.length > 15) throw new Error(`Fire watch contact phone exceeds maximum length (${digits.length} digits). Max 15 digits allowed.`);
+  }
+  if (types.includes('CONF') || types.includes('CSE')) {
+    const sb = payload.StandByName || value('SBNM') || value('STBY');
+    if (!sb) throw new Error('Standby person name (StandByName) is mandatory for Confined Space Entry.');
+    const sbContact = (payload.StandByContact || value('SBCT') || '').trim();
+    if (!sbContact || sbContact === '0') throw new Error('Standby person contact phone (StandByContact) is mandatory for Confined Space Entry.');
+    const digits = sbContact.replace(/\D/g, '');
+    if (digits.length < 10) throw new Error(`Standby person contact phone is incomplete (${digits.length}/10 digits). 10 digits required.`);
+    if (digits.length > 15) throw new Error(`Standby person contact phone exceeds maximum length (${digits.length} digits). Max 15 digits allowed.`);
+    const rescue = payload.RiggingPlanRescuePlan || value('RESC');
+    if (!rescue) throw new Error('Rescue plan reference (RiggingPlanRescuePlan) is mandatory for Confined Space Entry.');
+  }
+  if (types.includes('RIGG') || types.includes('RIG')) {
+    const rig = payload.RiggingPlanRescuePlan || value('RIGP');
+    if (!rig) throw new Error('Rigging plan and approval reference (RiggingPlanRescuePlan) is mandatory for Rigging operations.');
+  }
+
   if (!rows.some(record => record.ItemCode === 'NATR') || !rows.some(record => record.ItemCode === 'TOOL')) throw new Error('Select the nature of work and tools / equipment.');
   if ((rows.some(record => ['NATR', 'TOOL'].includes(record.ItemCode) && (record.Remarks === 'Other' || record.Remarks.startsWith('Other')))) && !value('NOTE')) throw new Error('Describe the other nature of work or tools in preparation notes.');
   if (value('ISSR').toUpperCase() === value('ACCP').toUpperCase()) throw new Error('Issuer and acceptor must be different people.');

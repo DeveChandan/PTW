@@ -18,7 +18,7 @@ const MODULE_DOMAINS: Record<ModuleId, { domain: 'PERMITS' | 'ISOLATION' | 'CLEA
   'display-isolation': { domain: 'ISOLATION', badge: 'Certificate Ledger' },
   'gas-tester': { domain: 'ISOLATION', badge: 'Gas Atmosphere' },
   'permit-approver': { domain: 'CLEARANCES', badge: 'Level 1-3 Review' },
-  'permit-issuer': { domain: 'CLEARANCES', badge: 'Toolbox & Handover' },
+  'permit-issuer': { domain: 'CLEARANCES', badge: 'Section K Acceptance' },
   'permit-area-owner': { domain: 'CLEARANCES', badge: 'Area Authority' },
   report: { domain: 'SYSTEM', badge: 'Analytics & Audit' },
   'safety-map': { domain: 'SYSTEM', badge: 'Plot Plan Layout' },
@@ -122,20 +122,20 @@ const MODULE_THEMES: Record<
     border: 'border-emerald-200',
     accent: 'bg-emerald-600',
     accentGradient: 'from-emerald-400 via-emerald-600 to-emerald-700',
-    kpiValue: 'Toolbox Talk',
-    kpiLabel: 'Field Handover Verification'
+    kpiValue: 'Section K',
+    kpiLabel: 'Field Accept & Reject Actions'
   },
   'permit-area-owner': {
-    cardBg: 'bg-gradient-to-br from-white via-[#faf7ff] to-purple-50/70',
-    cardBorder: 'border-purple-200/90 hover:border-purple-400',
-    cardShadow: 'shadow-[0_1px_3px_0_rgba(15,23,42,0.04),0_8px_20px_-4px_rgba(147,51,234,0.1),inset_0_1px_0_0_rgba(255,255,255,1)] hover:shadow-[0_16px_32px_-6px_rgba(147,51,234,0.18),0_4px_12px_rgba(15,23,42,0.04),inset_0_1px_0_0_rgba(255,255,255,1)]',
-    iconBg: 'bg-gradient-to-br from-purple-50 to-white text-purple-700 border-purple-200/90 shadow-[0_2px_6px_rgba(147,51,234,0.15),inset_0_1px_0_rgba(255,255,255,0.9)]',
-    text: 'text-purple-800',
-    border: 'border-purple-200',
-    accent: 'bg-purple-600',
-    accentGradient: 'from-purple-400 via-purple-600 to-purple-700',
-    kpiValue: 'Worker Muster',
-    kpiLabel: 'Site Suspension & Handback'
+    cardBg: 'bg-gradient-to-br from-white via-[#faf7ff] to-indigo-50/70',
+    cardBorder: 'border-indigo-200/90 hover:border-indigo-400',
+    cardShadow: 'shadow-[0_1px_3px_0_rgba(15,23,42,0.04),0_8px_20px_-4px_rgba(99,102,241,0.1),inset_0_1px_0_0_rgba(255,255,255,1)] hover:shadow-[0_16px_32px_-6px_rgba(99,102,241,0.18),0_4px_12px_rgba(15,23,42,0.04),inset_0_1px_0_0_rgba(255,255,255,1)]',
+    iconBg: 'bg-gradient-to-br from-indigo-50 to-white text-indigo-700 border-indigo-200/90 shadow-[0_2px_6px_rgba(99,102,241,0.15),inset_0_1px_0_rgba(255,255,255,0.9)]',
+    text: 'text-indigo-800',
+    border: 'border-indigo-200',
+    accent: 'bg-indigo-600',
+    accentGradient: 'from-indigo-400 via-indigo-600 to-indigo-700',
+    kpiValue: 'Area Clearance',
+    kpiLabel: 'Field Verification & SAP Sign-off'
   },
   'permit-holder': {
     cardBg: 'bg-gradient-to-br from-white via-[#faf7ff] to-purple-50/70',

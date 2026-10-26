@@ -12,6 +12,7 @@ import {
   TOOLS
 } from '../../core/ptw/siteProcedure';
 import { SectionCard } from '../../shared/components/SectionCard';
+import { validatePhoneNumber, sanitizePhoneNumber } from '../../core/utils/phoneValidation';
 
 const toggle = (values: string[], value: string) =>
   values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
@@ -591,8 +592,25 @@ export function SiteProcedureStep({
             {fieldsFor(types).map((field) => {
               const isRequired = 'required' in field && field.required;
               const isDateTime = 'datetime' in field;
-              const maxLen = 'user' in field ? 12 : 'reference' in field ? 30 : 255;
-              const value = plan.fields[field.code] || '';
+              const isPhone = field.code === 'FWCT' || field.code === 'SBCT' || ('phone' in field && Boolean((field as any).phone));
+              const maxLen = isPhone ? 16 : 'user' in field ? 12 : 'reference' in field ? 30 : 255;
+              let value = plan.fields[field.code] || '';
+              if (field.code === 'FWNM' && !value && plan.fields.FWAT) value = plan.fields.FWAT;
+              if (field.code === 'SBNM' && !value && plan.fields.STBY) value = plan.fields.STBY;
+
+              const phoneTrimmed = value.trim();
+              const hasPhoneInput = isPhone && phoneTrimmed.length > 0 && phoneTrimmed !== '0';
+              const phoneValidation = isPhone ? validatePhoneNumber(phoneTrimmed, false) : { isValid: true, digitCount: 0 };
+              const isPhoneValid = !hasPhoneInput || phoneValidation.isValid;
+
+              let placeholder = `Enter ${field.label.toLowerCase()}...`;
+              if (field.code === 'FWNM') placeholder = 'Enter fire watch person name (Mandatory for Hot Work)...';
+              else if (field.code === 'FWCT') placeholder = 'Enter 10-digit mobile number (Mandatory for Hot Work)...';
+              else if (field.code === 'SBNM') placeholder = 'Enter standby person name (Mandatory for Confined Space)...';
+              else if (field.code === 'SBCT') placeholder = 'Enter 10-digit mobile number (Mandatory for Confined Space)...';
+              else if (field.code === 'RESC') placeholder = 'Enter rescue plan reference (Mandatory for Confined Space)...';
+              else if (field.code === 'RIGP') placeholder = 'Enter rigging plan approval reference (Mandatory for Rigging)...';
+              else if (field.code === 'CHEM') placeholder = 'Enter chemicals / contents of line or equipment...';
 
               return (
                 <div key={field.code} className="space-y-1.5">
@@ -601,24 +619,82 @@ export function SiteProcedureStep({
                       <span>{field.label}</span>
                       {isRequired && <span className="text-red-500 font-bold">*</span>}
                     </span>
-                    <span className="font-mono text-[10px] text-slate-400">
-                      Code: {field.code}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {isPhone && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold ${
+                            hasPhoneInput && phoneValidation.isValid
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : hasPhoneInput
+                              ? 'bg-rose-100 text-rose-700'
+                              : isRequired
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {hasPhoneInput && phoneValidation.isValid
+                            ? `✓ ${phoneValidation.digitCount} digits`
+                            : hasPhoneInput
+                            ? `${phoneValidation.digitCount}/10 digits`
+                            : isRequired
+                            ? '10 digits required'
+                            : '10 digits (default: 0)'}
+                        </span>
+                      )}
+                      <span className="font-mono text-[10px] text-slate-400">
+                        Code: {field.code}
+                      </span>
+                    </div>
                   </label>
-                  <input
-                    id={`procedure-field-${field.code}`}
-                    type={isDateTime ? 'datetime-local' : 'text'}
-                    maxLength={maxLen}
-                    value={value}
-                    placeholder={`Enter ${field.label.toLowerCase()}...`}
-                    onChange={(event) =>
-                      onChange({
-                        ...plan,
-                        fields: { ...plan.fields, [field.code]: event.target.value }
-                      })
-                    }
-                    className="ptw-input font-sans"
-                  />
+                  <div className="relative">
+                    <input
+                      id={`procedure-field-${field.code}`}
+                      type={isPhone ? 'tel' : isDateTime ? 'datetime-local' : 'text'}
+                      maxLength={maxLen}
+                      value={value}
+                      placeholder={placeholder}
+                      onChange={(event) => {
+                        const nextVal = isPhone
+                          ? sanitizePhoneNumber(event.target.value, 16)
+                          : event.target.value;
+                        onChange({
+                          ...plan,
+                          fields: { ...plan.fields, [field.code]: nextVal }
+                        });
+                      }}
+                      className={`ptw-input font-sans ${
+                        isPhone && hasPhoneInput
+                          ? isPhoneValid
+                            ? 'border-emerald-400 focus:border-emerald-500 pr-8'
+                            : 'border-rose-400 focus:border-rose-500 bg-rose-50/20 pr-8'
+                          : ''
+                      }`}
+                    />
+                    {isPhone && hasPhoneInput && (
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <span
+                          className={`material-symbols-outlined text-[16px] ${
+                            isPhoneValid ? 'text-emerald-600' : 'text-amber-500'
+                          }`}
+                        >
+                          {isPhoneValid ? 'check_circle' : 'error'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {isPhone && hasPhoneInput && !isPhoneValid && phoneValidation.error && (
+                    <p className="mt-1 text-[11px] text-rose-600 font-sans flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[13px]">error</span>
+                      <span>{phoneValidation.error}</span>
+                    </p>
+                  )}
+                  {isPhone && !hasPhoneInput && (
+                    <span className={`text-[10px] mt-0.5 block ${isRequired ? 'text-amber-700 font-medium' : 'text-slate-400'}`}>
+                      {isRequired
+                        ? 'Mandatory 10-digit mobile number (e.g. 9825012345).'
+                        : 'Standard 10-digit Indian mobile number (e.g. 9825012345). Transmits "0" to SAP if omitted.'}
+                    </span>
+                  )}
                 </div>
               );
             })}

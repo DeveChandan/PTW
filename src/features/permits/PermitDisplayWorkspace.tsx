@@ -14,6 +14,7 @@ import {
   JHA_TEMPLATES,
   detectBestJhaTemplate,
   getJhaTemplateById,
+  detectAllPermitJhaTemplates,
   GENERAL_SAFETY_GUIDELINES,
 } from '../../core/ptw/jhaTemplates';
 import {
@@ -94,11 +95,79 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
   // Approval Action Dialog State (SAP Entity: /Approval)
   const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
   const [approvalRoleId, setApprovalRoleId] = useState<'PTW_APPR1' | 'PTW_APPR2' | 'PTW_APPR3' | 'VER' | 'ISS'>('PTW_APPR1');
-  const [approvalAction, setApprovalAction] = useState<'AP' | 'VR' | 'RJ'>('AP');
+  const [approvalAction, setApprovalAction] = useState<'AP' | 'VR' | 'RJ' | 'CAO' | 'RAO'>('AP');
   const [approvalStage, setApprovalStage] = useState<string>('APPR');
   const [approvalSeqNo, setApprovalSeqNo] = useState<string>('1');
   const [approvalComments, setApprovalComments] = useState<string>('');
   const [submittingApproval, setSubmittingApproval] = useState<boolean>(false);
+
+  // Acceptor Action Dialog State (SAP Bound Actions: .acceptPermit & .rejectAcceptor)
+  const [showAcceptorModal, setShowAcceptorModal] = useState<boolean>(false);
+  const [acceptorActionType, setAcceptorActionType] = useState<'accept' | 'reject'>('accept');
+  const [acceptorComments, setAcceptorComments] = useState<string>('');
+  const [submittingAcceptor, setSubmittingAcceptor] = useState<boolean>(false);
+
+  const handleOpenAcceptorModal = (action: 'accept' | 'reject') => {
+    if (!selectedPermit) return;
+    setAcceptorActionType(action);
+    if (action === 'accept') {
+      setAcceptorComments(
+        'I have read the precautions and safety measures mentioned herein and I agree to abide by the same. The safeguards have been implemented. Tool box talk given to persons working/impacted.'
+      );
+    } else {
+      setAcceptorComments('');
+    }
+    setShowAcceptorModal(true);
+  };
+
+  const handleSubmitAcceptor = async () => {
+    if (!selectedPermit) return;
+    const finalVal = acceptorComments.trim();
+    if (!finalVal) {
+      toast.warning(
+        acceptorActionType === 'accept'
+          ? 'Please provide acceptance comments.'
+          : 'Please provide reason for rejecting permit acceptance.',
+        { title: acceptorActionType === 'accept' ? 'Comments Required' : 'Reason Required' }
+      );
+      return;
+    }
+    setSubmittingAcceptor(true);
+    try {
+      if (acceptorActionType === 'accept') {
+        // Dedicated SAP RAP Bound Action: acceptPermit
+        // Payload: { PermitNo: string, Comments: string }
+        await permitApproverApi.executeAcceptPermitAction({
+          permitNo: selectedPermit.Permit_No,
+          comments: finalVal
+        });
+        toast.success(
+          `Permit ${selectedPermit.Permit_No} accepted by Acceptor via SAP .acceptPermit action`,
+          { title: 'Permit Accepted' }
+        );
+      } else {
+        // Dedicated SAP RAP Bound Action: rejectAcceptor
+        // Payload: { PermitNo: string, Reason: string }
+        await permitApproverApi.executeRejectAcceptorAction({
+          permitNo: selectedPermit.Permit_No,
+          reason: finalVal
+        });
+        toast.success(
+          `Permit ${selectedPermit.Permit_No} rejected by Acceptor via SAP .rejectAcceptor action`,
+          { title: 'Permit Rejected' }
+        );
+      }
+      setShowAcceptorModal(false);
+      setAcceptorComments('');
+      await loadPermitDetail(selectedPermit.Permit_No);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit acceptor action to SAP', {
+        title: `${acceptorActionType === 'accept' ? 'Acceptance' : 'Rejection'} Failed`
+      });
+    } finally {
+      setSubmittingAcceptor(false);
+    }
+  };
 
   // Resubmit & Revise Rejected Permit Dialog State (SAP Bound Action: PermitInfo('...')/...Resubmit)
   const [showResubmitModal, setShowResubmitModal] = useState<boolean>(false);
@@ -129,7 +198,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
   const handleOpenApprovalModal = async () => {
     if (selectedPermit) {
-      if (selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV') {
+      if (selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ACCP' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV') {
         toast.info(`Permit ${selectedPermit.Permit_No} is already fully approved (${selectedPermit.Status}). No further approvals are required.`, {
           title: 'Permit Already Approved'
         });
@@ -186,6 +255,20 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
         await permitApproverApi.executeRejectAction({
           permitNo: selectedPermit.Permit_No,
           reason: approvalComments.trim() || 'Rejected during review'
+        });
+      } else if (approvalAction === 'CAO') {
+        // Dedicated SAP RAP Complete Area Operator Action:
+        // /Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.completeAreaOperator
+        await permitApproverApi.executeCompleteAreaOperatorAction({
+          permitNo: selectedPermit.Permit_No,
+          comments: approvalComments.trim()
+        });
+      } else if (approvalAction === 'RAO') {
+        // Dedicated SAP RAP Reject Area Operator Action:
+        // /Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAreaOperator
+        await permitApproverApi.executeRejectAreaOperatorAction({
+          permitNo: selectedPermit.Permit_No,
+          reason: approvalComments.trim() || 'Area Operator rejected'
         });
       } else {
         await permitApproverApi.submitApproval({
@@ -281,6 +364,10 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
   const detectedJhaTemplate = useMemo(() => {
     return detectBestJhaTemplate(selectedPermit);
+  }, [selectedPermit]);
+
+  const applicableJhas = useMemo(() => {
+    return detectAllPermitJhaTemplates(selectedPermit);
   }, [selectedPermit]);
 
   const filteredJhaRows = useMemo(() => {
@@ -2160,6 +2247,67 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   </div>
                 </dl>
 
+                {/* Special Safety Roles & Plan References */}
+                {(selectedPermit.FireWatchName || selectedPermit.StandByName || selectedPermit.RiggingPlanRescuePlan || selectedPermit.ChemicalContent) && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold block mb-2">
+                      Special Safety Roles & Plan References
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {selectedPermit.FireWatchName && (
+                        <div className="bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/80">
+                          <dt className="text-amber-800 font-mono text-[10px] font-bold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">local_fire_department</span>
+                            <span>Fire Watch</span>
+                          </dt>
+                          <dd className="font-semibold text-slate-900 mt-0.5">
+                            {selectedPermit.FireWatchName}
+                            {selectedPermit.FireWatchContact && selectedPermit.FireWatchContact !== '0' && (
+                              <span className="font-mono text-slate-600 font-normal"> · Ph: {selectedPermit.FireWatchContact}</span>
+                            )}
+                          </dd>
+                        </div>
+                      )}
+                      {selectedPermit.StandByName && (
+                        <div className="bg-sky-50/60 p-2.5 rounded-xl border border-sky-200/80">
+                          <dt className="text-sky-800 font-mono text-[10px] font-bold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">person_check</span>
+                            <span>Standby Person</span>
+                          </dt>
+                          <dd className="font-semibold text-slate-900 mt-0.5">
+                            {selectedPermit.StandByName}
+                            {selectedPermit.StandByContact && selectedPermit.StandByContact !== '0' && (
+                              <span className="font-mono text-slate-600 font-normal"> · Ph: {selectedPermit.StandByContact}</span>
+                            )}
+                          </dd>
+                        </div>
+                      )}
+                      {selectedPermit.RiggingPlanRescuePlan && (
+                        <div className="bg-purple-50/60 p-2.5 rounded-xl border border-purple-200/80">
+                          <dt className="text-purple-800 font-mono text-[10px] font-bold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">assignment</span>
+                            <span>Rigging / Rescue Plan</span>
+                          </dt>
+                          <dd className="font-mono font-bold text-slate-900 mt-0.5">
+                            {selectedPermit.RiggingPlanRescuePlan}
+                          </dd>
+                        </div>
+                      )}
+                      {selectedPermit.ChemicalContent && (
+                        <div className="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-200/80">
+                          <dt className="text-emerald-800 font-mono text-[10px] font-bold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">science</span>
+                            <span>Chemical / Line Content</span>
+                          </dt>
+                          <dd className="font-semibold text-slate-900 mt-0.5">
+                            {selectedPermit.ChemicalContent}
+                          </dd>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Requester Comments */}
                 <div className="pt-2">
                   <dt className="text-slate-400 font-mono text-[10px]">Requester Scope & Remarks</dt>
@@ -2568,13 +2716,77 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                         setPrintWithJha(true);
                         setShowPrintModal(true);
                       }}
-                      className="self-end px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+                      className="self-end px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      title={applicableJhas.length > 1 ? `Open print preview with all ${applicableJhas.length} applicable JHA sheets (Primary + Additional _WorkType)` : 'Print official JHA sheet'}
                     >
                       <span className="material-symbols-outlined text-[16px]">print</span>
-                      <span>Print JHA Sheet</span>
+                      <span>
+                        {applicableJhas.length > 1
+                          ? `Print All Applicable JHAs (${applicableJhas.length})`
+                          : 'Print JHA Sheet'}
+                      </span>
                     </button>
                   </div>
                 </div>
+
+                {/* Multi-JHA Quick Selector for Additional WorkTypes attached via _WorkType / additionalTypes */}
+                {applicableJhas.length > 1 && (
+                  <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
+                        <span className="material-symbols-outlined text-[17px] text-amber-500">layers</span>
+                        <span>Applicable JHAs ({applicableJhas.length}):</span>
+                      </span>
+                      {applicableJhas.map((item) => {
+                        const isActive = selectedJhaTemplateId === item.template.id;
+                        return (
+                          <button
+                            key={item.template.id}
+                            type="button"
+                            onClick={() => setSelectedJhaTemplateId(item.template.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                              isActive
+                                ? 'bg-teal-700 text-white border-teal-800 shadow-xs'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                            title={`${item.sourceLabel} — Click to inspect safety matrix & controls`}
+                          >
+                            <span className="material-symbols-outlined text-[15px]">
+                              {isActive ? 'check_circle' : 'radio_button_unchecked'}
+                            </span>
+                            <span>{item.categoryLabel}</span>
+                            {item.isPrimary ? (
+                              <span
+                                className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold ${
+                                  isActive
+                                    ? 'bg-black/30 text-teal-100'
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}
+                              >
+                                Primary
+                              </span>
+                            ) : (
+                              <span
+                                className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold border ${
+                                  isActive
+                                    ? 'bg-amber-400/30 text-amber-100 border-amber-300/40'
+                                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                                }`}
+                              >
+                                _WorkType ({item.workTypeCode})
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1 shrink-0">
+                      <span className="material-symbols-outlined text-[15px] text-emerald-600">verified</span>
+                      <span>All attached worktype JHAs available for print</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* 2. Key Statistical Metrics Strip */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -3181,10 +3393,34 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     {selectedPermit._Approval?.length || 0} Signatures
                   </span>
                   {selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV' ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold shadow-2xs">
-                      <span className="material-symbols-outlined text-[15px] text-emerald-600">verified</span>
-                      <span>Fully Approved</span>
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold shadow-2xs">
+                        <span className="material-symbols-outlined text-[15px] text-emerald-600">verified</span>
+                        <span>Approvals Completed</span>
+                      </span>
+                      {selectedPermit.Status === 'APPR' && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAcceptorModal('accept')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-600 text-white text-xs font-bold shadow-xs hover:bg-teal-700 transition active:scale-[0.98]"
+                            title="Accept Permit as Permit Acceptor (.acceptPermit)"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">task_alt</span>
+                            <span>Accept Permit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAcceptorModal('reject')}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-50 transition active:scale-[0.98]"
+                            title="Reject Permit as Permit Acceptor (.rejectAcceptor)"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">cancel</span>
+                            <span>Reject (Acceptor)</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <button
                       type="button"
@@ -3535,6 +3771,68 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                 </div>
               )}
 
+              {/* SECTION K: PERMIT ACCEPTOR CLEARANCE CARD */}
+              <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-teal-50/80 via-emerald-50/50 to-white border border-teal-200/90 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-teal-100 text-teal-800 rounded-lg">
+                      <span className="material-symbols-outlined text-[18px]">verified</span>
+                    </span>
+                    <div>
+                      <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wide">
+                        Section K: Permit Acceptor Agreement &amp; Clearance
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Responsible Person: <strong className="text-slate-800 font-mono">{selectedPermit.PersonResp || selectedPermit.SupvName || 'Acceptor'}</strong> · SAP Bound Actions: <code className="font-mono text-teal-700">.acceptPermit</code> / <code className="font-mono text-rose-700">.rejectAcceptor</code>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {selectedPermit.Status === 'APPR' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAcceptorModal('accept')}
+                          className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 active:scale-95"
+                          title="Accept Permit as Permit Acceptor (.acceptPermit)"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">task_alt</span>
+                          <span>Accept Permit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAcceptorModal('reject')}
+                          className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 active:scale-95"
+                          title="Reject Permit as Permit Acceptor (.rejectAcceptor)"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">cancel</span>
+                          <span>Reject (Acceptor)</span>
+                        </button>
+                      </>
+                    ) : selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                        <span className="material-symbols-outlined text-[14px]">check</span>
+                        <span>Accepted &amp; Field Authorized</span>
+                      </span>
+                    ) : selectedPermit.Status === 'REJT' || selectedPermit.Status === 'CANC' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 text-[11px] font-bold">
+                        <span className="material-symbols-outlined text-[14px]">close</span>
+                        <span>Permit Denied / Rejected</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-medium">
+                        <span>Awaiting Approver Signoff</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 font-sans leading-relaxed bg-white/70 p-2.5 rounded-xl border border-teal-100">
+                  &ldquo;I have read the precautions and safety measures mentioned herein and I agree to abide by the same. The safeguards have been implemented. Tool box talk given to persons working/impacted (refer the list of work executors).&rdquo;
+                </p>
+              </div>
+
               {/* Log Approval / Sign Clearance Modal */}
               {showApprovalModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
@@ -3677,6 +3975,110 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                           </>
                         )}
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Permit Acceptor (Section K) Modal: acceptPermit / rejectAcceptor */}
+              {showAcceptorModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+                  <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-200 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`p-2 rounded-xl ${acceptorActionType === 'accept' ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'}`}>
+                          <span className="material-symbols-outlined text-[20px]">
+                            {acceptorActionType === 'accept' ? 'verified' : 'cancel'}
+                          </span>
+                        </span>
+                        <div>
+                          <h3 className="font-bold text-sm text-slate-900">
+                            {acceptorActionType === 'accept' ? 'Accept Permit (Permit Acceptor)' : 'Reject Permit (Acceptor)'}
+                          </h3>
+                          <p className="text-[11px] font-mono text-slate-500">
+                            SAP Action: {acceptorActionType === 'accept' ? '.acceptPermit' : '.rejectAcceptor'} · Permit {selectedPermit.Permit_No}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAcceptorModal(false)}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">close</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      {acceptorActionType === 'accept' ? (
+                        <>
+                          <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-xl text-teal-950 text-[11px] leading-relaxed">
+                            <strong>Section K Undertaking:</strong> Confirming all field safeguards are in place and toolbox talk has been given to the authorized crew before work start.
+                          </div>
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">
+                              Acceptance Comments (Payload: <code className="font-mono text-teal-700">Comments</code>):
+                            </label>
+                            <textarea
+                              value={acceptorComments}
+                              onChange={(e) => setAcceptorComments(e.target.value)}
+                              rows={3}
+                              placeholder="Toolbox talk and safety verification details..."
+                              className="w-full p-2.5 rounded-xl border border-slate-200 focus:border-teal-600 focus:outline-none"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-xl text-rose-950 text-[11px] leading-relaxed">
+                            <strong>Rejection Safety Justification:</strong> State the exact hazard, missing precaution, or toolbox talk issue preventing work acceptance.
+                          </div>
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">
+                              Rejection Reason (Payload: <code className="font-mono text-rose-700">Reason</code>):
+                            </label>
+                            <textarea
+                              value={acceptorComments}
+                              onChange={(e) => setAcceptorComments(e.target.value)}
+                              rows={3}
+                              placeholder="Reason for rejecting permit acceptance on site..."
+                              className="w-full p-2.5 rounded-xl border border-slate-200 focus:border-rose-600 focus:outline-none"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setShowAcceptorModal(false)}
+                          className="px-4 py-2 rounded-xl border border-slate-200 font-bold text-xs text-slate-600 hover:bg-slate-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={submittingAcceptor || !acceptorComments.trim()}
+                          onClick={handleSubmitAcceptor}
+                          className={`px-4 py-2 rounded-xl text-white font-bold text-xs transition disabled:opacity-50 flex items-center gap-1.5 shadow-xs ${
+                            acceptorActionType === 'accept' ? 'bg-teal-600 hover:bg-teal-700' : 'bg-rose-600 hover:bg-rose-700'
+                          }`}
+                        >
+                          {submittingAcceptor ? (
+                            <>
+                              <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                              <span>Submitting to SAP...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-[16px]">
+                                {acceptorActionType === 'accept' ? 'verified' : 'cancel'}
+                              </span>
+                              <span>{acceptorActionType === 'accept' ? 'Confirm Acceptance' : 'Confirm Rejection'}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -4042,9 +4444,22 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
             <div className="print-only">
               <PermitAnnexPrintView permit={selectedPermit} includeReverseSide={false} />
               {printWithJha && (
-                <div className="break-before-page">
-                  <PermitJhaPrintView permit={selectedPermit} template={currentJhaTemplate} />
-                </div>
+                <>
+                  {applicableJhas.map((item, idx) => (
+                    <div
+                      key={`${item.template.id}-${idx}`}
+                      className="break-before-page"
+                      style={{ pageBreakBefore: 'always', breakBefore: 'page' }}
+                    >
+                      <PermitJhaPrintView
+                        permit={selectedPermit}
+                        template={item.template}
+                        workTypeBadge={item.sourceLabel}
+                        sourceLabel={item.sourceLabel}
+                      />
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           )}

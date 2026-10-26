@@ -31,7 +31,8 @@ export const sitePermitApi = {
     signal?: AbortSignal,
     type?: string,
     status?: string,
-    top = 25
+    top = 25,
+    expand?: string[]
   ): Promise<PermitListResult> {
     const filters: string[] = [];
     if (plant.trim()) filters.push(`Werks eq '${literal(plant.trim())}'`);
@@ -61,27 +62,54 @@ export const sitePermitApi = {
         filters.push(`Status eq '${literal(status.trim())}'`);
       }
     }
+    const expandClause = expand !== undefined ? expand : ['_WorkType'];
     const query = buildODataQuery({
       $filter: filters.join(' and ') || undefined,
       $top: top,
       $skip: skip,
       $count: true,
+      $expand: expandClause.length > 0 ? expandClause : undefined,
       $orderby: 'Erdat desc,Erzet desc,Permit_No desc'
     });
-    const response = await odataClient.get<{ value: PermitInfoRecord[]; '@odata.count'?: number }>(
-      `${ODATA_ENTITIES.PERMIT_INFO}${query}`,
-      { signal }
-    );
-    if (!Array.isArray(response.data?.value)) throw new Error('SAP did not return a permit list.');
 
-    const countVal = response.data['@odata.count'];
-    const totalCount = typeof countVal === 'number'
-      ? countVal
-      : (response.data.value.length < top ? skip + response.data.value.length : Math.max(skip + response.data.value.length, 25));
+    try {
+      const response = await odataClient.get<{ value: PermitInfoRecord[]; '@odata.count'?: number }>(
+        `${ODATA_ENTITIES.PERMIT_INFO}${query}`,
+        { signal }
+      );
+      if (!Array.isArray(response.data?.value)) throw new Error('SAP did not return a permit list.');
 
-    const list = response.data.value as PermitListResult;
-    list.totalCount = totalCount;
-    return list;
+      const countVal = response.data['@odata.count'];
+      const totalCount = typeof countVal === 'number'
+        ? countVal
+        : (response.data.value.length < top ? skip + response.data.value.length : Math.max(skip + response.data.value.length, 25));
+
+      const list = response.data.value as PermitListResult;
+      list.totalCount = totalCount;
+      return list;
+    } catch (err) {
+      if (expandClause.length > 0) {
+        const fallbackQuery = buildODataQuery({
+          $filter: filters.join(' and ') || undefined,
+          $top: top,
+          $skip: skip,
+          $count: true,
+          $orderby: 'Erdat desc,Erzet desc,Permit_No desc'
+        });
+        const fallbackResp = await odataClient.get<{ value: PermitInfoRecord[]; '@odata.count'?: number }>(
+          `${ODATA_ENTITIES.PERMIT_INFO}${fallbackQuery}`,
+          { signal }
+        );
+        if (Array.isArray(fallbackResp.data?.value)) {
+          const list = fallbackResp.data.value as PermitListResult;
+          list.totalCount = typeof fallbackResp.data['@odata.count'] === 'number'
+            ? fallbackResp.data['@odata.count']
+            : list.length;
+          return list;
+        }
+      }
+      throw err;
+    }
   },
 
   async getPlantSummary(plant: string, signal?: AbortSignal): Promise<PlantPermitSummary> {
@@ -183,6 +211,12 @@ export const sitePermitApi = {
   async submitApproval(record: ApprovalRecord): Promise<ApprovalRecord> {
     return permitApproverApi.submitApproval(record);
   },
+  async executeAcceptPermitAction(params: { permitNo: string; comments?: string }): Promise<any> {
+    return permitApproverApi.executeAcceptPermitAction(params);
+  },
+  async executeRejectAcceptorAction(params: { permitNo: string; reason: string }): Promise<any> {
+    return permitApproverApi.executeRejectAcceptorAction(params);
+  },
   /**
    * Updates (PATCH) mutable header fields on an existing permit in SAP
    */
@@ -244,4 +278,10 @@ export const sitePermitApi = {
       throw err;
     }
   },
+  async executeCompleteAreaOperatorAction(params: { permitNo: string; comments?: string }): Promise<any> {
+    return permitApproverApi.executeCompleteAreaOperatorAction(params);
+  },
+  async executeRejectAreaOperatorAction(params: { permitNo: string; reason: string }): Promise<any> {
+    return permitApproverApi.executeRejectAreaOperatorAction(params);
+  }
 };

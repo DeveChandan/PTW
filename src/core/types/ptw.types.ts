@@ -21,8 +21,9 @@ export type PermitStatusCode =
   | 'HSE_A' // Safety Officer Approved
   | 'AREA_A'// Area Owner Approved
   | 'APPR'  // Approved & Authorized
-  | 'ISSD'  // Issued
-  | 'ACTV'  // Active in Field
+  | 'ACCP'  // Accepted by Permit Acceptor (Section K)
+  | 'ISSU' | 'ISSD' // Issued / Authorized for Execution
+  | 'ACTV'  // Active in Field (Area Operator Cleared)
   | 'SUSP'  // Suspended (Safety Stop)
   | 'CANC'  // Cancelled
   | 'CLOS'; // Closed / Archival
@@ -142,6 +143,14 @@ export interface PermitInfoRecord {
   Aezet: string; // Changed Time (HH:mm:ss)
 
   LastChangedAt: string | null; // UTC Timestamp
+
+  // Special Safety Roles & Plan References
+  FireWatchName?: string; // Fire Watch Person Name, MaxLength 60
+  FireWatchContact?: string; // Fire Watch Contact Phone (default "0"), MaxLength 20
+  StandByName?: string; // Standby Person Name, MaxLength 60
+  StandByContact?: string; // Standby Person Contact Phone (default "0"), MaxLength 20
+  ChemicalContent?: string; // Chemicals / Contents of line or equipment, MaxLength 100
+  RiggingPlanRescuePlan?: string; // Rigging Plan / Rescue Plan Reference, MaxLength 100
 
   SAP__Messages?: SapMessageItem[];
 }

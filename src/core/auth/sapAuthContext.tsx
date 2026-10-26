@@ -101,10 +101,16 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'permit-issuer',
     title: 'Permit Acceptor',
-    subtitle: 'Toolbox Briefing, Site Handover & Field Issuance',
+    subtitle: 'Toolbox Briefing, Section K Agreement & Field Acceptance',
     icon: 'verified',
-    requiredRoles: ['ZPTW_ISSUER', 'PTW_ISSUER', 'PTW_ISSU', 'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE', 'ZPTW_ADMIN', 'PTW_ADMIN'],
-    badge: 'Issuer'
+    requiredRoles: [
+      'ZPTW_ISSUER', 'PTW_ISSUER', 'PTW_ISSU',
+      'ZPTW_ACCEPTOR', 'PTW_ACCEPTOR', 'PTW_ACCP',
+      'ZPTW_HOLDER', 'PTW_HOLDER', 'PTW_HOLD',
+      'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE',
+      'ZPTW_ADMIN', 'PTW_ADMIN'
+    ],
+    badge: 'Acceptor'
   },
   {
     id: 'permit-area-owner',

@@ -5,6 +5,8 @@ import { JhaTemplate, detectBestJhaTemplate } from '../../core/ptw/jhaTemplates'
 interface PermitJhaPrintViewProps {
   permit: PermitDeepInsertResponse | PermitInfoRecord | any;
   template?: JhaTemplate;
+  workTypeBadge?: string;
+  sourceLabel?: string;
 }
 
 const renderRiskBadge = (risk: { score: number; level: string; likelihood: string; severity: string }) => {
@@ -34,10 +36,13 @@ const renderRiskBadge = (risk: { score: number; level: string; likelihood: strin
 
 export const PermitJhaPrintView: React.FC<PermitJhaPrintViewProps> = ({
   permit,
-  template
+  template,
+  workTypeBadge,
+  sourceLabel
 }) => {
   const activeTemplate = template || detectBestJhaTemplate(permit);
   const permitNo = permit?.Permit_No || permit?.PermitNo || '—';
+
 
   return (
     <div className="jha-official-print font-sans text-black leading-tight bg-white w-full">
@@ -70,7 +75,7 @@ export const PermitJhaPrintView: React.FC<PermitJhaPrintViewProps> = ({
             </div>
 
             {/* Reference Bar */}
-            <div className="mt-2 pt-1 border-t border-slate-300 grid grid-cols-4 gap-2 text-[10px] bg-slate-50 p-1.5 border border-black/30">
+            <div className="mt-2 pt-1 border-t border-slate-300 grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px] bg-slate-50 p-1.5 border border-black/30">
               <div>
                 <span className="font-bold mr-1">Permit No:</span>
                 <span className="font-mono font-bold text-[11px] underline">{permitNo}</span>
@@ -84,10 +89,16 @@ export const PermitJhaPrintView: React.FC<PermitJhaPrintViewProps> = ({
                 <span>{permit?.AreaLoc || '—'}</span>
               </div>
               <div>
+                <span className="font-bold mr-1">Work Type:</span>
+                <span className="font-bold text-slate-900 bg-slate-200/90 px-1 py-0.5 rounded border border-black/20 text-[9.5px]">
+                  {workTypeBadge || sourceLabel || activeTemplate.categoryCode}
+                </span>
+              </div>
+              <div>
                 <span className="font-bold mr-1">Supervisor:</span>
                 <span>{permit?.SupvName || '—'}</span>
               </div>
-              <div className="col-span-4 mt-0.5">
+              <div className="col-span-2 sm:col-span-5 mt-0.5">
                 <span className="font-bold mr-1">Job Description:</span>
                 <span className="italic">{permit?.JobDesc || '—'}</span>
               </div>

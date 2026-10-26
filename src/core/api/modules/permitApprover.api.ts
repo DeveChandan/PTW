@@ -125,7 +125,7 @@ export function getNextApprovalStep(
       Boolean(a.SignedBy?.trim())
   );
 
-  const isStatusApproved = permitStatus === 'APPR' || permitStatus === 'ISSU' || permitStatus === 'ACTV' || permitStatus === 'CLSD';
+  const isStatusApproved = permitStatus === 'APPR' || permitStatus === 'ACCP' || permitStatus === 'ISSU' || permitStatus === 'ACTV' || permitStatus === 'CLSD';
 
   const isExplicitRejected = permitStatus === 'REJT' || permitStatus === 'REJC' || permitStatus === 'REJECTED' || permitStatus === 'CANC';
   // A permit is rejected if explicitly in a rejected status, OR if no status is specified and the last recorded approval is a rejection
@@ -403,11 +403,97 @@ export const permitApproverApi = {
   },
 
   /**
+   * Executes the SAP RAP bound action for permit acceptor accept:
+   * POST /Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.acceptPermit
+   * Payload: { PermitNo: string, Comments: string }
+   */
+  async executeAcceptPermitAction(params: { permitNo: string; comments?: string }): Promise<any> {
+    const payload = {
+      PermitNo: params.permitNo,
+      Comments: params.comments || ''
+    };
+    const response = await odataClient.post(ODATA_ACTIONS.ACCEPT_PERMIT, payload);
+    return response.data;
+  },
+
+  /**
+   * Executes the SAP RAP bound action for permit acceptor reject:
+   * POST /Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAcceptor
+   * Payload: { PermitNo: string, Reason: string }
+   */
+  async executeRejectAcceptorAction(params: { permitNo: string; reason: string }): Promise<any> {
+    const payload = {
+      PermitNo: params.permitNo,
+      Reason: params.reason || ''
+    };
+    const response = await odataClient.post(ODATA_ACTIONS.REJECT_ACCEPTOR, payload);
+    return response.data;
+  },
+
+  /**
+   * Convenience method to accept permit as acceptor
+   */
+  async acceptPermit(params: { permitNo: string; comments?: string }): Promise<any> {
+    return this.executeAcceptPermitAction(params);
+  },
+
+  /**
+   * Convenience method to reject permit as acceptor
+   */
+  async rejectAcceptor(params: { permitNo: string; reason: string }): Promise<any> {
+    return this.executeRejectAcceptorAction(params);
+  },
+
+  /**
+   * Executes the SAP RAP bound action for Area Operator complete / accept:
+   * POST /Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.completeAreaOperator
+   * Payload: { PermitNo: string, Comments: string }
+   */
+  async executeCompleteAreaOperatorAction(params: { permitNo: string; comments?: string }): Promise<any> {
+    const payload = {
+      PermitNo: params.permitNo,
+      Comments: params.comments || ''
+    };
+    const response = await odataClient.post(ODATA_ACTIONS.COMPLETE_AREA_OPERATOR, payload);
+    return response.data;
+  },
+
+  /**
+   * Executes the SAP RAP bound action for Area Operator reject:
+   * POST /Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAreaOperator
+   * Payload: { PermitNo: string, Reason: string }
+   */
+  async executeRejectAreaOperatorAction(params: { permitNo: string; reason: string }): Promise<any> {
+    const payload = {
+      PermitNo: params.permitNo,
+      Reason: params.reason || ''
+    };
+    const response = await odataClient.post(ODATA_ACTIONS.REJECT_AREA_OPERATOR, payload);
+    return response.data;
+  },
+
+  /**
+   * Convenience method to complete / accept permit as Area Operator
+   */
+  async completeAreaOperator(params: { permitNo: string; comments?: string }): Promise<any> {
+    return this.executeCompleteAreaOperatorAction(params);
+  },
+
+  /**
+   * Convenience method to reject permit as Area Operator
+   */
+  async rejectAreaOperator(params: { permitNo: string; reason: string }): Promise<any> {
+    return this.executeRejectAreaOperatorAction(params);
+  },
+
+  /**
    * Submits (Creates / Logs) an approval record into SAP.
    * If action is APPROVE ('AP'), routes to the SAP RAP approve action:
    * /Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.approve
    * If action is REJECT ('RJ'), routes to the SAP RAP reject action:
    * /Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.reject
+   * If action is ACCEPT ('AC'/'ACCEPT'), routes to acceptPermit action.
+   * If action is REJECT_ACCEPTOR ('RJA'), routes to rejectAcceptor action.
    * Otherwise logs to /Approval entity set with verified unique SeqNo.
    */
   async submitApproval(record: ApprovalRecord): Promise<ApprovalRecord> {
@@ -423,6 +509,42 @@ export const permitApproverApi = {
     // If the action is REJECT ('RJ'), execute the designated SAP RAP reject action
     if (record.Action === 'RJ') {
       const actionResult = await this.executeRejectAction({
+        permitNo: record.PermitNo,
+        reason: record.Comments || ''
+      });
+      return (actionResult as ApprovalRecord) || record;
+    }
+
+    // If the action is ACCEPT ('AC' / 'ACCP' / 'ACCEPT'), execute designated SAP RAP acceptPermit action
+    if (record.Action === 'AC' || record.Action === 'ACCP' || record.Action === 'ACCEPT') {
+      const actionResult = await this.executeAcceptPermitAction({
+        permitNo: record.PermitNo,
+        comments: record.Comments || ''
+      });
+      return (actionResult as ApprovalRecord) || record;
+    }
+
+    // If the action is REJECT_ACCEPTOR ('RJA' / 'REJECT_ACCEPTOR'), execute designated SAP RAP rejectAcceptor action
+    if (record.Action === 'RJA' || record.Action === 'REJECT_ACCEPTOR') {
+      const actionResult = await this.executeRejectAcceptorAction({
+        permitNo: record.PermitNo,
+        reason: record.Comments || ''
+      });
+      return (actionResult as ApprovalRecord) || record;
+    }
+
+    // If the action is COMPLETE_AREA_OPERATOR ('CAO' / 'COMPLETE_AREA_OPERATOR'), execute designated SAP RAP completeAreaOperator action
+    if (record.Action === 'CAO' || record.Action === 'COMPLETE_AREA_OPERATOR') {
+      const actionResult = await this.executeCompleteAreaOperatorAction({
+        permitNo: record.PermitNo,
+        comments: record.Comments || ''
+      });
+      return (actionResult as ApprovalRecord) || record;
+    }
+
+    // If the action is REJECT_AREA_OPERATOR ('RAO' / 'REJECT_AREA_OPERATOR'), execute designated SAP RAP rejectAreaOperator action
+    if (record.Action === 'RAO' || record.Action === 'REJECT_AREA_OPERATOR') {
+      const actionResult = await this.executeRejectAreaOperatorAction({
         permitNo: record.PermitNo,
         reason: record.Comments || ''
       });

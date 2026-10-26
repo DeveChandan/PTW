@@ -235,11 +235,16 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
     return false;
   };
 
-  // Extract JSA, Drawing, Standby, Rescue from Safety records
+  // Extract JSA, Drawing, Standby, Rescue from Safety records or permit header
   const jsaRef = getPrepRemarks('JSA1') || '—';
   const isolationDrawing = getPrepRemarks('DRAW') || '—';
-  const standbyPerson = getPrepRemarks('STBY') || getPrepRemarks('FWAT') || '—';
-  const rescuePlan = getPrepRemarks('RESC') || '—';
+  const standbyPerson =
+    permit?.StandByName
+      ? `${permit.StandByName}${permit.StandByContact && permit.StandByContact !== '0' ? ` (${permit.StandByContact})` : ''}`
+      : permit?.FireWatchName
+      ? `${permit.FireWatchName}${permit.FireWatchContact && permit.FireWatchContact !== '0' ? ` (${permit.FireWatchContact})` : ''}`
+      : getPrepRemarks('STBY') || getPrepRemarks('FWAT') || getPrepRemarks('SBNM') || getPrepRemarks('FWNM') || '—';
+  const rescuePlan = permit?.RiggingPlanRescuePlan || getPrepRemarks('RESC') || getPrepRemarks('RIGP') || '—';
   const isolationTag = permit?.LotoCertNo || permit?.IsolationNo || '—';
 
   return (

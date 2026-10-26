@@ -30,8 +30,8 @@ const {
   getJhaTemplateById
 } = compiled.exports;
 
-test('JHA module registers all 6 corporate templates from HSE/SAF/F/05 standard', () => {
-  assert.equal(JHA_TEMPLATES.length, 6, 'Exactly 6 templates registered');
+test('JHA module registers corporate templates from HSE/SAF/F/05 standard and additional work categories', () => {
+  assert.equal(JHA_TEMPLATES.length, 11, 'All 11 primary and additional work category templates registered');
   const templateIds = JHA_TEMPLATES.map(t => t.id);
   assert.deepEqual(templateIds, [
     'HOT_GROUND',
@@ -39,7 +39,12 @@ test('JHA module registers all 6 corporate templates from HSE/SAF/F/05 standard'
     'CSE_COLD',
     'LINE_BREAK',
     'WORK_HEIGHT',
-    'HYDRO_JET'
+    'HYDRO_JET',
+    'EXCAVATION',
+    'RIGGING_LIFTING',
+    'ELECTRICAL',
+    'RADIOGRAPHY',
+    'GENERAL_COLD'
   ]);
 
   for (const template of JHA_TEMPLATES) {

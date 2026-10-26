@@ -11,6 +11,8 @@ import { PermitDisplayWorkspace } from './features/permits/PermitDisplayWorkspac
 import { IsolationWorkspace } from './features/isolation/IsolationWorkspace';
 import { GasTesterWorkspace } from './features/gastest/GasTesterWorkspace';
 import { PermitApproverWorkspace } from './features/approvals/PermitApproverWorkspace';
+import { PermitAcceptorWorkspace } from './features/approvals/PermitAcceptorWorkspace';
+import { PermitAreaOperatorWorkspace } from './features/approvals/PermitAreaOperatorWorkspace';
 import { ReportModule } from './features/dashboard/ReportModule';
 import { SafetyMapWorkspace } from './features/map/SafetyMapWorkspace';
 import { AdminWorkspace } from './features/admin/AdminWorkspace';
@@ -195,6 +197,16 @@ export const App: React.FC = () => {
             user={user}
             onBack={() => setSelectedModule(null)}
           />
+        ) : selectedModule === 'permit-issuer' ? (
+          <PermitAcceptorWorkspace
+            user={user}
+            onBack={() => setSelectedModule(null)}
+          />
+        ) : selectedModule === 'permit-area-owner' ? (
+          <PermitAreaOperatorWorkspace
+            user={user}
+            onBack={() => setSelectedModule(null)}
+          />
         ) : selectedModule === 'gas-tester' ? (
           <GasTesterWorkspace
             user={user}
@@ -206,6 +218,7 @@ export const App: React.FC = () => {
               module={activeModuleDef}
               user={user}
               onBack={() => setSelectedModule(null)}
+              onOpenPermit={() => setSelectedModule('permit-details')}
             />
           )
         ) : selectedModule === 'safety-map' ? (
