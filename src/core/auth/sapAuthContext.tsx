@@ -1,3 +1,4 @@
+import { getDefaultSapClient } from './sapClient';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { odataClient, authApi } from '../api';
 
@@ -168,7 +169,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       'ZPTW_ISOLATOR', 'PTW_ISOLATOR',
       'ZPTW_AREA_OWNER', 'PTW_AREA_OWNER', 'PTW_AOPR',
       'ZPTW_GAS_TESTER', 'PTW_GAS_TESTER', 'PTW_GAS',
-      'ZPTW_ADMIN', 'PTW_ADMIN',
+      'ZPTW_ADMIN', 'PTW_ADMIN','YSM-XX-PFCG-PTW-APP-XXXXXXXXXX',
       'Z_MOBILE_PI_SHEET'
     ],
     badge: 'Site Map'
@@ -217,7 +218,7 @@ interface SapAuthContextType {
   unlockedModules: ModuleDefinition[];
   hasRole: (role: string) => boolean;
   isModuleUnlocked: (moduleId: ModuleId) => boolean;
-  login: (credentials: LoginCredentials, options?: { silent?: boolean }) => Promise<boolean>;
+  login: (credentials: LoginCredentials, options?: { silent?: boolean; signal?: AbortSignal }) => Promise<boolean>;
   logout: () => void;
   switchUser: (userId: string) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -261,7 +262,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (
       roles.includes('ZPTW_ADMIN') ||
       roles.includes('PTW_ADMIN') ||
-      roles.includes('Z_MOBILE_PI_SHEET')
+      roles.includes('Z_MOBILE_PI_SHEET') ||
+      roles.includes('YSM-XX-PFCG-PTW-APP-XXXXXXXXXX')
     ) {
       return MODULE_REGISTRY.map((m) => m.id);
     }
@@ -308,6 +310,12 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
    *   Priority 5: Remembered user / default user verified against active SAP session cookies
    */
   useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      controller.abort();
+      setError('SAP session discovery took too long. Please sign in, or ask support to check the SAP startup and PTW OData services.');
+      setIsSessionRestoring(false);
+    }, 20000);
     const restoreSession = async () => {
       try {
         sessionStorage.removeItem('gfl_ptw_user_session_v1');
@@ -318,8 +326,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const flpUserId = flpContainerUser.getId();
           if (flpUserId) {
             console.info(`[SapAuth] Detected SAP Fiori Launchpad session for user: ${flpUserId}`);
-            const ok = await login({ userId: flpUserId, client: '200' }, { silent: true });
-            if (ok) return;
+            const ok = await login({ userId: flpUserId, }, { silent: true, signal: controller.signal });
+            if (ok || controller.signal.aborted) return;
           }
         }
 
@@ -332,10 +340,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const urlUser = urlParams.get('sap-user') || urlParams.get('sap-user-id') || urlParams.get('user');
         const candidateDirectUser = (bspInjectedUser || urlUser || '').trim().toUpperCase();
         const candidateDirectClient =
-          window.SAP_CURRENT_CLIENT ||
-          urlParams.get('sap-client') ||
-          import.meta.env.VITE_SAP_CLIENT ||
-          '200';
+          getDefaultSapClient();
         const candidateDirectLang = urlParams.get('sap-language') || 'EN';
 
         if (candidateDirectUser && !candidateDirectUser.includes('<%')) {
@@ -344,8 +349,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
             userId: candidateDirectUser,
             client: candidateDirectClient,
             language: candidateDirectLang
-          }, { silent: true });
-          if (ok) return;
+          }, { silent: true, signal: controller.signal });
+          if (ok || controller.signal.aborted) return;
         }
 
         // Priority 3: Check sessionStorage for persisted session (F5 page refresh)
@@ -359,10 +364,10 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
             // Revalidate against SAP; browser storage is not proof of authentication.
             const ok = await login({
               userId: parsedSession.user.id,
-              client: parsedSession.client,
+              client: getDefaultSapClient(),
               language: parsedSession.language
-            }, { silent: true });
-            if (ok) return;
+            }, { silent: true, signal: controller.signal });
+            if (ok || controller.signal.aborted) return;
           } else if (isIdleExpired) {
             sessionStorage.removeItem(SESSION_STORAGE_KEY);
             setError('Your SAP session has timed out due to inactivity. Please log on again.');
@@ -371,16 +376,17 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         // Priority 4: Standalone SAP BSP Session Discovery (/sap/bc/ui2/start_up & /sap/bc/ui2/user)
         // When deployed to BSP, user already authenticated with SAP ICF at the host URL.
-        const defaultClient = import.meta.env.VITE_SAP_CLIENT || '200';
-        const startupUser = await authApi.fetchStartupUser(defaultClient);
+        const defaultClient = getDefaultSapClient();
+        const startupUser = await authApi.fetchStartupUser(defaultClient, controller.signal);
+        if (controller.signal.aborted) return;
         if (startupUser && startupUser.id) {
           console.info(`[SapAuth] Detected standalone SAP BSP session for user: ${startupUser.id}`);
           const ok = await login({
             userId: startupUser.id,
             client: startupUser.client || defaultClient,
             language: startupUser.language || 'EN'
-          }, { silent: true });
-          if (ok) return;
+          }, { silent: true, signal: controller.signal });
+          if (ok || controller.signal.aborted) return;
         }
 
         // Priority 5: Remembered User ID or Default Initial User ID with Active Session Validation
@@ -392,18 +398,23 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         if (candidateFallback) {
           console.info(`[SapAuth] Attempting SSO session validation for candidate user: ${candidateFallback}`);
-          const ok = await login({ userId: candidateFallback, client: defaultClient }, { silent: true });
-          if (ok) return;
+          const ok = await login({ userId: candidateFallback, client: defaultClient }, { silent: true, signal: controller.signal });
+          if (ok || controller.signal.aborted) return;
         }
       } catch (err) {
         console.warn('[SapAuth] Session restoration error:', err);
-        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* Storage may be blocked. */ }
       } finally {
-        setIsSessionRestoring(false);
+        window.clearTimeout(timeout);
+        if (!controller.signal.aborted) setIsSessionRestoring(false);
       }
     };
 
     restoreSession();
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   /**
@@ -496,14 +507,15 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
    */
   const login = async (
     credentials: LoginCredentials,
-    options?: { silent?: boolean }
+    options?: { silent?: boolean; signal?: AbortSignal }
   ): Promise<boolean> => {
+    if (options?.signal?.aborted) return false;
     if (!options?.silent) {
       setLoading(true);
       setError(null);
     }
     const targetId = credentials.userId.trim().toUpperCase();
-    const client = credentials.client || import.meta.env.VITE_SAP_CLIENT || '200';
+    const client = credentials.client || getDefaultSapClient();
     const lang = credentials.language || 'EN';
     try {
       if (!targetId) throw new Error('Enter your SAP user ID.');
@@ -511,9 +523,11 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       odataClient.setClient(client);
       odataClient.setCredentials(targetId, credentials.password);
       const [records, roleEntries] = await Promise.all([
-        authApi.fetchUserInfo(targetId, client).catch(() => []),
-        authApi.fetchUserRoles(targetId, client).catch(() => [])
+        authApi.fetchUserInfo(targetId, client, options?.signal).catch(() => []),
+        authApi.fetchUserRoles(targetId, client, options?.signal).catch(() => [])
       ]);
+
+      if (options?.signal?.aborted) return false;
 
       // Extract raw roles from both userinfo and live UserRole entity sets
       const rawRolesList: string[] = [];
@@ -619,6 +633,7 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       persistSession(loggedInUser, client, lang, credentials);
       return true;
     } catch (err) {
+      if (options?.signal?.aborted) return false;
       authApi.clearSession();
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       setUser(null);
@@ -663,7 +678,8 @@ export const SapAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       user.roles.includes(altClean) ||
       user.roles.includes('ZPTW_ADMIN') ||
       user.roles.includes('PTW_ADMIN') ||
-      user.roles.includes('Z_MOBILE_PI_SHEET')
+      user.roles.includes('Z_MOBILE_PI_SHEET') ||
+      user.roles.includes('YSM-XX-PFCG-PTW-APP-XXXXXXXXXX')
     );
   };
 

@@ -193,6 +193,23 @@ npm run build
 ```
 This generates the optimized bundle in the `dist/` directory.
 
+### One build for DEV, QAS and production
+
+The deployed app has no fixed SAP client and ignores build-time `VITE_SAP_CLIENT`.
+It uses a valid `sap-client` launch parameter or `window.SAP_CURRENT_CLIENT`
+when provided. Otherwise it sends no client override and lets SAP select the
+client through its session and service logon configuration. Session discovery
+can return the selected client; saved browser sessions do not force an old client
+on a fresh launch. The login screen defaults to Automatic and permits an optional
+three-digit client override, with no fixed list of client numbers.
+
+Transport the same complete `dist/` folder across systems. API calls use the
+hosting SAP origin. Basis must configure consistent client selection for the
+app, startup and OData services in each system; the app cannot infer a client
+from a hostname. A launch parameter remains available where explicit selection
+is required. `VITE_SAP_CLIENT` and `VITE_SAP_TARGET` configure only the local
+Vite development proxy, not the deployed client selection.
+
 ### Text encoding and icons after BSP deployment
 
 The production build escapes Unicode characters in JavaScript and CSS as ASCII.
@@ -200,17 +217,16 @@ This preserves bullets, separators, dashes, and other UI symbols even when a BSP
 MIME response declares a legacy character encoding. Keep source files in UTF-8
 and serve HTML, JavaScript, and CSS as UTF-8 on SAP where possible.
 
-Material Symbols icons are bundled locally with a full variable WOFF2 font; no
-Google Fonts connection is required for icons. Upload the **entire** `dist/`
-folder, including `assets/material-symbols-outlined-*.woff2`. Preserve the
-generated paths and filenames. The font should be served as `font/woff2`.
+Material Symbols icons are embedded directly in the production CSS as a WOFF2
+data URL. All modules retain the complete icon set without Google Fonts access
+or a separate font file that SAP might skip during upload. This increases the
+CSS size by approximately 5.3 MB before compression. If the SAP host applies a
+Content Security Policy, its `font-src` must permit `data:` for this font.
 
-The build also copies `public/.Ui5RepositoryBinaryFiles` to the root of `dist/`.
-Keep this file in the upload folder (or at the root of the upload ZIP). It tells
-`/UI5/UI5_REPOSITORY_LOAD` to upload `.woff2` fonts and `.webp` images as binary.
-Without it, SAP can log `*** IGNORE ***` and skip the icon font and logo even
-though the upload ends with "Upload finished". After uploading, confirm both
-files are listed as uploaded **Binary**, with no IGNORE warning for either.
+Upload the **entire** new `dist/` folder, including `index.html` and the matching
+hashed CSS/JS files. Do not mix files from different builds. Clear the browser
+cache after upload. The `.Ui5RepositoryBinaryFiles` upload rules still classify
+the logo (and any future external WOFF2 assets) as binary.
 
 Run `npm run test:bsp` to rebuild and check that generated scripts/styles are
 ASCII-safe and that scripts, styles, and the icon font resolve beneath the BSP

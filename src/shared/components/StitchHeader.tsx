@@ -120,7 +120,7 @@ export const StitchHeader: React.FC<StitchHeaderProps> = ({
           {/* SAP Client Pill */}
           <div className="hidden lg:flex items-center gap-1.5 bg-gradient-to-r from-sky-50 to-blue-50/70 border border-sky-200/90 text-[#006398] px-2.5 py-1 rounded-xl text-xs font-mono font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(0,99,152,0.06)] shrink-0">
             <span className="h-1.5 w-1.5 rounded-full bg-[#006398]"></span>
-            <span>Client: 200</span>
+            <span>Client: {user?.client || 'Automatic'}</span>
           </div>
 
           {/* User Profile Pill */}

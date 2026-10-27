@@ -1,9 +1,10 @@
+import { getDefaultSapClient } from '../auth/sapClient';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { ODataErrorResponse } from '../types/odata.types';
 
 // Read configuration from environment or fallback
 const ODATA_BASE_URL = import.meta.env.VITE_ODATA_BASE_URL || '/sap/opu/odata4/sap/zptw_mamagement_srv/srvd_a2x/sap/zptw_services/0001/';
-const SAP_CLIENT = import.meta.env.VITE_SAP_CLIENT || '200';
+const SAP_CLIENT = getDefaultSapClient();
 
 class SapODataClient {
   public instance: AxiosInstance;
@@ -14,14 +15,15 @@ class SapODataClient {
     this.instance = axios.create({
       baseURL: ODATA_BASE_URL,
       timeout: 30000,
+      params: SAP_CLIENT ? { 'sap-client': SAP_CLIENT } : {},
       withCredentials: true, // Send SAP session cookies
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'sap-client': SAP_CLIENT
+        'Content-Type': 'application/json'
       }
     });
 
+    this.setClient(SAP_CLIENT);
     this.setupInterceptors();
   }
 
@@ -40,9 +42,14 @@ class SapODataClient {
   }
 
   public setClient(client: string): void {
-    if (!/^\d{3}$/.test(client)) throw new Error('SAP client must contain three digits.');
-    this.instance.defaults.headers.common['sap-client'] = client;
-    this.instance.defaults.params = { 'sap-client': client };
+    if (client && !/^\d{3}$/.test(client)) throw new Error('SAP client must contain three digits.');
+    if (client) {
+      this.instance.defaults.headers.common['sap-client'] = client;
+      this.instance.defaults.params = { 'sap-client': client };
+    } else {
+      delete this.instance.defaults.headers.common['sap-client'];
+      this.instance.defaults.params = {};
+    }
     this.csrfToken = null;
   }
 

@@ -1,3 +1,4 @@
+import { getDefaultSapClient } from '../../core/auth/sapClient';
 import React, { useState, useEffect } from 'react';
 import { useSapAuth } from '../../core/auth/sapAuthContext';
 import { toast } from '../context/ToastContext';
@@ -20,7 +21,7 @@ export const SapLoginPage: React.FC = () => {
 
   const [userId, setUserId] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [client, setClient] = useState<string>('200');
+  const [client, setClient] = useState<string>(getDefaultSapClient);
   const [language, setLanguage] = useState<string>('EN');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberUser, setRememberUser] = useState<boolean>(true);
@@ -117,7 +118,7 @@ export const SapLoginPage: React.FC = () => {
             <span className="font-semibold text-slate-700">SAP Gateway Online</span>
           </div>
           <span className="bg-sky-50 text-[#006398] border border-sky-200 px-2.5 py-1 rounded-lg text-xs font-mono font-bold">
-            Client: {client}
+            Client: {client || 'Automatic'}
           </span>
         </div>
       </header>
@@ -228,15 +229,16 @@ export const SapLoginPage: React.FC = () => {
                   <Server className="w-3 h-3 text-slate-400" />
                   <span>SAP Client</span>
                 </label>
-                <select
+                <input
                   value={client}
-                  onChange={(e) => setClient(e.target.value)}
+                  onChange={(e) => setClient(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                  inputMode="numeric"
+                  maxLength={3}
+                  pattern="[0-9]{3}"
+                  placeholder="Automatic (SAP session)"
+                  aria-label="SAP client (leave blank for automatic)"
                   className="w-full bg-slate-50/70 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-[#006398] focus:bg-white transition-all"
-                >
-                  <option value="200">Client 200</option>
-                  <option value="210">Client 210</option>
-                  <option value="100">Client 100</option>
-                </select>
+                />
               </div>
 
               <div>
@@ -250,9 +252,9 @@ export const SapLoginPage: React.FC = () => {
                   className="w-full bg-slate-50/70 border border-slate-200 rounded-xl px-3 py-2 text-xs font-sans font-medium text-slate-900 focus:outline-none focus:border-[#006398] focus:bg-white transition-all"
                 >
                   <option value="EN">EN (English)</option>
-                  <option value="GU">GU (ગુજરાતી)</option>
+                  {/* <option value="GU">GU (ગુજરાતી)</option>
                   <option value="HI">HI (हिन्दी)</option>
-                  <option value="DE">DE (German)</option>
+                  <option value="DE">DE (German)</option> */}
                 </select>
               </div>
             </div>

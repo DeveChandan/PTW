@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   const sapTarget = env.VITE_SAP_TARGET || 'https://vhgfldevci.sap.gfl.co.in:44300';
-  const sapClient = env.VITE_SAP_CLIENT || '200';
+  const sapClient = env.VITE_SAP_CLIENT || undefined;
 
   return {
     plugins: [react()],
@@ -139,6 +139,9 @@ export default defineConfig(({ mode }) => {
 
     build: {
       outDir: 'dist',
+      // Keep the icon font inside CSS: BSP uploaders can skip or corrupt WOFF2 MIME files.
+      assetsInlineLimit: (filePath) =>
+        filePath.replace(/\\/g, '/').endsWith('/material-symbols-outlined.woff2') ? true : undefined,
       sourcemap: mode === 'development',
       rollupOptions: {
         output: {

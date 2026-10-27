@@ -215,7 +215,7 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
   const userRoleDisplay = useMemo(() => {
     if (!user) return { title: 'Standard Operator', icon: 'person', tag: 'Standard' };
     const roles = user.roles || [];
-    const isAdmin = roles.some((r) => r === 'PTW_ADMIN' || r === 'ZPTW_ADMIN' || r === 'Z_MOBILE_PI_SHEET');
+    const isAdmin = roles.some((r) => r === 'YSM-XX-PFCG-PTW-APP-XXXXXXXXXX' || r === 'ZPTW_ADMIN' || r === 'Z_MOBILE_PI_SHEET');
     if (isAdmin || authorizedModules.length === MODULE_REGISTRY.length) {
       return {
         title: 'PTW Administrator',
@@ -290,7 +290,7 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
                 PTW Module Command Center
               </h1>
               <span className="text-[10px] font-mono font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20 px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-1">
-                <span>Client {user?.client || '200'}</span>
+                <span>Client {user?.client || 'Automatic'}</span>
                 <span>&middot;</span>
                 <span>S/4HANA</span>
               </span>
@@ -346,7 +346,7 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
             <div className="min-w-0">
               <span className="block text-[9px] uppercase text-slate-400 font-bold tracking-wider">Plant Facility</span>
               <span className="text-xs font-bold text-slate-800 truncate block">
-                {user?.plant || '1002'} Dahej
+                {user?.plant || ''} 
               </span>
             </div>
           </div>
@@ -524,7 +524,7 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
       {/* Footer Info Strip */}
       <div className="border-t border-slate-200 pt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-mono gap-2">
         <span>Gujarat Fluorochemicals Limited · NetWeaver BSP OData V4</span>
-        <span>SAP Client: 200 · Plant: 1002 · Procedure Rev {PROCEDURE.revision}</span>
+        <span>SAP Client: {user?.client || 'Automatic'} · Plant: {user?.plant || '—'} · Procedure Rev {PROCEDURE.revision}</span>
       </div>
     </div>
   );

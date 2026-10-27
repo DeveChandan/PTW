@@ -1,6 +1,6 @@
 @tailwind base;
 
-/* Bundle the full icon font so all modules work on restricted SAP networks. */
+/* Vite embeds this full font in production CSS to avoid a separate BSP font upload. */
 @font-face {
   font-family: 'Material Symbols Outlined';
   font-style: normal;

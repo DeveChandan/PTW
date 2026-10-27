@@ -679,7 +679,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
               </span>
               <span className="text-slate-400 hidden md:inline">·</span>
               <span className="text-slate-600 hidden md:inline">
-                Client: <strong className="text-slate-900 font-mono">{user?.client || '200'}</strong>
+                Client: <strong className="text-slate-900 font-mono">{user?.client || 'Automatic'}</strong>
               </span>
               <span className="text-slate-400 hidden lg:inline">·</span>
               <span className="text-slate-600 hidden lg:inline">
@@ -1339,7 +1339,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
                   <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
                     <span>Service: <code className="bg-slate-100 text-slate-800 px-1 py-0.2 rounded font-bold">/UserRole</code></span>
                     <span>&middot;</span>
-                    <span>Client: <strong className="text-slate-800">{user?.client || '200'}</strong></span>
+                    <span>Client: <strong className="text-slate-800">{user?.client || 'Automatic'}</strong></span>
                   </div>
                 </div>
               </div>
@@ -1687,7 +1687,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
                   <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
                     <span>Service: <code className="bg-slate-100 text-slate-800 px-1 py-0.2 rounded font-bold">/UserRole</code></span>
                     <span>&middot;</span>
-                    <span>Client: <strong className="text-slate-800">{user?.client || '200'}</strong></span>
+                    <span>Client: <strong className="text-slate-800">{user?.client || 'Automatic'}</strong></span>
                   </div>
                 </div>
               </div>
@@ -2297,7 +2297,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
               <div>
                 Target URL: <code className="text-slate-900 bg-slate-100 px-1 py-0.5 rounded">https://vhgfldevci.sap.gfl.co.in:44300/.../UserRole</code>
               </div>
-              <div>Client: <strong>{user?.client || '200'}</strong></div>
+              <div>Client: <strong>{user?.client || 'Automatic'}</strong></div>
             </div>
 
             {diagnosticsResult && (

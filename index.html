@@ -2,15 +2,12 @@
 <html lang="en" class="m-0 p-0">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/webp" href="https://gfl.co.in/assets/images/New_GFL-Logo29.webp" />
+    <link rel="icon" type="image/webp" href="./GFL-Logo.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>GFL ChemSafe | Permit To Work (PTW) Enterprise System</title>
 
-    <!-- Corporate Typography: Plus Jakarta Sans (Headings), Inter (Body UI), JetBrains Mono (Data) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- Use local/system font fallbacks; external font CSS can stall SAP startup on restricted networks. -->
 
     <!-- SAP UI5 Web Components baseline configuration (SAP Horizon Light Theme) -->
     <script data-id="sap-ui-config" type="application/json">
@@ -34,7 +31,7 @@
     </script>
   </head>
   <body class="text-[#0b1c30] antialiased m-0 p-0 font-sans selection:bg-[#006398] selection:text-white">
-    <div id="root"></div>
+    <div id="root"><p style="padding: 2rem; font-family: sans-serif">Starting GFL ChemSafe. If this message remains, reload the page and check that the complete app files were uploaded to SAP.</p></div>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

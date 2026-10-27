@@ -10,3 +10,8 @@ License: Apache 2.0, included in public/licenses/LICENSE.material-symbols.txt fr
 https://github.com/google/material-design-icons/blob/master/LICENSE
 
 Keep the complete font when adding icons; a subset may omit dynamic icon names.
+
+Production builds embed this complete font in CSS via the Vite assetsInlineLimit
+callback. There is no separate WOFF2 upload or request. Keep font-src data: allowed
+if the host enforces Content Security Policy. BSP tests verify the decoded embedded
+bytes exactly match this source font.

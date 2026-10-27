@@ -83,7 +83,7 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
           Coming Soon
         </h2>
         <p className="text-sm text-gray-600 max-w-lg mb-8 leading-relaxed font-sans">
-          The <strong className="text-gray-900 font-semibold">{module.title}</strong> module is currently being integrated with SAP S/4HANA OData V4 services on Client <code className="bg-gray-100 text-[#006398] px-1.5 py-0.5 rounded font-mono font-bold">200</code>.
+          The <strong className="text-gray-900 font-semibold">{module.title}</strong> module is currently being integrated with SAP S/4HANA OData V4 services on Client <code className="bg-gray-100 text-[#006398] px-1.5 py-0.5 rounded font-mono font-bold">{user?.client || 'Automatic'}</code>.
         </p>
 
         {/* User Context & Telemetry Grid */}
@@ -117,7 +117,7 @@ export const ComingSoonModule: React.FC<ComingSoonModuleProps> = ({ module, user
               SAP Gateway
             </span>
             <span className="block text-xs font-mono font-bold text-gray-900">
-              Client 200
+              Client {user?.client || 'Automatic'}
             </span>
           
           </div>

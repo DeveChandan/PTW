@@ -33,18 +33,18 @@ test('icons ship locally and asset URLs stay inside the nested BSP application',
   const htmlPaths = [...html.matchAll(/(?:src|href)="(\.\/assets\/[^"?]+)"/g)]
     .map(match => [match[1], base]);
   assert.ok(htmlPaths.length >= 2);
-  const cssPaths = [];
+  const sourceFont = await readFile(resolve('src/assets/fonts/material-symbols-outlined.woff2'));
   for (const name of assets.filter(name => name.endsWith('.css'))) {
     const css = await readFile(resolve(dist, 'assets', name), 'utf8');
     assert.match(css, /font-family:["']?Material Symbols Outlined/);
     assert.match(css, /font-feature-settings:["']liga["']/);
-    const fontPaths = [...css.matchAll(/url\(["']?([^\)"']+\.woff2)["']?\)/g)];
-    assert.ok(fontPaths.length > 0, 'Local icon font must be emitted');
-    for (const match of fontPaths) {
-      cssPaths.push([match[1], new URL(`assets/${name}`, base)]);
-    }
+    const embeddedFont = css.match(/url\(["']?data:font\/woff2;base64,([A-Za-z0-9+/=]+)["']?\)/);
+    assert.ok(embeddedFont, 'Icon font must be embedded, with no separate SAP font request');
+    assert.deepEqual(Buffer.from(embeddedFont[1], 'base64'), sourceFont,
+      'Embedded font must preserve the complete source font, including dynamic icons');
+    assert.doesNotMatch(css, /url\(["']?(?!data:)[^\)"']+\.woff2/);
   }
-  for (const [path, parent] of [...htmlPaths, ...cssPaths]) {
+  for (const [path, parent] of htmlPaths) {
     const url = new URL(path, parent);
     assert.ok(url.href.startsWith(base.href), `Asset escapes BSP path: ${path}`);
     const localPath = resolve(dist, url.pathname.slice(base.pathname.length));
@@ -62,7 +62,6 @@ test('SAP upload rules classify the icon font and logo as binary', async () => {
     ...assets.filter(name => name.endsWith('.woff2')).map(name => `assets/${name}`),
     'GFL-Logo.webp',
   ];
-  assert.ok(binaryFiles.some(name => name.endsWith('.woff2')));
   for (const name of binaryFiles) {
     await readFile(resolve(dist, name));
     // The filesystem uploader can supply Windows paths; OData archives use '/'.

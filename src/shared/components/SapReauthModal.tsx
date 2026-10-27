@@ -1,3 +1,4 @@
+import { getDefaultSapClient } from '../../core/auth/sapClient';
 import React, { useState } from 'react';
 import { SapUser } from '../../core/auth/sapAuthContext';
 
@@ -66,7 +67,7 @@ export const SapReauthModal: React.FC<SapReauthModalProps> = ({
           )}
           <div className="flex justify-between items-center text-xs mt-1">
             <span className="text-slate-500">Client / Plant:</span>
-            <span className="font-mono text-slate-600">{user?.client || '200'} / {user?.plant || '1002'}</span>
+            <span className="font-mono text-slate-600">{user?.client || getDefaultSapClient() || 'Automatic'} / {user?.plant || '1002'}</span>
           </div>
         </div>
 
