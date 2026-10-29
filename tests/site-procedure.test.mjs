@@ -4,12 +4,12 @@ import { test } from 'node:test';
 import { build } from 'esbuild';
 
 const result = await build({
-  stdin: { contents: `export * from './src/core/ptw/siteProcedure'; export * from './src/core/api/modules/permitCreate.validation'; export * from './src/core/api/modules/sitePermit.api'; export * from './src/core/api/modules/gasTester.api'; export { odataClient } from './src/core/api/odataClient';`, resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: `export * from './src/core/ptw/siteProcedure'; export * from './src/core/api/modules/permitCreate.validation'; export * from './src/core/api/modules/sitePermit.api'; export * from './src/core/api/modules/gasTester.api'; export * from './src/core/api/modules/auditLog.api'; export { odataClient } from './src/core/api/odataClient';`, resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, write: false, platform: 'node', format: 'cjs', define: { 'import.meta.env': '{}' },
 });
 const compiled = { exports: {} };
 new Function('require', 'module', 'exports', result.outputFiles[0].text)(createRequire(import.meta.url), compiled, compiled.exports);
-const { emptySitePlan, sitePlanRows, preparePermitCreate, preparationsFor, PERMIT_CATEGORIES, approvalGuidance, sitePermitApi, gasTesterApi, odataClient } = compiled.exports;
+const { emptySitePlan, sitePlanRows, preparePermitCreate, preparationsFor, PERMIT_CATEGORIES, approvalGuidance, sitePermitApi, gasTesterApi, auditLogApi, odataClient } = compiled.exports;
 const completePlan = () => ({
   ...emptySitePlan(),
   nature: ['Welding / gas cutting'],
@@ -282,6 +282,7 @@ test('SAP record read uses metadata field names and escapes OData literals', asy
     await sitePermitApi.read("P'1");
     assert.match(decodeURIComponent(calls[1]), /PermitInfo\('P''1'\)/);
     assert.ok(!new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_GasTest'));
+    assert.ok(!new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_AuditLog'));
     assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_Isolation($expand=_Item)'));
     assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_WorkType'));
     assert.ok(new URL(calls[1], 'http://local/').searchParams.get('$expand').includes('_CHK'));
@@ -428,5 +429,63 @@ test('special safety roles and plan references are validated and serialized into
   const invalidSbPhone = payload('CONF', confPlan);
   invalidSbPhone.StandByContact = '12345';
   assert.throws(() => preparePermitCreate(invalidSbPhone), /10 digits required/);
+});
+
+test('AuditLog is queried directly from standalone AuditLog entity set and sorted chronologically without fallback mock data', async () => {
+  const original = odataClient.get;
+  const calls = [];
+  try {
+    odataClient.get = async (url) => {
+      calls.push(url);
+      if (url.includes('AuditLog')) {
+        return {
+          data: {
+            value: [
+              {
+                PermitNo: 'PTW0000085',
+                AuditId: '025C0C2FEE661FE1B4D6795455BDE994',
+                Action: 'CREATE',
+                NewStatus: '',
+                Actor: 'VERTIF-V',
+                EventAt: '2026-10-28T09:41:46.966958Z',
+                Comments: 'CREATE: 1 field(s) changed.'
+              },
+              {
+                PermitNo: 'PTW0000085',
+                AuditId: '025C0C2FEE661FE1B4D730EEA217E994',
+                Action: 'GAS_CREATE',
+                NewStatus: 'CRTD',
+                Actor: 'VERTIF-V',
+                EventAt: '2026-10-28T10:22:51.794988Z',
+                Comments: 'Gas Test record(s) created'
+              }
+            ]
+          }
+        };
+      }
+      return { data: { value: [] } };
+    };
+
+    const logs = await auditLogApi.getAuditLogs('PTW0000085');
+    assert.equal(logs.length, 2);
+    // Should sort newest first (GAS_CREATE at 10:22 before CREATE at 09:41)
+    assert.equal(logs[0].Action, 'GAS_CREATE');
+    assert.equal(logs[1].Action, 'CREATE');
+    assert.match(calls[0], /AuditLog/);
+    assert.match(decodeURIComponent(calls[0]), /PermitNo(\+| )eq(\+| )'PTW0000085'/);
+
+    // Test empty response returns [] without fake records
+    calls.length = 0;
+    odataClient.get = async () => ({ data: { value: [] } });
+    const emptyLogs = await auditLogApi.getAuditLogs('PTW0000099');
+    assert.deepEqual(emptyLogs, []);
+
+    // Test error returns [] without fake records
+    odataClient.get = async () => { throw new Error('SAP Gateway 500'); };
+    const errorLogs = await auditLogApi.getAuditLogs('PTW0000099');
+    assert.deepEqual(errorLogs, []);
+  } finally {
+    odataClient.get = original;
+  }
 });
 

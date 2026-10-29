@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
-import { sitePermitApi } from '../../core/api/modules/sitePermit.api';
+import { sitePermitApi, type PlantPermitSummary } from '../../core/api/modules/sitePermit.api';
 import { permitApproverApi } from '../../core/api/modules/permitApprover.api';
 import { PERMIT_CATEGORIES } from '../../core/ptw/siteProcedure';
 import { toast } from '../../shared/context/ToastContext';
 import { getMaxHazardRisk } from '../permits/RiskMatrix5x5Section';
 import { getTimeBand } from '../../core/ptw/approvalMatrix';
+import { useUserPtwRoles } from '../../shared/hooks/useUserPtwRoles';
 
 interface PermitAreaOperatorWorkspaceProps {
   user: SapUser | null;
@@ -93,6 +94,12 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
   const [selectedPermitNo, setSelectedPermitNo] = useState<string>(initialPermitNo || '');
   const [selectedPermit, setSelectedPermit] = useState<PermitDeepInsertResponse | null>(null);
 
+  // Pagination & Plant Summary State
+  const [offset, setOffset] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [plantSummary, setPlantSummary] = useState<PlantPermitSummary | null>(null);
+
   // Area Operator Form State
   const [operatorComments, setOperatorComments] = useState<string>(PRESET_OPERATOR_COMMENTS[0]);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -136,8 +143,26 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
     };
   };
 
-  // Load Permit List from SAP
-  const loadPermits = async () => {
+  // Load Plant-wide aggregate counts for KPI cards
+  const loadPlantSummary = async (targetPlant: string, signal?: AbortSignal) => {
+    if (!targetPlant?.trim()) return;
+    try {
+      const summary = await sitePermitApi.getPlantSummary(targetPlant, signal);
+      if (!signal?.aborted) {
+        setPlantSummary(summary);
+      }
+    } catch (err) {
+      console.warn('[PermitAreaOperatorWorkspace] Could not load plant summary:', err);
+    }
+  };
+
+  // Load Permit List from SAP with pagination and server-side filtering
+  const loadPermits = async (
+    targetOffset = offset,
+    targetStatus = filterStatus,
+    targetPageSize = pageSize,
+    targetSearch = searchQuery
+  ) => {
     setLoadingList(true);
     try {
       if (abortControllerRef.current) {
@@ -146,8 +171,23 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      const data = await sitePermitApi.list(plant, '', 0, controller.signal);
+      let sapStatus = 'ALL';
+      if (targetStatus === 'PENDING_CLEARANCE') sapStatus = 'PENDING_CLEARANCE';
+      else if (targetStatus === 'COMPLETED') sapStatus = 'CLEARANCE_COMPLETED';
+      else if (targetStatus === 'REJECTED') sapStatus = 'REJT';
+
+      const data = await sitePermitApi.list(
+        plant,
+        targetSearch,
+        targetOffset,
+        controller.signal,
+        'ALL',
+        sapStatus,
+        targetPageSize
+      );
       setPermits(data);
+      setTotalCount(typeof data.totalCount === 'number' ? data.totalCount : data.length);
+      setOffset(targetOffset);
       setSapConnected(true);
 
       // Cache to localStorage for offline resilience
@@ -178,6 +218,7 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
               const parsed = JSON.parse(cached) as PermitInfoRecord[];
               if (Array.isArray(parsed) && parsed.length > 0) {
                 setPermits(parsed);
+                setTotalCount(parsed.length);
                 if (!selectedPermitNo) {
                   const preferred = parsed.find((p) => p.Status === 'ACCP' || p.Status === 'ISSU') || parsed.find((p) => p.Status === 'APPR') || parsed[0];
                   setSelectedPermitNo(preferred.Permit_No);
@@ -244,7 +285,9 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
   };
 
   useEffect(() => {
-    void loadPermits();
+    setOffset(0);
+    void loadPermits(0, filterStatus, pageSize, searchQuery);
+    void loadPlantSummary(plant);
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -270,8 +313,23 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
   const handleCompleteAreaOperator = async () => {
     if (!selectedPermit) return;
 
-    if (!checkAreaClear || !checkSimopsEvaluated || !checkProcessDepressurized) {
-      toast.warning('Please confirm all Area Operator site verification checkboxes before completing.', {
+    if (!hasAreaOperatorAuthorization) {
+      toast.error('You do not have the required Area Operator (PTW_AREA_OPP) role to complete this action.', {
+        title: 'Authorization Required'
+      });
+      return;
+    }
+
+    if (!isReadyForClearance) {
+      toast.warning(
+        `Permit is currently in status ${selectedPermit.Status}. Section K Field Acceptance (ACCP) must be completed before Area Operator clearance.`,
+        { title: 'Workflow Stage Incomplete' }
+      );
+      return;
+    }
+
+    if (!checkAreaClear || !checkSimopsEvaluated || !checkProcessDepressurized || !checkEmergencyRoutes) {
+      toast.warning('Please confirm all 4 Area Operator site verification checkboxes before completing.', {
         title: 'Safeguard Checklist Required'
       });
       return;
@@ -308,7 +366,8 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
 
       // Reload detail and list from SAP backend
       await loadPermitDetail(selectedPermit.Permit_No);
-      void loadPermits();
+      void loadPermits(offset, filterStatus, pageSize, searchQuery);
+      void loadPlantSummary(plant);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to submit Area Operator clearance to SAP', {
         title: 'Area Operator Clearance Failed'
@@ -321,6 +380,13 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
   // Handle Area Operator Rejection Submission via SAP RAP Bound Action: rejectAreaOperator
   const handleRejectAreaOperator = async () => {
     if (!selectedPermit) return;
+
+    if (!hasAreaOperatorAuthorization) {
+      toast.error('You do not have the required Area Operator (PTW_AREA_OPP) role to reject permits.', {
+        title: 'Authorization Required'
+      });
+      return;
+    }
 
     const finalReason = (rejectCustomComments || rejectReason).trim();
     if (!finalReason) {
@@ -357,7 +423,8 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
 
       // Reload detail and list from SAP backend
       await loadPermitDetail(selectedPermit.Permit_No);
-      void loadPermits();
+      void loadPermits(offset, filterStatus, pageSize, searchQuery);
+      void loadPlantSummary(plant);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to reject permit in SAP', {
         title: 'Area Operator Rejection Failed'
@@ -367,44 +434,37 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
     }
   };
 
-  // Filtered Permits list based on filterStatus and searchQuery
-  const filteredPermits = useMemo(() => {
-    return permits.filter((p) => {
-      // Search matching
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchNo = p.Permit_No?.toLowerCase().includes(q);
-        const matchDesc = p.JobDesc?.toLowerCase().includes(q);
-        const matchReq = p.Ernam?.toLowerCase().includes(q) || p.SupvName?.toLowerCase().includes(q);
-        if (!matchNo && !matchDesc && !matchReq) return false;
-      }
+  const handleFilterChange = (newStatus: FilterStatus) => {
+    setFilterStatus(newStatus);
+    setOffset(0);
+    void loadPermits(0, newStatus, pageSize, searchQuery);
+  };
 
-      // Status matching
-      if (filterStatus === 'PENDING_CLEARANCE') {
-        return p.Status === 'ACCP' || p.Status === 'ISSU' || p.Status === 'ISSD' || p.Status === 'APPR';
-      }
-      if (filterStatus === 'COMPLETED') {
-        return p.Status === 'ACTV' || p.Status === 'CLSD';
-      }
-      if (filterStatus === 'REJECTED') {
-        return p.Status === 'REJT' || p.Status === 'CANC';
-      }
-      return true;
-    });
-  }, [permits, filterStatus, searchQuery]);
+  // Current page permits (already filtered and paginated server-side by SAP OData)
+  const filteredPermits = permits;
 
-  // Counts for KPI Strip
+  // Counts for KPI Strip (Plant-wide summary from SAP with fallback)
   const pendingCount = useMemo(() => {
+    if (plantSummary?.pendingClearance !== undefined) return plantSummary.pendingClearance;
     return permits.filter((p) => p.Status === 'ACCP' || p.Status === 'ISSU' || p.Status === 'ISSD' || p.Status === 'APPR').length;
-  }, [permits]);
+  }, [plantSummary, permits]);
 
   const completedCount = useMemo(() => {
+    if (plantSummary) {
+      return (plantSummary.active || 0) + (plantSummary.closed || 0);
+    }
     return permits.filter((p) => p.Status === 'ACTV' || p.Status === 'CLSD').length;
-  }, [permits]);
+  }, [plantSummary, permits]);
 
   const rejectedCount = useMemo(() => {
+    if (plantSummary?.rejected !== undefined) return plantSummary.rejected;
     return permits.filter((p) => p.Status === 'REJT' || p.Status === 'CANC').length;
-  }, [permits]);
+  }, [plantSummary, permits]);
+
+  const totalPlantCount = useMemo(() => {
+    if (plantSummary?.total !== undefined) return plantSummary.total;
+    return totalCount > 0 ? totalCount : permits.length;
+  }, [plantSummary, totalCount, permits]);
 
   // Risk info
   const riskInfo = useMemo(() => {
@@ -445,6 +505,153 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
   const permitTimeBand = useMemo(() => {
     return getTimeBand(selectedPermit?.ValidFromT || new Date());
   }, [selectedPermit?.ValidFromT]);
+
+  // User authorization evaluation strictly from SAP /UserRole entity set
+  const {
+    roles: userRoles,
+    displayRoles: userDisplayRoles,
+    isLoadingRoles,
+    isUserAdmin,
+    hasAreaOperatorRole: hasAreaOperatorAuthorization,
+    refreshRoles
+  } = useUserPtwRoles(user);
+
+  // Checklist counts
+  const checkedCount = [checkAreaClear, checkSimopsEvaluated, checkProcessDepressurized, checkEmergencyRoutes].filter(Boolean).length;
+  const isChecklistComplete = checkedCount === 4;
+
+  // Dynamic Area Operator Readiness Evaluation
+  const areaClearanceReadiness = useMemo(() => {
+    if (!selectedPermit) return null;
+
+    const isPriorWorkflowComplete =
+      selectedPermit.Status === 'ACCP' ||
+      selectedPermit.Status === 'ISSU' ||
+      selectedPermit.Status === 'ISSD' ||
+      selectedPermit.Status === 'ACTV';
+
+    const isPendingApprover = selectedPermit.Status === 'CRTD' || !selectedPermit.Status;
+    const isPendingAcceptor = selectedPermit.Status === 'APPR';
+
+    // Check gas if required
+    const isGasReq =
+      selectedPermit.PermitType === 'HOT' ||
+      selectedPermit.PermitType === 'CONF' ||
+      selectedPermit.PermitType === 'CSE' ||
+      Boolean(selectedPermit.GasTestFreqHr && Number(selectedPermit.GasTestFreqHr) > 0);
+
+    const gasTests = selectedPermit._GasTest || [];
+    const hasGas = gasTests.length > 0;
+    const latestGas = hasGas ? gasTests[gasTests.length - 1] : null;
+    const isGasSafe =
+      !isGasReq ||
+      (hasGas &&
+        Number(latestGas?.O2Pct || 0) >= 19.5 &&
+        Number(latestGas?.O2Pct || 0) <= 23.5 &&
+        Number(latestGas?.LelPct || 0) <= 5.0);
+
+    // Isolation check
+    const isIsoReq =
+      selectedPermit.PermitType === 'ELEC' ||
+      selectedPermit.PermitType === 'CONF' ||
+      selectedPermit.PermitType === 'LINE' ||
+      Boolean(selectedPermit.LotoRequired === 'X' || selectedPermit.IsolationRequired === 'X');
+
+    const isolations = selectedPermit._Isolation || [];
+    const hasIsolations = isolations.length > 0;
+    const isIsolationVerified =
+      !isIsoReq ||
+      (hasIsolations &&
+        isolations.every((iso) => !iso.Status || iso.Status === 'LOCK' || iso.Status === 'ACTV' || iso.Status === 'APPR'));
+
+    const canClear =
+      isReadyForClearance &&
+      isChecklistComplete &&
+      hasAreaOperatorAuthorization &&
+      isGasSafe &&
+      isIsolationVerified;
+
+    return {
+      isPriorWorkflowComplete,
+      isPendingApprover,
+      isPendingAcceptor,
+      isGasReq,
+      hasGas,
+      isGasSafe,
+      isIsoReq,
+      hasIsolations,
+      isIsolationVerified,
+      isChecklistComplete,
+      canClear,
+      items: [
+        {
+          id: 'workflow',
+          label: 'Prior Workflow Handover',
+          status: isPermitRejected
+            ? 'FAILED'
+            : isPriorWorkflowComplete
+            ? 'READY'
+            : isPendingAcceptor
+            ? 'PENDING_ACCEPTOR'
+            : 'PENDING_APPROVER',
+          message: isPermitRejected
+            ? 'Permit was REJECTED during earlier workflow stages.'
+            : isPriorWorkflowComplete
+            ? 'Section K Field Acceptance completed (Status: ACCP). Ready for Area Operator clearance.'
+            : isPendingAcceptor
+            ? 'Permit approved by managers (Status: APPR). Awaiting Section K Field Acceptance by Site Supervisor.'
+            : 'Permit created (Status: CRTD). Technical approvals and field acceptance must be completed first.'
+        },
+        {
+          id: 'checklist',
+          label: 'Area Operator Safeguards',
+          status: isChecklistComplete ? 'READY' : 'PENDING',
+          message: isChecklistComplete
+            ? 'All 4 on-site verification safeguards confirmed.'
+            : `${4 - checkedCount} of 4 site verification checkboxes pending confirmation.`
+        },
+        {
+          id: 'gas',
+          label: 'Atmospheric Gas Testing',
+          status: !isGasReq ? 'NOT_APPLICABLE' : isGasSafe ? 'READY' : !hasGas ? 'PENDING' : 'FAILED',
+          message: !isGasReq
+            ? 'Atmospheric testing is not mandated for this category.'
+            : !hasGas
+            ? 'Initial Gas Test (Seq #1) has not been recorded yet.'
+            : isGasSafe
+            ? 'Atmospheric readings confirmed within safe limits.'
+            : 'Atmospheric readings exceed permissible limits.'
+        },
+        {
+          id: 'isolation',
+          label: 'Process & Energy Isolation (LOTO)',
+          status: !isIsoReq ? 'NOT_APPLICABLE' : isIsolationVerified ? 'READY' : 'PENDING',
+          message: !isIsoReq
+            ? 'LOTO / positive isolation certificate not required.'
+            : isIsolationVerified
+            ? 'Positive isolation & zero energy confirmed at boundary.'
+            : 'Pending isolation confirmation on equipment boundary.'
+        },
+        {
+          id: 'role',
+          label: 'Area Operator Role Authorization',
+          status: hasAreaOperatorAuthorization ? 'READY' : 'UNAUTHORIZED',
+          message: hasAreaOperatorAuthorization
+            ? `Authorized as ${isUserAdmin ? 'Administrator' : 'Permit Area Operator'}.`
+            : `User (${user?.id || 'Unknown'}) does not have Area Operator (PTW_AREA_OPP) role.`
+        }
+      ]
+    };
+  }, [
+    selectedPermit,
+    isReadyForClearance,
+    isPermitRejected,
+    isChecklistComplete,
+    checkedCount,
+    hasAreaOperatorAuthorization,
+    isUserAdmin,
+    user?.id
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -500,6 +707,26 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
               </span>
             </div>
 
+            {/* User Role Authorization Indicator */}
+            <div
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+                hasAreaOperatorAuthorization
+                  ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[15px]">
+                {hasAreaOperatorAuthorization ? 'verified_user' : 'shield_lock'}
+              </span>
+              <span className="font-mono text-[11px]">
+                {hasAreaOperatorAuthorization
+                  ? isUserAdmin
+                    ? 'Role: PTW Admin'
+                    : 'Role: Area Operator'
+                  : 'Role: Read-Only Audit'}
+              </span>
+            </div>
+
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono">
               <span className="material-symbols-outlined text-[16px] text-slate-400">factory</span>
               <span className="font-bold text-slate-700">Plant:</span>
@@ -533,7 +760,7 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
       <section className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3.5">
         <div className="w-full max-w-[1780px] 2xl:max-w-[1920px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-3.5">
           <div
-            onClick={() => setFilterStatus('PENDING_CLEARANCE')}
+            onClick={() => handleFilterChange('PENDING_CLEARANCE')}
             className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
               filterStatus === 'PENDING_CLEARANCE'
                 ? 'bg-amber-50/90 border-amber-300 ring-2 ring-amber-400/25 shadow-xs'
@@ -555,7 +782,7 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
           </div>
 
           <div
-            onClick={() => setFilterStatus('COMPLETED')}
+            onClick={() => handleFilterChange('COMPLETED')}
             className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
               filterStatus === 'COMPLETED'
                 ? 'bg-emerald-50/90 border-emerald-300 ring-2 ring-emerald-400/25 shadow-xs'
@@ -577,7 +804,7 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
           </div>
 
           <div
-            onClick={() => setFilterStatus('REJECTED')}
+            onClick={() => handleFilterChange('REJECTED')}
             className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
               filterStatus === 'REJECTED'
                 ? 'bg-rose-50/90 border-rose-300 ring-2 ring-rose-400/25 shadow-xs'
@@ -599,7 +826,7 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
           </div>
 
           <div
-            onClick={() => setFilterStatus('ALL')}
+            onClick={() => handleFilterChange('ALL')}
             className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
               filterStatus === 'ALL'
                 ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
@@ -613,7 +840,7 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
               <span className="material-symbols-outlined text-[20px] text-indigo-600">folder_open</span>
             </div>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-black font-mono text-slate-900">{permits.length}</span>
+              <span className="text-2xl font-black font-mono text-slate-900">{totalPlantCount}</span>
               <span className="text-[10px] text-slate-500 font-medium">Live Register</span>
             </div>
           </div>
@@ -639,12 +866,23 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
                 placeholder="Search permit #, equipment, area..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setOffset(0);
+                    void loadPermits(0, filterStatus, pageSize, searchQuery);
+                  }
+                }}
                 className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:bg-white focus:border-indigo-600 focus:outline-none transition-colors"
               />
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setOffset(0);
+                    void loadPermits(0, filterStatus, pageSize, '');
+                  }}
                   className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
                 >
                   <span className="material-symbols-outlined text-[16px]">close</span>
@@ -657,13 +895,13 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
                 [
                   ['PENDING_CLEARANCE', `Awaiting (${pendingCount})`],
                   ['COMPLETED', `Active (${completedCount})`],
-                  ['ALL', `All (${permits.length})`]
+                  ['ALL', `All (${totalPlantCount})`]
                 ] as const
               ).map(([key, label]) => (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setFilterStatus(key)}
+                  onClick={() => handleFilterChange(key)}
                   className={`px-2.5 py-1 rounded-lg transition-colors shrink-0 ${
                     filterStatus === key
                       ? 'bg-indigo-600 text-white shadow-2xs font-bold'
@@ -755,6 +993,92 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
               })
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {totalCount > 0 && (
+            <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col gap-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2 flex-wrap text-slate-600 font-mono">
+                <span className="text-[11px]">
+                  Showing <span className="font-bold text-slate-900">{totalCount === 0 ? 0 : offset + 1}</span>–
+                  <span className="font-bold text-slate-900">{Math.min(offset + permits.length, totalCount)}</span> of{' '}
+                  <span className="font-bold text-indigo-600">{totalCount}</span>
+                </span>
+
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className="text-slate-400">Size:</span>
+                  <select
+                    value={pageSize}
+                    disabled={loadingList}
+                    onChange={(e) => {
+                      const newSize = Number(e.target.value);
+                      setPageSize(newSize);
+                      void loadPermits(0, filterStatus, newSize, searchQuery);
+                    }}
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-0.5 text-[11px] font-mono font-bold text-slate-700 focus:outline-none focus:border-indigo-600 cursor-pointer"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={offset === 0 || loadingList}
+                    onClick={() => void loadPermits(0, filterStatus, pageSize, searchQuery)}
+                    title="First Page"
+                    className="p-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">first_page</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={offset === 0 || loadingList}
+                    onClick={() => void loadPermits(Math.max(0, offset - pageSize), filterStatus, pageSize, searchQuery)}
+                    title="Previous Page"
+                    className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white font-medium transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-0.5"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">chevron_left</span>
+                    <span className="text-[11px]">Prev</span>
+                  </button>
+                </div>
+
+                <span className="text-[11px] font-mono font-semibold text-slate-600">
+                  Page {Math.floor(offset / pageSize) + 1} of {Math.max(1, Math.ceil(totalCount / pageSize))}
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={offset + pageSize >= totalCount || loadingList || permits.length === 0}
+                    onClick={() => void loadPermits(offset + pageSize, filterStatus, pageSize, searchQuery)}
+                    title="Next Page"
+                    className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white font-medium transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-0.5"
+                  >
+                    <span className="text-[11px]">Next</span>
+                    <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={offset + pageSize >= totalCount || loadingList || permits.length === 0}
+                    onClick={() => {
+                      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+                      void loadPermits((totalPages - 1) * pageSize, filterStatus, pageSize, searchQuery);
+                    }}
+                    title="Last Page"
+                    className="p-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">last_page</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Right Column: Permit Detail & Area Operator Action Panel */}
@@ -1043,6 +1367,149 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
                       </div>
                     </div>
 
+                    {/* Safety & Prerequisite Readiness Panel */}
+                    {areaClearanceReadiness && (
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[18px] text-indigo-700">fact_check</span>
+                            <span>Area Safe Clearance Readiness</span>
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                              areaClearanceReadiness.canClear
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-amber-50 text-amber-800 border-amber-300'
+                            }`}
+                          >
+                            {areaClearanceReadiness.canClear ? 'READY FOR CLEARANCE' : 'ACTION / CLEARANCE REQUIRED'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          {areaClearanceReadiness.items.map((item) => {
+                            const isReady =
+                              item.status === 'READY' ||
+                              item.status === 'NOT_APPLICABLE' ||
+                              item.status === 'COMPLETED';
+                            const isFailed = item.status === 'FAILED';
+                            const isUnauth = item.status === 'UNAUTHORIZED';
+
+                            return (
+                              <div
+                                key={item.id}
+                                className={`p-2.5 rounded-xl border flex items-start gap-2 ${
+                                  isReady
+                                    ? 'bg-emerald-50/40 border-emerald-200/80 text-emerald-950'
+                                    : isFailed
+                                    ? 'bg-rose-50/60 border-rose-200 text-rose-950'
+                                    : isUnauth
+                                    ? 'bg-purple-50/60 border-purple-200 text-purple-950'
+                                    : 'bg-amber-50/60 border-amber-200 text-amber-950'
+                                }`}
+                              >
+                                <span
+                                  className={`material-symbols-outlined text-[17px] mt-0.5 shrink-0 ${
+                                    isReady
+                                      ? 'text-emerald-600'
+                                      : isFailed
+                                      ? 'text-rose-600'
+                                      : isUnauth
+                                      ? 'text-purple-600'
+                                      : 'text-amber-600'
+                                  }`}
+                                >
+                                  {isReady ? 'check_circle' : isFailed ? 'cancel' : isUnauth ? 'shield_lock' : 'pending'}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-[11px] flex items-center justify-between">
+                                    <span>{item.label}</span>
+                                    <span className="font-mono text-[9px] uppercase px-1 rounded bg-white/70 border border-current/20">
+                                      {item.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] leading-relaxed opacity-90 mt-0.5">{item.message}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Role Guidance Notice when user lacks Area Operator role */}
+                    {/* Role Guidance Notice when user lacks area operator role in SAP /UserRole */}
+                    {!hasAreaOperatorAuthorization && (
+                      <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 text-amber-950 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-amber-700 text-[20px]">shield_lock</span>
+                            <span className="font-bold text-xs uppercase tracking-wide">
+                              Viewing in Read-Only Inspection Mode
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void refreshRoles()}
+                            disabled={isLoadingRoles}
+                            className="text-[11px] font-bold text-amber-900 bg-amber-200/60 hover:bg-amber-200 px-2 py-0.5 rounded-lg border border-amber-300 flex items-center gap-1 transition cursor-pointer"
+                            title="Re-verify authorizations in SAP /UserRole"
+                          >
+                            <span className={`material-symbols-outlined text-[14px] ${isLoadingRoles ? 'animate-spin' : ''}`}>sync</span>
+                            <span>{isLoadingRoles ? 'Checking...' : 'Check /UserRole'}</span>
+                          </button>
+                        </div>
+                        <p className="text-xs text-amber-900 leading-relaxed">
+                          Your current SAP account (<strong>{user?.id || 'Unknown'}</strong>) active roles in <code className="font-bold text-amber-950 bg-white/90 px-1 py-0.5 rounded border border-amber-200">SAP /UserRole</code>:{' '}
+                          <code className="font-mono bg-white/80 px-1 py-0.5 rounded border border-amber-200 font-bold">
+                            {userDisplayRoles.join(', ') || 'No PTW Roles Assigned'}
+                          </code>
+                          .
+                        </p>
+                        <p className="text-[11px] text-amber-800 leading-relaxed">
+                          Area Operator Clearance requires <strong>PTW_AREA_OPP</strong> / <strong>PTW_AOPR</strong> / <strong>PTW_AREA_OWNER</strong> or{' '}
+                          <strong>PTW_ADMIN</strong> authorization in the SAP <code>/UserRole</code> table. You can inspect all permit documentation, boundary isolations and checklists,
+                          but field clearance submission is restricted.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Approvals Pending Block Alert */}
+                    {selectedPermit.Status === 'CRTD' && (
+                      <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-amber-700 text-[20px]">hourglass_top</span>
+                          <span className="font-bold text-xs uppercase tracking-wide">
+                            Awaiting Managerial Approvals (Status: CRTD)
+                          </span>
+                        </div>
+                        <p className="text-xs text-amber-900 leading-relaxed">
+                          This permit is currently under technical and safety review by authorized Approvers. Under GFL PTW procedures,{' '}
+                          <strong>Area Operator clearance can only be granted after Approver sign-off (Status: APPR) and Section K Acceptor handover (Status: ACCP)</strong>.
+                        </p>
+                        <div className="flex items-center gap-2 pt-0.5 text-[11px] font-mono text-amber-800">
+                          <span className="material-symbols-outlined text-[15px]">info</span>
+                          <span>Track approval progress in the Approvals tab above.</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Field Acceptance Pending Alert */}
+                    {selectedPermit.Status === 'APPR' && (
+                      <div className="p-4 rounded-2xl bg-sky-50 border border-sky-300 text-sky-950 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-sky-700 text-[20px]">pending_actions</span>
+                          <span className="font-bold text-xs uppercase tracking-wide">
+                            Awaiting Section K Field Acceptance (Status: APPR)
+                          </span>
+                        </div>
+                        <p className="text-xs text-sky-900 leading-relaxed">
+                          Technical approvals are complete. The Site Supervisor / Permit Acceptor must execute{' '}
+                          <strong>Section K Field Acceptance (Status: ACCP)</strong> before Area Operator can grant pre-operational clearance.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Execution Action Box */}
                     {isPermitRejected ? (
                       <div className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center space-y-2">
@@ -1093,18 +1560,58 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
                           className="w-full p-3 rounded-xl border border-slate-200 focus:border-indigo-600 focus:outline-none text-xs font-medium bg-white"
                         />
 
+                        {/* Checklist Incomplete Helper Notice */}
+                        {!isChecklistComplete && (
+                          <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                            <span className="material-symbols-outlined text-amber-600 text-[18px]">rule</span>
+                            <span>
+                              <strong>Action Required:</strong> Check all 4 mandatory site verification items above to enable clearance ({checkedCount}/4 verified).
+                            </span>
+                          </div>
+                        )}
+
                         {/* Dual Action Execution Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                           <button
                             type="button"
-                            disabled={submitting || !checkAreaClear || !checkSimopsEvaluated || !checkProcessDepressurized}
+                            disabled={
+                              submitting ||
+                              !isReadyForClearance ||
+                              !isChecklistComplete ||
+                              !hasAreaOperatorAuthorization ||
+                              Boolean(areaClearanceReadiness && !areaClearanceReadiness.isGasSafe)
+                            }
                             onClick={handleCompleteAreaOperator}
-                            className="py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                            title={
+                              !isReadyForClearance
+                                ? `Permit is in status ${selectedPermit.Status}. Section K Field Acceptance (ACCP) must be completed before clearance.`
+                                : !hasAreaOperatorAuthorization
+                                ? `Area Operator role required. Current roles: ${userRoles.join(', ') || 'None'}`
+                                : !isChecklistComplete
+                                ? `All 4 site verification checkboxes must be checked (${checkedCount}/4 confirmed)`
+                                : 'Accept / Complete Area Clearance (.completeAreaOperator)'
+                            }
                           >
                             {submitting ? (
                               <>
                                 <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
                                 <span>Submitting to SAP...</span>
+                              </>
+                            ) : !isReadyForClearance ? (
+                              <>
+                                <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                                <span>Awaiting Prior Steps ({selectedPermit.Status})</span>
+                              </>
+                            ) : !hasAreaOperatorAuthorization ? (
+                              <>
+                                <span className="material-symbols-outlined text-[18px]">lock</span>
+                                <span>Area Operator Role Required</span>
+                              </>
+                            ) : !isChecklistComplete ? (
+                              <>
+                                <span className="material-symbols-outlined text-[18px]">rule</span>
+                                <span>Checklist Incomplete ({checkedCount}/4)</span>
                               </>
                             ) : (
                               <>
@@ -1116,9 +1623,14 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
 
                           <button
                             type="button"
-                            disabled={submitting}
+                            disabled={submitting || !hasAreaOperatorAuthorization}
                             onClick={() => setShowRejectModal(true)}
-                            className="py-3 px-4 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="py-3 px-4 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                            title={
+                              !hasAreaOperatorAuthorization
+                                ? 'Area Operator authorization required to reject permits'
+                                : 'Reject Permit (.rejectAreaOperator)'
+                            }
                           >
                             <span className="material-symbols-outlined text-[18px]">cancel</span>
                             <span>Reject Permit (.rejectAreaOperator)</span>

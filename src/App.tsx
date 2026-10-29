@@ -18,6 +18,7 @@ import { SafetyMapWorkspace } from './features/map/SafetyMapWorkspace';
 import { AdminWorkspace } from './features/admin/AdminWorkspace';
 import { OfflineNotificationBanner } from './shared/components/OfflineNotificationBanner';
 import { SapReauthModal } from './shared/components/SapReauthModal';
+import { AppLoadingScreen } from './shared/components/AppLoadingScreen';
 
 export const App: React.FC = () => {
   const {
@@ -29,6 +30,7 @@ export const App: React.FC = () => {
     isReauthRequired,
     reauthenticate,
     cancelReauth,
+    skipSessionRestore,
     error
   } = useSapAuth();
 
@@ -64,17 +66,11 @@ export const App: React.FC = () => {
   // 0. Session Restoration Screen (Prevents login flicker on browser reload)
   if (isSessionRestoring) {
     return (
-      <div className="min-h-screen w-screen flex flex-col items-center justify-center select-none relative overflow-hidden">
-        {/* Ambient Glow Orbs */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#006398]/15 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-[#059669]/15 blur-3xl pointer-events-none" />
-        <div className="flex flex-col items-center gap-3.5 relative z-10">
-          <div className="w-10 h-10 border-3 border-[#006398] border-t-[#059669] rounded-full animate-spin shadow-md"></div>
-          <span className="font-mono text-xs text-slate-600 font-bold tracking-wider uppercase">
-            Restoring SAP User Session...
-          </span>
-        </div>
-      </div>
+      <AppLoadingScreen
+        message="Restoring SAP User Session..."
+        submessage="Validating single sign-on credentials & authorization matrix with SAP Gateway"
+        onManualSignIn={skipSessionRestore}
+      />
     );
   }
 
@@ -133,9 +129,12 @@ export const App: React.FC = () => {
       {/* Main Content Area: Padding top for fixed header (zeroed during print) */}
       <main className="flex-1 pt-16 min-h-[calc(100vh-4rem)] print:pt-0 print:p-0 print:m-0 print:min-h-0">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-96 gap-3 text-gray-500">
-            <div className="w-8 h-8 border-2 border-[#006398] border-t-transparent rounded-full animate-spin"></div>
-            <span className="font-mono text-xs">Authenticating SAP User & Roles via OData V4...</span>
+          <div className="py-20 flex justify-center">
+            <AppLoadingScreen
+              compact
+              message="Authenticating SAP User & Roles..."
+              submessage="Querying SAP OData V4 services for user safety profile and authorization matrix"
+            />
           </div>
         ) : selectedModule === null ? (
           /* KPI Card Launchpad: All modules displayed as interactive KPI cards */

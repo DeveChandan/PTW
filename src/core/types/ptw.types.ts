@@ -360,14 +360,14 @@ export interface ShiftRenewalRecord {
  * AuditLogType
  */
 export interface AuditLogRecord {
-  PermitNo: string; // Key, MaxLength 10
-  AuditId: string; // Key, MaxLength 10
-  Action: string; // CREATE, UPDATE, APPROVE, MaxLength 30
-  OldStatus: string; // MaxLength 10
-  NewStatus: string; // MaxLength 10
+  PermitNo: string; // Key, MaxLength 10 (e.g. PTW0000085)
+  AuditId: string; // Key, GUID / hex identifier (e.g. 025C0C2FEE661FE1B4D6795455BDE994)
+  Action: string; // CREATE, GAS_CREATE, UPDATE, APPROVE, MaxLength 30
+  OldStatus?: string; // MaxLength 10
+  NewStatus?: string; // MaxLength 10
   Actor: string; // User Name, MaxLength 12
-  EventAt: string | null; // UTC Timestamp
-  Comments: string; // Comments, MaxLength 255
+  EventAt: string | null; // UTC Timestamp (e.g. 2026-10-28T09:41:46.966958Z)
+  Comments?: string; // Comments, MaxLength 255
   SAP__Messages?: SapMessageItem[];
 }
 

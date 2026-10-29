@@ -215,8 +215,8 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
   const userRoleDisplay = useMemo(() => {
     if (!user) return { title: 'Standard Operator', icon: 'person', tag: 'Standard' };
     const roles = user.roles || [];
-    const isAdmin = roles.some((r) => r === 'YSM-XX-PFCG-PTW-APP-XXXXXXXXXX' || r === 'ZPTW_ADMIN' || r === 'Z_MOBILE_PI_SHEET');
-    if (isAdmin || authorizedModules.length === MODULE_REGISTRY.length) {
+    const isAdmin = roles.some((r) => r === 'PTW_ADMIN' || r === 'ZPTW_ADMIN');
+    if (isAdmin) {
       return {
         title: 'PTW Administrator',
         icon: 'admin_panel_settings',
@@ -256,6 +256,13 @@ export const ModuleLaunchpad: React.FC<ModuleLaunchpadProps> = ({ user, onSelect
         title: 'Permit Holder',
         icon: 'engineering',
         tag: 'Field Execution'
+      };
+    }
+    if (roles.includes('Z_MOBILE_PI_SHEET') || roles.includes('YSM-XX-PFCG-PTW-APP-XXXXXXXXXX')) {
+      return {
+        title: 'Enterprise PTW User',
+        icon: 'badge',
+        tag: 'PFCG Authorized'
       };
     }
     return {

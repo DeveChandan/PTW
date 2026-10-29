@@ -35,11 +35,11 @@ export const authApi = {
         const response = await odataClient.getRoot(ep, {
           signal,
           withCredentials: true,
-          params: { 'sap-client': client || undefined },
+          params: client ? { 'sap-client': client } : {},
           timeout: 4000,
           headers: {
             'Accept': 'application/json',
-            'sap-client': client || undefined
+            ...(client ? { 'sap-client': client } : {})
           }
         });
 
@@ -96,7 +96,7 @@ export const authApi = {
       timeout: 10000,
       params: {
         $filter: `UserId eq '${userId.trim().toUpperCase().replace(/'/g, "''")}'`,
-        'sap-client': client || undefined,
+        ...(client ? { 'sap-client': client } : {}),
       },
     });
     return response.data?.value || [];
@@ -120,12 +120,30 @@ export const authApi = {
       }>>(ODATA_ENTITIES.USER_ROLE, {
         params: {
           $filter: `SAP_USER eq '${cleanId.replace(/'/g, "''")}'`,
-          'sap-client': client || undefined,
+          ...(client ? { 'sap-client': client } : {}),
         },
         signal,
         timeout: 5000,
       });
-      return response.data?.value || [];
+      if (response.data?.value && Array.isArray(response.data.value)) {
+        return response.data.value;
+      }
+    } catch {
+      // If $filter fails on SAP gateway, retry unfiltered /UserRole and filter client-side
+    }
+
+    try {
+      const unfilteredResp = await odataClient.get<ODataCollectionResponse<{
+        SAP_USER: string;
+        PTW_ROLE: string;
+        ACTIVE: boolean;
+      }>>(ODATA_ENTITIES.USER_ROLE, {
+        params: client ? { 'sap-client': client } : {},
+        signal,
+        timeout: 6000,
+      });
+      const all = unfilteredResp.data?.value || [];
+      return all.filter((r) => r.SAP_USER?.trim().toUpperCase() === cleanId);
     } catch {
       return [];
     }

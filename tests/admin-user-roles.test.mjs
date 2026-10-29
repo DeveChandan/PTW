@@ -10,6 +10,7 @@ const bundleResult = await build({
       export { MODULE_REGISTRY } from './src/core/auth/sapAuthContext';
       export { PTW_ROLE_CATALOG, getPtwRoleInfo } from './src/core/types/admin.types';
       export { adminApi } from './src/core/api/modules/admin.api';
+      export { odataClient } from './src/core/api/odataClient';
     `,
     resolveDir: process.cwd(),
     loader: 'tsx'
@@ -28,11 +29,70 @@ new Function('require', 'module', 'exports', bundleResult.outputFiles[0].text)(
   compiled.exports
 );
 
-const { ODATA_ENTITIES, MODULE_REGISTRY, PTW_ROLE_CATALOG, getPtwRoleInfo, adminApi } = compiled.exports;
+const { ODATA_ENTITIES, MODULE_REGISTRY, PTW_ROLE_CATALOG, getPtwRoleInfo, adminApi, odataClient } = compiled.exports;
 
-test('ODATA_ENTITIES exposes USER_ROLE as exact match to SAP OData V4 service', () => {
+test('ODATA_ENTITIES exposes USER_ROLE and PFCG_USERS as exact match to SAP OData V4 service', () => {
   assert.equal(ODATA_ENTITIES.USER_ROLE, 'UserRole');
   assert.equal(ODATA_ENTITIES.USER_ROLES, 'UserRole');
+  assert.equal(ODATA_ENTITIES.PFCG_USERS, 'PFCGUsers');
+});
+
+test('Live SAP /PFCGUsers response payload conforms to schema with SAPUser, FullName, and Email', async () => {
+  const livePfcgResponse = {
+    "@odata.context": "$metadata#PFCGUsers",
+    "@odata.metadataEtag": 'W/"20261027072024"',
+    "value": [
+      {
+        "SAPUser": "GF10409",
+        "PFCGRole": "Z_MOBILE_PI_SHEET",
+        "FirstName": "Vineet",
+        "LastName": "Kumar",
+        "EmailAddress": "Vineet.kumar@gfl.co.in"
+      },
+      {
+        "SAPUser": "GF7874",
+        "PFCGRole": "Z_MOBILE_PI_SHEET",
+        "FirstName": "Amit",
+        "LastName": "Jain",
+        "EmailAddress": "amit.jain@gfl.co.in"
+      },
+      {
+        "SAPUser": "VERTIF-V",
+        "PFCGRole": "YSM-XX-PFCG-PTW-APP-XXXXXXXXXX",
+        "FirstName": "Verti",
+        "LastName": "VERTIF-V",
+        "EmailAddress": "manoj-v@gfl.co.in"
+      }
+    ]
+  };
+
+  const instance = odataClient.instance;
+  const originalAdapter = instance.defaults.adapter;
+  let requestedUrl = '';
+
+  instance.defaults.adapter = async (config) => {
+    requestedUrl = config.url || '';
+    return {
+      data: livePfcgResponse,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config
+    };
+  };
+
+  try {
+    const users = await adminApi.getPFCGUsers();
+    assert.equal(requestedUrl, 'PFCGUsers');
+    assert.equal(users.length, 3);
+    assert.equal(users[0].SAPUser, 'GF10409');
+    assert.equal(users[0].FirstName, 'Vineet');
+    assert.equal(users[0].LastName, 'Kumar');
+    assert.equal(users[0].EmailAddress, 'Vineet.kumar@gfl.co.in');
+    assert.equal(users[0].PFCGRole, 'Z_MOBILE_PI_SHEET');
+  } finally {
+    instance.defaults.adapter = originalAdapter;
+  }
 });
 
 test('Live SAP /UserRole response payload conforms to SapUserRoleRecord schema', () => {
@@ -151,14 +211,26 @@ test('User with PTW_ADMIN or ZPTW_ADMIN unlocks all modules across the applicati
 test('PTW_ROLE_CATALOG covers all core operational roles with labels and icons', () => {
   const expectedCodes = [
     'PTW_ADMIN',
+    'PTW_ACCP',
+    'PTW_ACCEPTOR',
     'PTW_REQUESTER',
     'PTW_HOLDER',
+    'PTW_HOLD',
     'PTW_APPROVER',
+    'PTW_APPR1',
+    'PTW_APPR2',
+    'PTW_APPR3',
     'PTW_ISSUER',
+    'PTW_ISSU',
     'PTW_AREA_OWNER',
+    'PTW_AREA_OPP',
+    'PTW_AOPR',
     'PTW_ISOLATOR',
+    'PTW_ISO_REQ',
     'PTW_GAS_TESTER',
-    'PTW_SAFETY_OFFICER'
+    'PTW_GAS',
+    'PTW_SAFETY_OFFICER',
+    'PTW_SAFE'
   ];
 
   for (const code of expectedCodes) {
@@ -226,4 +298,69 @@ test('adminApi.createUserRole and updateUserRoleStatus perform expected data lif
   // 4. Verify removed
   const rolesAfter = await adminApi.getUserRoles({ user: newUser });
   assert.equal(rolesAfter.length, 0);
+});
+
+test('adminApi sends boolean true for Active and false for Inactive in SAP payloads', async () => {
+  const instance = odataClient.instance;
+  const originalAdapter = instance.defaults.adapter;
+  const originalCsrf = odataClient.csrfToken;
+  odataClient.csrfToken = 'test-mock-csrf-token';
+  const capturedPayloads = [];
+
+  instance.defaults.adapter = async (config) => {
+    capturedPayloads.push({
+      method: config.method,
+      url: config.url,
+      data: config.data ? JSON.parse(config.data) : undefined
+    });
+    return {
+      data: {
+        SAP_USER: 'GF10409',
+        PTW_ROLE: 'PTW_ADMIN',
+        ACTIVE: config.data ? JSON.parse(config.data).ACTIVE : true
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config
+    };
+  };
+
+  try {
+    // 1. Active Create: must send ACTIVE: true
+    await adminApi.createUserRole({
+      SAP_USER: 'GF10409',
+      PTW_ROLE: 'PTW_ADMIN',
+      ACTIVE: true
+    });
+    const postActive = capturedPayloads.find((p) => p.method === 'post');
+    assert.ok(postActive, 'Must issue POST /UserRole');
+    assert.strictEqual(postActive.data.ACTIVE, true, 'Active status must send boolean true to SAP');
+
+    // 2. Inactive Create: must send ACTIVE: false
+    capturedPayloads.length = 0;
+    await adminApi.createUserRole({
+      SAP_USER: 'GF10409',
+      PTW_ROLE: 'PTW_ADMIN',
+      ACTIVE: false
+    });
+    const postInactive = capturedPayloads.find((p) => p.method === 'post');
+    assert.strictEqual(postInactive.data.ACTIVE, false, 'Inactive status must send boolean false to SAP');
+
+    // 3. Active Update: must send ACTIVE: true
+    capturedPayloads.length = 0;
+    await adminApi.updateUserRoleStatus('GF10409', 'PTW_ADMIN', true);
+    const patchActive = capturedPayloads.find((p) => p.method === 'patch');
+    assert.ok(patchActive, 'Must issue PATCH /UserRole');
+    assert.strictEqual(patchActive.data.ACTIVE, true, 'Active status update must send boolean true to SAP');
+
+    // 4. Inactive Update: must send ACTIVE: false
+    capturedPayloads.length = 0;
+    await adminApi.updateUserRoleStatus('GF10409', 'PTW_ADMIN', false);
+    const patchInactive = capturedPayloads.find((p) => p.method === 'patch');
+    assert.strictEqual(patchInactive.data.ACTIVE, false, 'Inactive status update must send boolean false to SAP');
+  } finally {
+    instance.defaults.adapter = originalAdapter;
+    odataClient.csrfToken = originalCsrf;
+  }
 });

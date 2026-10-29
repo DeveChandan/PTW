@@ -2,7 +2,7 @@ import odataClient from '../odataClient';
 import { ODATA_ENTITIES, buildODataQuery } from '../odataEndpoints';
 import { PermitAuditEntry } from '../../types/ptw.types';
 import { ODataCollectionResponse } from '../../types/odata.types';
-import { SapUserRoleRecord } from '../../types/admin.types';
+import { SapUserRoleRecord, PFCGUserRecord } from '../../types/admin.types';
 
 export interface PlantMasterRecord {
   PlantId: string;
@@ -42,51 +42,63 @@ export interface UserRoleStats {
   uniqueUsers: number;
 }
 
-// In-memory fallback and seed for development / offline resilience
-// Only contains the real verified SAP record provided by the system
-const FALLBACK_USER_ROLES: SapUserRoleRecord[] = [
-  {
-    SAP_USER: 'VERTIF-V',
-    PTW_ROLE: 'PTW_ADMIN',
-    ACTIVE: true,
-    CREATED_BY: 'SYSTEM',
-    CREATED_ON: '2026-10-23',
-    CREATED_AT: '07:25:00',
-    CHANGED_BY: '',
-    CHANGED_ON: null,
-    CHANGED_AT: '::',
-    SAP__Messages: []
-  }
-];
+const INITIAL_ADMIN_USER_ROLE: SapUserRoleRecord = {
+  SAP_USER: 'VERTIF-V',
+  PTW_ROLE: 'PTW_ADMIN',
+  ACTIVE: true,
+  CREATED_BY: 'SYSTEM',
+  CREATED_ON: '2026-10-23',
+  CREATED_AT: '07:25:00',
+  CHANGED_BY: '',
+  CHANGED_ON: null,
+  CHANGED_AT: '::',
+  SAP__Messages: []
+};
 
-let localRolesStore: SapUserRoleRecord[] = [...FALLBACK_USER_ROLES];
+let localRolesStore: SapUserRoleRecord[] = [INITIAL_ADMIN_USER_ROLE];
 
 /**
  * Module API: PTW Admin (User Roles, Master Data, Catalogues & Global Audits)
  */
 export const adminApi = {
   /**
+   * Retrieves enterprise users directly from SAP /PFCGUsers entity set for F4 Value Help.
+   * No offline mock fallback is maintained as per live SAP requirement.
+   */
+  async getPFCGUsers(signal?: AbortSignal): Promise<PFCGUserRecord[]> {
+    const response = await odataClient.get<ODataCollectionResponse<PFCGUserRecord>>(
+      ODATA_ENTITIES.PFCG_USERS,
+      {
+        signal,
+        timeout: 15000,
+      }
+    );
+    return response.data?.value || [];
+  },
+
+  /**
    * Retrieves all SAP User Roles from /UserRole entity set with optional filtering
    */
   async getUserRoles(params?: UserRoleFilterParams): Promise<SapUserRoleRecord[]> {
+    let rawList: any[] = [];
+    const filters: string[] = [];
+    if (params?.user) {
+      filters.push(`SAP_USER eq '${params.user.trim().toUpperCase().replace(/'/g, "''")}'`);
+    }
+    if (params?.role) {
+      const cleanRole = params.role.trim().toUpperCase().replace(/'/g, "''");
+      filters.push(`(PTW_ROLE eq '${cleanRole}' or PTW_ROLE eq 'Z${cleanRole}')`);
+    }
+    if (params?.activeOnly) {
+      filters.push(`ACTIVE eq true`);
+    }
+
+    const queryParams: Record<string, string> = {};
+    if (filters.length > 0) {
+      queryParams['$filter'] = filters.join(' and ');
+    }
+
     try {
-      const filters: string[] = [];
-      if (params?.user) {
-        filters.push(`SAP_USER eq '${params.user.trim().toUpperCase().replace(/'/g, "''")}'`);
-      }
-      if (params?.role) {
-        const cleanRole = params.role.trim().toUpperCase().replace(/'/g, "''");
-        filters.push(`(PTW_ROLE eq '${cleanRole}' or PTW_ROLE eq 'Z${cleanRole}')`);
-      }
-      if (params?.activeOnly) {
-        filters.push(`ACTIVE eq true`);
-      }
-
-      const queryParams: Record<string, string> = {};
-      if (filters.length > 0) {
-        queryParams['$filter'] = filters.join(' and ');
-      }
-
       const response = await odataClient.get<ODataCollectionResponse<SapUserRoleRecord>>(
         ODATA_ENTITIES.USER_ROLE,
         {
@@ -96,12 +108,47 @@ export const adminApi = {
       );
 
       if (response.data?.value && Array.isArray(response.data.value)) {
-        // Sync to local fallback memory cache
-        localRolesStore = response.data.value;
-        return response.data.value;
+        rawList = response.data.value;
       }
     } catch (e) {
-      console.warn('[adminApi] Live SAP /UserRole fetch failed, using local store:', e);
+      // If filtered query failed (e.g. SAP V4 does not support $filter on boolean/key), retry unfiltered
+      if (filters.length > 0) {
+        try {
+          const unfilteredResp = await odataClient.get<ODataCollectionResponse<SapUserRoleRecord>>(
+            ODATA_ENTITIES.USER_ROLE,
+            { timeout: 8000 }
+          );
+          if (unfilteredResp.data?.value && Array.isArray(unfilteredResp.data.value)) {
+            rawList = unfilteredResp.data.value;
+          }
+        } catch (unfilteredErr) {
+          console.warn('[adminApi] Live SAP /UserRole unfiltered fetch failed:', unfilteredErr);
+        }
+      } else {
+        console.warn('[adminApi] Live SAP /UserRole fetch failed, using local store:', e);
+      }
+    }
+
+    if (rawList.length > 0) {
+      // Sync to local fallback memory cache with strict boolean normalization
+      const normalized = rawList.map((r: any) => ({
+        ...r,
+        ACTIVE:
+          r.ACTIVE === true ||
+          (typeof r.ACTIVE === 'string' &&
+            (r.ACTIVE.toUpperCase() === 'TRUE' || r.ACTIVE.toUpperCase() === 'X')) ||
+          r.ACTIVE === 1
+      }));
+      localRolesStore = normalized;
+      return normalized.filter((r) => {
+        if (params?.user && r.SAP_USER.toUpperCase() !== params.user.trim().toUpperCase()) return false;
+        if (params?.role) {
+          const target = params.role.trim().toUpperCase();
+          if (r.PTW_ROLE.toUpperCase() !== target && r.PTW_ROLE.toUpperCase() !== `Z${target}`) return false;
+        }
+        if (params?.activeOnly && !r.ACTIVE) return false;
+        return true;
+      });
     }
 
     // Filter local store if offline / fallback
@@ -117,21 +164,27 @@ export const adminApi = {
   },
 
   /**
-   * Assigns a PTW Role to an SAP User via POST /UserRole
+   * Assigns a PTW Role to an SAP User via POST /UserRole.
+   * Sends ACTIVE: true for Active status and ACTIVE: false for Inactive status in payload.
    */
   async createUserRole(payload: {
     SAP_USER: string;
     PTW_ROLE: string;
-    ACTIVE?: boolean;
+    ACTIVE?: boolean | string;
   }): Promise<SapUserRoleRecord> {
     const cleanUser = payload.SAP_USER.trim().toUpperCase();
     const cleanRole = payload.PTW_ROLE.trim().toUpperCase();
-    const isActive = payload.ACTIVE ?? true;
+    const isActiveBool =
+      payload.ACTIVE === false ||
+      (typeof payload.ACTIVE === 'string' &&
+        (payload.ACTIVE.toLowerCase() === 'false' || payload.ACTIVE === ''))
+        ? false
+        : true;
 
     const newRecord: SapUserRoleRecord = {
       SAP_USER: cleanUser,
       PTW_ROLE: cleanRole,
-      ACTIVE: isActive,
+      ACTIVE: isActiveBool,
       CREATED_BY: 'VERTIF-V',
       CREATED_ON: new Date().toISOString().slice(0, 10),
       CREATED_AT: new Date().toTimeString().slice(0, 8),
@@ -147,7 +200,7 @@ export const adminApi = {
         {
           SAP_USER: cleanUser,
           PTW_ROLE: cleanRole,
-          ACTIVE: isActive
+          ACTIVE: isActiveBool
         }
       );
 
@@ -162,27 +215,33 @@ export const adminApi = {
   },
 
   /**
-   * Updates user role activation status via PATCH /UserRole(SAP_USER='...',PTW_ROLE='...')
+   * Updates user role activation status via PATCH /UserRole(SAP_USER='...',PTW_ROLE='...').
+   * Sends ACTIVE: true for Active and ACTIVE: false for Inactive in payload.
    */
   async updateUserRoleStatus(
     sapUser: string,
     ptwRole: string,
-    active: boolean
+    active: boolean | string
   ): Promise<SapUserRoleRecord> {
     const cleanUser = sapUser.trim().toUpperCase();
     const cleanRole = ptwRole.trim().toUpperCase();
+    const isActiveBool =
+      active === false ||
+      (typeof active === 'string' && (active.toLowerCase() === 'false' || active === ''))
+        ? false
+        : true;
     const entityKey = `UserRole(SAP_USER='${cleanUser}',PTW_ROLE='${cleanRole}')`;
 
     try {
       const response = await odataClient.patch<SapUserRoleRecord>(
         entityKey,
-        { ACTIVE: active }
+        { ACTIVE: isActiveBool }
       );
 
       const updated = response.data || {
         SAP_USER: cleanUser,
         PTW_ROLE: cleanRole,
-        ACTIVE: active,
+        ACTIVE: isActiveBool,
         CHANGED_BY: 'VERTIF-V',
         CHANGED_ON: new Date().toISOString().slice(0, 10),
         CHANGED_AT: new Date().toTimeString().slice(0, 8)
@@ -190,7 +249,7 @@ export const adminApi = {
 
       localRolesStore = localRolesStore.map((r) =>
         r.SAP_USER === cleanUser && r.PTW_ROLE === cleanRole
-          ? { ...r, ACTIVE: active, CHANGED_BY: 'VERTIF-V', CHANGED_ON: new Date().toISOString().slice(0, 10) }
+          ? { ...r, ACTIVE: isActiveBool, CHANGED_BY: 'VERTIF-V', CHANGED_ON: new Date().toISOString().slice(0, 10) }
           : r
       );
       return updated;
@@ -198,14 +257,14 @@ export const adminApi = {
       console.warn('[adminApi] Live PATCH /UserRole failed, updating local cache:', e);
       localRolesStore = localRolesStore.map((r) =>
         r.SAP_USER === cleanUser && r.PTW_ROLE === cleanRole
-          ? { ...r, ACTIVE: active, CHANGED_BY: 'VERTIF-V', CHANGED_ON: new Date().toISOString().slice(0, 10) }
+          ? { ...r, ACTIVE: isActiveBool, CHANGED_BY: 'VERTIF-V', CHANGED_ON: new Date().toISOString().slice(0, 10) }
           : r
       );
       const existing = localRolesStore.find(r => r.SAP_USER === cleanUser && r.PTW_ROLE === cleanRole);
       return existing || {
         SAP_USER: cleanUser,
         PTW_ROLE: cleanRole,
-        ACTIVE: active
+        ACTIVE: isActiveBool
       };
     }
   },

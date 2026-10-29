@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import type { GasTestRecord, PermitInfoRecord } from '../../core/types/ptw.types';
-import { gasTesterApi, AtmosphereAssessment, FALLBACK_GAS_TESTS, FALLBACK_PENDING_PERMITS } from '../../core/api/modules/gasTester.api';
+import { gasTesterApi, AtmosphereAssessment } from '../../core/api/modules/gasTester.api';
 import { toast } from '../../shared/context/ToastContext';
 
 interface GasTesterWorkspaceProps {
@@ -30,10 +30,32 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
   const [permitStatusFilter, setPermitStatusFilter] = useState<'ALL' | 'AWAITING' | 'DANGER' | 'WARNING' | 'SAFE'>('ALL');
   const [copiedPermit, setCopiedPermit] = useState<string | null>(null);
 
+  // Pagination State for Main Register
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageJumpInput, setPageJumpInput] = useState<string>('1');
+
+  // Pagination State for Pending Initial Clearance Queue
+  const [pendingQueuePage, setPendingQueuePage] = useState<number>(1);
+  const pendingQueuePageSize = 6;
+
+  const registerSectionRef = useRef<HTMLElement>(null);
+
   // Guarantee view changes open from the top
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   }, [viewMode, showPendingQueue]);
+
+  // Reset pagination to page 1 when search or any filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    setPageJumpInput('1');
+  }, [searchQuery, typeFilter, levelFilter, statusFilter, permitStatusFilter, viewMode]);
+
+  // Reset pending queue pagination on search or sort change
+  useEffect(() => {
+    setPendingQueuePage(1);
+  }, [searchQuery, pendingSortOrder]);
 
   const handleCopyPermit = (permitNo: string) => {
     if (!permitNo) return;
@@ -115,11 +137,8 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
       }
     } catch (err) {
       if (!controller.signal.aborted) {
-        console.warn('[GasTesterWorkspace] SAP query failed, loading seeded SAP records:', err);
-        const fallback = permitFilter
-          ? FALLBACK_GAS_TESTS.filter(t => (t.PermitNo || '').toUpperCase() === permitFilter.trim().toUpperCase())
-          : FALLBACK_GAS_TESTS;
-        setGasTests(fallback);
+        console.warn('[GasTesterWorkspace] SAP query failed:', err);
+        setGasTests([]);
         showNotification(
           'error',
           err instanceof Error ? err.message : 'Failed to fetch gas test records from SAP Gateway.'
@@ -140,7 +159,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
       setPendingPermits(data);
     } catch (err) {
       console.warn('[GasTesterWorkspace] Failed to fetch pending INTD permits:', err);
-      setPendingPermits(FALLBACK_PENDING_PERMITS);
+      setPendingPermits([]);
     } finally {
       setLoadingPending(false);
     }
@@ -399,13 +418,12 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
     });
 
     return list.sort((a, b) => {
-      if (a.isPendingInitialTest && !b.isPendingInitialTest) return -1;
-      if (!a.isPendingInitialTest && b.isPendingInitialTest) return 1;
-      const dtA = `${a.latestTest?.TestDate || ''} ${a.latestTest?.TestTime || ''}`;
-      const dtB = `${b.latestTest?.TestDate || ''} ${b.latestTest?.TestTime || ''}`;
-      if (dtA !== dtB) return dtB.localeCompare(dtA);
-      // For pending initial permits, show latest permit numbers first
-      return b.permitKey.localeCompare(a.permitKey, undefined, { numeric: true });
+      const dtA = `${a.latestTest?.TestDate || ''} ${a.latestTest?.TestTime || ''}`.trim();
+      const dtB = `${b.latestTest?.TestDate || ''} ${b.latestTest?.TestTime || ''}`.trim();
+      if (dtA && dtB && dtA !== dtB) return dtB.localeCompare(dtA);
+      if (dtA && !dtB) return -1;
+      if (!dtA && dtB) return 1;
+      return (b.permitNo || b.permitKey).localeCompare(a.permitNo || a.permitKey, undefined, { numeric: true });
     });
   }, [filteredTests, pendingPermits, searchQuery]);
 
@@ -421,12 +439,16 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
       else if (g.status === 'WARNING') warning++;
       else if (g.status === 'DANGER') danger++;
     });
-    return { total: groupedPermits.length, awaiting, safe, warning, danger };
+    const logged = safe + warning + danger;
+    return { total: groupedPermits.length, logged, awaiting, safe, warning, danger };
   }, [groupedPermits]);
 
   // Permit groups filtered by clearance outcome tab
   const displayedGroupedPermits = useMemo(() => {
-    if (permitStatusFilter === 'ALL') return groupedPermits;
+    if (permitStatusFilter === 'ALL') {
+      // In the "All" list, exclude permits awaiting initial gas clearance
+      return groupedPermits.filter(g => !g.isPendingInitialTest);
+    }
     return groupedPermits.filter(g => g.status === permitStatusFilter);
   }, [groupedPermits, permitStatusFilter]);
 
@@ -457,6 +479,79 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
       return pendingSortOrder === 'LATEST' ? cmp : -cmp;
     });
   }, [groupedPermits, pendingSortOrder]);
+
+  // Pagination computations for Main Register
+  const totalItems = viewMode === 'GROUPED' ? displayedGroupedPermits.length : filteredTests.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const effectiveCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedGroupedPermits = useMemo(() => {
+    const start = (effectiveCurrentPage - 1) * pageSize;
+    return displayedGroupedPermits.slice(start, start + pageSize);
+  }, [displayedGroupedPermits, effectiveCurrentPage, pageSize]);
+
+  const paginatedFilteredTests = useMemo(() => {
+    const start = (effectiveCurrentPage - 1) * pageSize;
+    return filteredTests.slice(start, start + pageSize);
+  }, [filteredTests, effectiveCurrentPage, pageSize]);
+
+  // Pagination computations for Pending Initial Clearance Queue
+  const pendingTotalPages = Math.max(1, Math.ceil(pendingPermitsAwaitingTest.length / pendingQueuePageSize));
+  const effectivePendingPage = Math.min(Math.max(1, pendingQueuePage), pendingTotalPages);
+  const paginatedPendingPermits = useMemo(() => {
+    const start = (effectivePendingPage - 1) * pendingQueuePageSize;
+    return pendingPermitsAwaitingTest.slice(start, start + pendingQueuePageSize);
+  }, [pendingPermitsAwaitingTest, effectivePendingPage]);
+
+  const handlePageChange = (newPage: number) => {
+    const target = Math.min(Math.max(1, newPage), totalPages);
+    setCurrentPage(target);
+    setPageJumpInput(String(target));
+    registerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const renderPageButtons = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 6) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (effectiveCurrentPage > 3) pages.push('dots-1');
+      const start = Math.max(2, effectiveCurrentPage - 1);
+      const end = Math.min(totalPages - 1, effectiveCurrentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (effectiveCurrentPage < totalPages - 2) pages.push('dots-2');
+      if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+
+    return pages.map(p => {
+      if (typeof p === 'string') {
+        return (
+          <span key={p} className="px-1 text-slate-400 font-mono text-xs select-none">
+            …
+          </span>
+        );
+      }
+      const pageNum = p;
+      const isActive = pageNum === effectiveCurrentPage;
+      return (
+        <button
+          key={pageNum}
+          type="button"
+          onClick={() => handlePageChange(pageNum)}
+          className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+            isActive
+              ? 'bg-[#006398] text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+          }`}
+        >
+          {pageNum}
+        </button>
+      );
+    });
+  };
 
   // Header Record Gas Test button handler
   const handleHeaderRecordClick = () => {
@@ -813,7 +908,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
             <span className="text-2xl font-bold font-mono text-slate-900 leading-none">{metrics.total}</span>
             <span className="text-[10px] font-mono text-slate-500 uppercase">Tests</span>
           </div>
-          <div className="mt-1 text-[10px] text-slate-500 truncate">Across {groupedPermits.length} permits</div>
+          <div className="mt-1 text-[10px] text-slate-500 truncate">Across {permitCounts.logged} permits</div>
         </button>
 
         {/* 3. Clear / Safe Tests */}
@@ -895,6 +990,33 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Compact Pending Queue Pagination Controls */}
+              {pendingTotalPages > 1 && (
+                <div className="flex items-center gap-1 bg-white/95 border border-amber-300/80 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-amber-950 shadow-2xs">
+                  <span>Page {effectivePendingPage} of {pendingTotalPages}</span>
+                  <div className="flex items-center gap-0.5 ml-1 border-l border-amber-200 pl-1">
+                    <button
+                      type="button"
+                      disabled={effectivePendingPage === 1}
+                      onClick={() => setPendingQueuePage(p => Math.max(1, p - 1))}
+                      className="p-0.5 hover:bg-amber-100 rounded text-amber-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Previous pending permits"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">chevron_left</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={effectivePendingPage >= pendingTotalPages}
+                      onClick={() => setPendingQueuePage(p => Math.min(pendingTotalPages, p + 1))}
+                      className="p-0.5 hover:bg-amber-100 rounded text-amber-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Next pending permits"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Sort Order Toggle Button */}
               <button
                 type="button"
@@ -925,7 +1047,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
 
           {showPendingQueue && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
-              {pendingPermitsAwaitingTest.map(group => {
+              {paginatedPendingPermits.map(group => {
                 const info = group.permitInfo;
                 return (
                   <div
@@ -1076,7 +1198,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                All Permits ({permitCounts.total})
+                All Permits ({permitCounts.logged})
               </button>
               <button
                 type="button"
@@ -1146,7 +1268,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                 }`}
               >
                 <span className="material-symbols-outlined text-[14px]">folder_copy</span>
-                <span>Clubbed ({groupedPermits.length})</span>
+                <span>Clubbed ({displayedGroupedPermits.length})</span>
               </button>
 
               <button
@@ -1188,7 +1310,86 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
       {/* ========================================================================= */}
       {/* 2. MAIN REGISTER CONTENT: GROUPED CARDS OR FLAT LOG */}
       {/* ========================================================================= */}
-      <section className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+      <section ref={registerSectionRef} className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+        {/* Top Pagination & Summary Header Tool Strip */}
+        <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs font-mono text-slate-600">
+          <div className="flex items-center gap-2">
+            <span>
+              Showing <strong className="text-slate-900 font-bold">{totalItems === 0 ? 0 : (effectiveCurrentPage - 1) * pageSize + 1}</strong> to{' '}
+              <strong className="text-slate-900 font-bold">{Math.min(effectiveCurrentPage * pageSize, totalItems)}</strong> of{' '}
+              <strong className="text-slate-900 font-bold">{totalItems.toLocaleString()}</strong>{' '}
+              {viewMode === 'GROUPED' ? 'permit groups' : 'test logs'}
+              {viewMode === 'GROUPED' && displayedGroupedPermits.length !== (permitStatusFilter === 'ALL' ? permitCounts.logged : groupedPermits.length) && (
+                <span className="text-slate-400 ml-1">
+                  (filtered from {permitStatusFilter === 'ALL' ? permitCounts.logged : groupedPermits.length} total)
+                </span>
+              )}
+              {viewMode === 'FLAT' && filteredTests.length !== gasTests.length && (
+                <span className="text-slate-400 ml-1">
+                  (filtered from {gasTests.length} total)
+                </span>
+              )}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Rows Per Page Selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 text-[11px]">Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const newSize = Number(e.target.value);
+                  setPageSize(newSize);
+                  setCurrentPage(1);
+                  setPageJumpInput('1');
+                }}
+                className="px-2 py-1 text-xs font-mono bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#006398] font-bold text-slate-800 shadow-2xs"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            {/* Quick Page Jump */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+                <span className="text-slate-500 text-[11px]">Page:</span>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const target = parseInt(pageJumpInput, 10);
+                    if (!isNaN(target) && target >= 1 && target <= totalPages) {
+                      handlePageChange(target);
+                    } else {
+                      setPageJumpInput(String(effectiveCurrentPage));
+                    }
+                  }}
+                  className="inline-flex items-center gap-1"
+                >
+                  <input
+                    type="text"
+                    value={pageJumpInput}
+                    onChange={(e) => setPageJumpInput(e.target.value)}
+                    onBlur={() => {
+                      const target = parseInt(pageJumpInput, 10);
+                      if (!isNaN(target) && target >= 1 && target <= totalPages) {
+                        handlePageChange(target);
+                      } else {
+                        setPageJumpInput(String(effectiveCurrentPage));
+                      }
+                    }}
+                    className="w-12 px-1.5 py-0.5 text-center text-xs font-mono bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#006398] font-bold text-slate-900 shadow-2xs"
+                  />
+                  <span className="text-slate-400">/ {totalPages}</span>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex flex-col items-center justify-center p-14 text-slate-500 gap-2.5">
             <div className="w-7 h-7 border-2 border-[#006398] border-t-transparent rounded-full animate-spin"></div>
@@ -1212,11 +1413,11 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                   onClick={() => setPermitStatusFilter('ALL')}
                   className="text-xs font-semibold text-[#006398] hover:underline"
                 >
-                  View All Permits ({groupedPermits.length})
+                  View All Permits ({permitCounts.logged})
                 </button>
               </div>
             ) : (
-              displayedGroupedPermits.map((group) => {
+              paginatedGroupedPermits.map((group) => {
                 const isExpanded = expandedGroups[group.permitKey] !== false;
 
                 // Specialized Card for pending initial test
@@ -1626,7 +1827,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
-                {filteredTests.map((test, idx) => {
+                {paginatedFilteredTests.map((test, idx) => {
                   const assessment = gasTesterApi.evaluateAtmosphere(test);
 
                   return (
@@ -1727,6 +1928,70 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
             </table>
           </div>
         )}
+
+        {/* Bottom Pagination Bar for Both Grouped and Flat Views */}
+        <div className="px-4 py-3 bg-slate-50/90 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
+          <div className="text-slate-500 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px] text-emerald-600">check_circle</span>
+            <span>
+              Showing {totalItems === 0 ? 0 : (effectiveCurrentPage - 1) * pageSize + 1} - {Math.min(effectiveCurrentPage * pageSize, totalItems)} of {totalItems.toLocaleString()} &middot; Page {effectiveCurrentPage} of {totalPages}
+            </span>
+          </div>
+
+          {/* Navigation Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {/* First Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(1)}
+                disabled={effectiveCurrentPage === 1}
+                className="p-1 sm:px-2 sm:py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed font-bold shadow-2xs transition"
+                title="First Page"
+              >
+                <span className="material-symbols-outlined text-[16px]">first_page</span>
+              </button>
+
+              {/* Previous Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(effectiveCurrentPage - 1)}
+                disabled={effectiveCurrentPage === 1}
+                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed font-bold flex items-center gap-1 shadow-2xs transition"
+                title="Previous Page"
+              >
+                <span className="material-symbols-outlined text-[15px]">chevron_left</span>
+                <span className="hidden sm:inline">Prev</span>
+              </button>
+
+              {/* Numbered Page Buttons with Ellipses */}
+              {renderPageButtons()}
+
+              {/* Next Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(effectiveCurrentPage + 1)}
+                disabled={effectiveCurrentPage === totalPages}
+                className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed font-bold flex items-center gap-1 shadow-2xs transition"
+                title="Next Page"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <span className="material-symbols-outlined text-[15px]">chevron_right</span>
+              </button>
+
+              {/* Last Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={effectiveCurrentPage === totalPages}
+                className="p-1 sm:px-2 sm:py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed font-bold shadow-2xs transition"
+                title="Last Page"
+              >
+                <span className="material-symbols-outlined text-[16px]">last_page</span>
+              </button>
+            </div>
+          )}
+        </div>
       </section>
 
       {/* ========================================================================= */}

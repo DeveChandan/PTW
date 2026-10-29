@@ -213,7 +213,7 @@ export function getNextApprovalStep(
         seqNo: nextSeqNo,
         roleId: 'PTW_APPR3',
         action: 'AP',
-        roleTitle: 'Tertiary Approver (PTW_APPR3)',
+        roleTitle: 'PTW Approver III',
         pendingRoleName: 'Approver III (HSE Head / Shift Manager)',
         isFullyApproved: false,
         stepIndex: requiredRoles.indexOf('PTW_APPR3') + 1
@@ -226,7 +226,7 @@ export function getNextApprovalStep(
         seqNo: nextSeqNo,
         roleId: 'PTW_APPR2',
         action: 'AP',
-        roleTitle: 'Secondary Approver (PTW_APPR2)',
+        roleTitle: 'PTW Approver II',
         pendingRoleName: 'Approver II (Safety / Shift Head)',
         isFullyApproved: false,
         stepIndex: requiredRoles.indexOf('PTW_APPR2') + 1
@@ -238,7 +238,7 @@ export function getNextApprovalStep(
       seqNo: nextSeqNo,
       roleId: 'PTW_APPR1',
       action: 'AP',
-      roleTitle: 'Primary Approver (PTW_APPR1)',
+      roleTitle: 'PTW Approver I',
       pendingRoleName: 'Approver I (Area In-Charge)',
       isFullyApproved: false,
       stepIndex: 1
@@ -278,7 +278,7 @@ export function getNextApprovalStep(
       seqNo: nextSeqNo,
       roleId: 'PTW_APPR3',
       action: 'AP',
-      roleTitle: 'Tertiary Approver (PTW_APPR3)',
+      roleTitle: 'PTW Approver III',
       pendingRoleName: 'Approver III (HSE Head / Shift Manager)',
       isFullyApproved: false,
       stepIndex: 3
@@ -291,7 +291,7 @@ export function getNextApprovalStep(
       seqNo: nextSeqNo,
       roleId: 'PTW_APPR2',
       action: 'AP',
-      roleTitle: 'Secondary Approver (PTW_APPR2)',
+      roleTitle: 'PTW Approver II',
       pendingRoleName: 'Approver II (Safety / Shift Head)',
       isFullyApproved: false,
       stepIndex: 2
@@ -320,7 +320,7 @@ export function getNextApprovalStep(
     seqNo: nextSeqNo,
     roleId: 'PTW_APPR1',
     action: 'AP',
-    roleTitle: 'Primary Approver (PTW_APPR1)',
+    roleTitle: 'PTW Approver I',
     pendingRoleName: 'Approver I (Area In-Charge)',
     isFullyApproved: false,
     stepIndex: 1

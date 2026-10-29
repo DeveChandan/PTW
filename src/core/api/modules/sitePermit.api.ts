@@ -1,9 +1,10 @@
 import { gasTesterApi } from './gasTester.api';
 import { permitApproverApi } from './permitApprover.api';
+import { auditLogApi } from './auditLog.api';
 import odataClient from '../odataClient';
 import { buildODataQuery, ODATA_ENTITIES, ODATA_ACTIONS } from '../odataEndpoints';
 import { toSapPermitType } from '../../ptw/siteProcedure';
-import type { ApprovalRecord, PermitDeepInsertResponse, PermitInfoRecord } from '../../types/ptw.types';
+import type { ApprovalRecord, AuditLogRecord, PermitDeepInsertResponse, PermitInfoRecord } from '../../types/ptw.types';
 
 export interface PermitListResult extends Array<PermitInfoRecord> {
   totalCount: number;
@@ -17,6 +18,8 @@ export interface PlantPermitSummary {
   draft: number;
   rejected: number;
   closed: number;
+  accepted?: number;
+  pendingClearance?: number;
   hotOrConf: number;
   categoryCounts: Record<string, number>;
   statusCounts: Record<string, number>;
@@ -54,6 +57,14 @@ export const sitePermitApi = {
         filters.push(`(Status eq 'ISSU' or Status eq 'ACTV')`);
       } else if (status === 'CRTD' || status === 'DRAF') {
         filters.push(`(Status eq 'CRTD' or Status eq 'DRAF')`);
+      } else if (status === 'APPROVED' || status === 'APPR_ALL') {
+        filters.push(`(Status eq 'APPR' or Status eq 'ACCP' or Status eq 'ISSU' or Status eq 'ACTV')`);
+      } else if (status === 'ACCEPTED') {
+        filters.push(`(Status eq 'ACCP' or Status eq 'ISSU' or Status eq 'ACTV')`);
+      } else if (status === 'PENDING_CLEARANCE') {
+        filters.push(`(Status eq 'ACCP' or Status eq 'ISSU' or Status eq 'ISSD' or Status eq 'APPR')`);
+      } else if (status === 'CLEARANCE_COMPLETED') {
+        filters.push(`(Status eq 'ACTV' or Status eq 'CLSD')`);
       } else if (status === 'CLOS' || status === 'CANC') {
         filters.push(`(Status eq 'CLOS' or Status eq 'CANC')`);
       } else if (status === 'REJT' || status === 'REJC') {
@@ -140,6 +151,7 @@ export const sitePermitApi = {
       ISSU: records.filter(p => p.Status === 'ISSU' || p.Status === 'ACTV').length,
       INTD: records.filter(p => p.Status === 'INTD').length,
       APPR: records.filter(p => p.Status === 'APPR').length,
+      ACCP: records.filter(p => p.Status === 'ACCP').length,
       CRTD: records.filter(p => p.Status === 'CRTD' || p.Status === 'DRAF').length,
       REJT: records.filter(p => p.Status === 'REJT' || p.Status === 'REJC').length,
       CLOS: records.filter(p => p.Status === 'CLOS' || p.Status === 'CANC').length,
@@ -150,6 +162,8 @@ export const sitePermitApi = {
       active: statusCounts.ISSU,
       intended: statusCounts.INTD,
       approved: statusCounts.APPR,
+      accepted: statusCounts.ACCP,
+      pendingClearance: records.filter(p => p.Status === 'ACCP' || p.Status === 'ISSU' || p.Status === 'ISSD' || p.Status === 'APPR').length,
       draft: statusCounts.CRTD,
       rejected: statusCounts.REJT,
       closed: statusCounts.CLOS,
@@ -159,12 +173,14 @@ export const sitePermitApi = {
     };
   },
   async read(number: string, signal?: AbortSignal): Promise<PermitDeepInsertResponse> {
-    const query = buildODataQuery({ $expand: ['_Worker', '_PPE', '_Safety', '_HazardControl', '_Isolation($expand=_Item)', '_Approval', '_ShiftRenewal', '_Attachment', '_AuditLog', '_WorkType', '_CHK', '_Equipment', '_NATW'] });
+    const query = buildODataQuery({ $expand: ['_Worker', '_PPE', '_Safety', '_HazardControl', '_Isolation($expand=_Item)', '_Approval', '_ShiftRenewal', '_Attachment', '_WorkType', '_CHK', '_Equipment', '_NATW'] });
     const key = encodeURIComponent(literal(number)).replace(/'/g, '%27');
     const response = await odataClient.get<PermitDeepInsertResponse>(`${ODATA_ENTITIES.PERMIT_INFO}('${key}')${query}`, { signal });
     if (!response.data?.Permit_No) throw new Error('SAP did not return the requested permit.');
+    const canonicalNo = response.data.Permit_No || number;
     const gases = await gasTesterApi.list(number, signal).catch(() => []);
     const approvals = await permitApproverApi.getApprovals(number, signal).catch(() => []);
+    const auditLogs = await auditLogApi.getAuditLogs(canonicalNo, signal).catch(() => []);
     const mergedApprovals = (approvals && approvals.length > 0)
       ? approvals
       : (response.data._Approval || []);
@@ -172,6 +188,7 @@ export const sitePermitApi = {
       ...response.data,
       _GasTest: gases,
       _Approval: mergedApprovals,
+      _AuditLog: auditLogs,
       '@odata.etag': response.data['@odata.etag'] || response.headers?.etag
     };
   },
@@ -207,6 +224,9 @@ export const sitePermitApi = {
   },
   async getApprovals(permitNo: string, signal?: AbortSignal): Promise<ApprovalRecord[]> {
     return permitApproverApi.getApprovals(permitNo, signal);
+  },
+  async getAuditLogs(permitNo: string, signal?: AbortSignal): Promise<AuditLogRecord[]> {
+    return auditLogApi.getAuditLogs(permitNo, signal);
   },
   async submitApproval(record: ApprovalRecord): Promise<ApprovalRecord> {
     return permitApproverApi.submitApproval(record);

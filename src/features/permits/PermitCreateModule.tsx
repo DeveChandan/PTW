@@ -25,7 +25,7 @@ import { SiteProcedureStep, ProcedureGuidance } from './SiteProcedureStep';
 import { emptySitePlan, PERMIT_CATEGORIES, sitePlanRows, toNatwCode, toEquipCode } from '../../core/ptw/siteProcedure';
 import { PermitWorkSelectionStep } from './PermitWorkSelectionStep';
 import { WorkSelection, referenceId, toPermitReferenceFields } from '../../core/api/modules/permitWorkLookup.api';
-import { configApi, checklistApi, isolationApi, toSapChecklistPermitType, toSapPermitType, FALLBACK_CONFIG_DATA } from '../../core/api';
+import { configApi, checklistApi, isolationApi, toSapChecklistPermitType, toSapPermitType, FALLBACK_CONFIG_DATA, FALLBACK_CHECKLISTS } from '../../core/api';
 import { SapConfigRecord } from '../../core/types/config.types';
 import { SapChecklistItem, ChecklistAnswer, ChecklistAnswerType } from '../../core/types/checklist.types';
 import { PpeValueHelpDialog } from '../../shared/components/PpeValueHelpDialog';
@@ -73,7 +73,519 @@ interface PermitCreateModuleProps {
   revisionPermit?: PermitDeepInsertResponse | null;
 }
 
-type TabKey = 'work' | 'general' | 'procedure' | 'workers' | 'ppe' | 'hazards' | 'gas-isolation' | 'payload';
+export type TabKey = 'work' | 'general' | 'procedure' | 'workers' | 'ppe' | 'hazards' | 'gas-isolation' | 'payload';
+
+// Structured target metadata for any blocking validation error
+export interface ValidationTarget {
+  tab: TabKey;
+  stepNumber: number;
+  stepName: string;
+  fieldId: string;
+  fieldLabel: string;
+  advice: string;
+}
+
+// Comprehensive diagnostic mapper from any validation message to its exact tab, field ID, and guidance
+export function getValidationTarget(
+  msg: string,
+  suggestedFieldId?: string,
+  suggestedTab?: TabKey
+): ValidationTarget {
+  const m = (msg || '').trim();
+
+  // Explicit suggestedFieldId and suggestedTab passed from tab validator
+  if (suggestedFieldId && suggestedTab) {
+    const stepMap: Record<TabKey, { num: number; name: string }> = {
+      work: { num: 1, name: 'Step 1: Work Selection' },
+      general: { num: 2, name: 'Step 2: General Details' },
+      procedure: { num: 3, name: 'Step 3: Client Procedure' },
+      workers: { num: 4, name: 'Step 4: Crew Muster' },
+      ppe: { num: 5, name: 'Step 5: PPE & Safety' },
+      hazards: { num: 6, name: 'Step 6: Hazards & 5x5 Risk' },
+      'gas-isolation': { num: 7, name: 'Step 7: Isolation Plan' },
+      payload: { num: 8, name: 'Step 8: Review & Submit' }
+    };
+    const s = stepMap[suggestedTab] || { num: 5, name: 'Step 5: PPE & Safety' };
+    let fieldLabel = 'Required Permit Field';
+    if (suggestedFieldId.startsWith('checklist-cat-') || suggestedFieldId.startsWith('checklist-btn-')) {
+      const catCode = suggestedFieldId.replace(/^checklist-(cat|btn)-/, '');
+      const catDef = PERMIT_CATEGORIES.find((c) => c.code === catCode || c.sapCode === catCode);
+      fieldLabel = `${catDef?.label || catCode} Compliance Checklist`;
+    } else if (suggestedFieldId === 'field-ppe-code') {
+      fieldLabel = 'PPE Declaration';
+    } else if (suggestedFieldId === 'field-ppe-desc') {
+      fieldLabel = 'PPE Description';
+    } else if (suggestedFieldId === 'field-worker-name') {
+      fieldLabel = 'Crew Member Name';
+    } else if (suggestedFieldId === 'field-hazard-desc') {
+      fieldLabel = 'Hazard Description';
+    } else if (suggestedFieldId === 'field-control-desc') {
+      fieldLabel = 'Control Description';
+    }
+    return {
+      tab: suggestedTab,
+      stepNumber: s.num,
+      stepName: s.name,
+      fieldId: suggestedFieldId,
+      fieldLabel,
+      advice: m || 'Complete the required field before proceeding.'
+    };
+  }
+
+  // 1. Validity period & timing
+  if (
+    m.includes('validity period has already ended') ||
+    m.includes('ended') ||
+    m.includes('ValidTo') ||
+    m.includes('end date/time must be after') ||
+    m.includes('Initial validity must end within')
+  ) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-valid-to-datetime',
+      fieldLabel: 'Permit Expiry Window (Valid To)',
+      advice: m.includes('ended')
+        ? 'The validity period has ended. Set the Valid To date/time to a future window.'
+        : m.includes('eight hours')
+        ? 'Initial permit duration cannot exceed 8 hours. Use the "+8h Max" button to auto-align.'
+        : 'Update the permit end date and time to a valid future schedule after the start time.'
+    };
+  }
+
+  if (m.includes('ValidFrom') || m.includes('Start Date and End Date') || m.includes('Start Time and End Time')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-valid-from-datetime',
+      fieldLabel: 'Permit Start Window (Valid From)',
+      advice: 'Enter the validity start date and time for the permit.'
+    };
+  }
+
+  if (m.includes('shift end') || m.includes('SHFT')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-SHFT',
+      fieldLabel: 'Planned Shift End Time (SHFT)',
+      advice: 'Ensure the planned shift end time in Section D is later than work start time.'
+    };
+  }
+
+  // 2. Work Selection (Order / Notification)
+  if (
+    m.includes('order or notification') ||
+    m.includes('work reference') ||
+    m.includes('PM maintenance order') ||
+    m.includes('Aufnr') ||
+    m.includes('Qmnum')
+  ) {
+    return {
+      tab: 'work',
+      stepNumber: 1,
+      stepName: 'Step 1: Work Selection',
+      fieldId: 'field-work-selection',
+      fieldLabel: 'Maintenance Order / Notification',
+      advice: 'Select a valid SAP PM order or notification to associate with the permit.'
+    };
+  }
+
+  // 3. General Details
+  if (m.includes('PermitType') || m.includes('Permit Category') || m.includes('work categories') || m.includes('category code')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-permit-type',
+      fieldLabel: 'Permit Category',
+      advice: 'Select the primary work category in Section 2.1.'
+    };
+  }
+
+  if (m.includes('JobDesc') || m.includes('Job Description')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-job-desc',
+      fieldLabel: 'Job Description',
+      advice: 'Enter a clear description of the maintenance activity in Section 2.2.'
+    };
+  }
+
+  if (m.includes('AreaLoc') || m.includes('work area') || m.includes('Werks') || m.includes('Area required')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-area-loc',
+      fieldLabel: 'Work Area / Functional Location',
+      advice: 'Provide the work area or plant location in Section 2.2.'
+    };
+  }
+
+  if (m.includes('tplnr') || m.includes('Tplnr') || m.includes('Functional Location (Tplnr)')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-tplnr',
+      fieldLabel: 'Functional Location (TPLNR)',
+      advice: 'TPLNR code must be within 40 characters for SAP PermitInfo.'
+    };
+  }
+
+  if (m.includes('SupvName') || m.includes('Supervisor Name')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-supv-name',
+      fieldLabel: 'Supervisor Name',
+      advice: 'Enter the site execution supervisor name in Section 2.3.'
+    };
+  }
+
+  if (m.includes('supvPhone') || m.includes('Supervisor Phone') || m.includes('10-digit mobile number')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-supv-phone',
+      fieldLabel: 'Supervisor Phone Number',
+      advice: 'Enter a valid 10-digit mobile number for the supervisor.'
+    };
+  }
+
+  if (m.includes('ExecDept') || m.includes('Execution Department') || m.includes('Sub Working Plant')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-exec-dept-container',
+      fieldLabel: 'Execution Department & Plant',
+      advice: 'Select the responsible execution department and sub working plant.'
+    };
+  }
+
+  if (m.includes('Gas Testing Required') || (m.includes('gas testing') && m.includes('Select Yes'))) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-gas-testing-required',
+      fieldLabel: 'Gas Testing Required',
+      advice: 'Select Yes or No for atmospheric gas testing in Section 2.6.'
+    };
+  }
+
+  if (m.includes('GasTestFreqHr') || m.includes('gas retesting') || m.includes('retest frequency')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-gas-test-freq',
+      fieldLabel: 'Gas Retest Frequency Interval',
+      advice: 'Atmospheric gas retesting must be planned at intervals of no more than 2 hours.'
+    };
+  }
+
+  if (m.includes('Isolation Required') || m.includes('LOTO requires isolation') || m.includes('positive isolation')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-isolation-required',
+      fieldLabel: 'Isolation Required (LOTO)',
+      advice: 'Specify whether mechanical/electrical isolation is required.'
+    };
+  }
+
+  if (m.includes('Isolation Certificate No') || m.includes('Isolation certificate number')) {
+    return {
+      tab: 'general',
+      stepNumber: 2,
+      stepName: 'Step 2: General Details',
+      fieldId: 'field-isolation-no',
+      fieldLabel: 'Isolation Certificate Number',
+      advice: 'Enter the isolation certificate reference in Section 2.6.'
+    };
+  }
+
+  // 4. Procedure - Roles and special safety
+  if (m.includes('FWCT') || m.includes('Fire watch contact')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-FWCT',
+      fieldLabel: 'Fire Watch Contact Phone',
+      advice: 'Enter a valid 10-digit phone number for the fire watch person.'
+    };
+  }
+
+  if (m.includes('Fire watch') || m.includes('FireWatchName') || m.includes('FWNM') || m.includes('FWAT')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-FWNM',
+      fieldLabel: 'Fire Watch Person Name',
+      advice: 'Assign a designated fire watch person for Hot Work operations.'
+    };
+  }
+
+  if (m.includes('SBCT') || m.includes('Standby person contact') || m.includes('Standby Contact')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-SBCT',
+      fieldLabel: 'Standby Person Contact Phone',
+      advice: 'Enter a valid 10-digit phone number for the standby person.'
+    };
+  }
+
+  if (m.includes('Standby') || m.includes('StandByName') || m.includes('SBNM') || m.includes('STBY')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-SBNM',
+      fieldLabel: 'Standby Person Name',
+      advice: 'Assign a designated standby person for Confined Space Entry.'
+    };
+  }
+
+  if (m.includes('Rescue plan') || m.includes('rescue') || m.includes('RESC')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-RESC',
+      fieldLabel: 'Rescue Plan Reference',
+      advice: 'Provide the verified emergency rescue plan reference.'
+    };
+  }
+
+  if (m.includes('Rigging plan') || m.includes('rigging') || m.includes('RIGP')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-RIGP',
+      fieldLabel: 'Rigging Plan Reference',
+      advice: 'Provide the approved rigging calculation and plan reference.'
+    };
+  }
+
+  if (m.includes('JSA1') || m.includes('Signed JSA')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-JSA1',
+      fieldLabel: 'Signed JSA Document Reference',
+      advice: 'Enter the signed Job Safety Analysis document reference in Section D.'
+    };
+  }
+
+  if (m.includes('JSA2') || m.includes('joint site visit')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-JSA2',
+      fieldLabel: 'JSA Team & Site Visit Notes',
+      advice: 'Document the joint site visit and team attendees in Section D.'
+    };
+  }
+
+  if (m.includes('ISSR') || m.includes('Proposed Issuer')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-ISSR',
+      fieldLabel: 'Proposed Issuer SAP ID',
+      advice: 'Specify the proposed Issuer SAP user ID in Section D.'
+    };
+  }
+
+  if (m.includes('ACCP') || m.includes('Proposed Acceptor') || m.includes('Issuer and acceptor must be different')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-ACCP',
+      fieldLabel: 'Proposed Acceptor SAP ID',
+      advice: 'Specify the proposed Acceptor SAP user ID (must differ from issuer).'
+    };
+  }
+
+  if (m.includes('OPER') || m.includes('Proposed Area Operator')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-field-OPER',
+      fieldLabel: 'Proposed Area Operator SAP ID',
+      advice: 'Specify the proposed Area Operator SAP user ID in Section D.'
+    };
+  }
+
+  // 5. Procedure - Scope, Nature, Tools, Preparations, Checklist
+  if (m.includes('other nature') || m.includes('OTHER_NATURE')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-other-nature',
+      fieldLabel: 'Other Nature Description',
+      advice: 'Specify the details for Other nature of work.'
+    };
+  }
+
+  if (m.includes('Nature of Work') || m.includes('nature of work') || m.includes('_NATW') || m.includes('NATR')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'field-nature-of-work',
+      fieldLabel: 'Nature of Work (Section B)',
+      advice: 'Select at least one nature of work category in Section B.'
+    };
+  }
+
+  if (m.includes('other tools') || m.includes('OTHER_TOOLS')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-other-tools',
+      fieldLabel: 'Other Tools Description',
+      advice: 'Specify the details for Other tools and equipment.'
+    };
+  }
+
+  if (m.includes('Tools & Equipment') || m.includes('tools / equipment') || m.includes('_Equipment') || m.includes('TOOL')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'field-tools-equipment',
+      fieldLabel: 'Tools & Equipment (Section C)',
+      advice: 'Declare the tools and equipment to be used in Section C.'
+    };
+  }
+
+  if (m.includes('Review preparation:') || m.includes('Explain why this preparation')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-prep-checklist',
+      fieldLabel: 'Job Preparation Checklist (Section E)',
+      advice: 'Review and answer all site preparation questions (YES, NO, or NA with justification).'
+    };
+  }
+
+  if (m.includes('checklist') || m.includes('_CHK') || m.includes('QuestionnaireId')) {
+    return {
+      tab: 'procedure',
+      stepNumber: 3,
+      stepName: 'Step 3: Client Procedure',
+      fieldId: 'procedure-chk-modal-btn',
+      fieldLabel: 'Compliance Questionnaires (_CHK)',
+      advice: 'Answer all mandatory compliance checklist questions for active categories.'
+    };
+  }
+
+  // 6. Crew Muster
+  if (m.includes('crew') || m.includes('worker') || m.includes('Crew Muster') || m.includes('PersonsQty') || m.includes('_Worker')) {
+    return {
+      tab: 'workers',
+      stepNumber: 4,
+      stepName: 'Step 4: Crew Muster',
+      fieldId: 'field-worker-name',
+      fieldLabel: 'Crew Member Name & ID',
+      advice: 'Add at least one crew member with their employee ID or contractor company.'
+    };
+  }
+
+  // 7. PPE & Safety
+  if (m.includes('ppe') || m.includes('PPE') || m.includes('protective') || m.includes('_PPE')) {
+    return {
+      tab: 'ppe',
+      stepNumber: 5,
+      stepName: 'Step 5: PPE & Safety',
+      fieldId: 'field-ppe-code',
+      fieldLabel: 'PPE Declaration',
+      advice: 'Declare the personal protective equipment required for the job.'
+    };
+  }
+
+  // 8. Hazards & Risk
+  if (m.includes('hazard') || m.includes('control') || m.includes('_HazardControl')) {
+    return {
+      tab: 'hazards',
+      stepNumber: 6,
+      stepName: 'Step 6: Hazards & 5x5 Risk',
+      fieldId: 'field-hazard-desc',
+      fieldLabel: 'Work Hazards & Controls',
+      advice: 'Add at least one hazard description and its corresponding risk control measure.'
+    };
+  }
+
+  // 9. Gas & Isolation
+  if (m.includes('isolation certificates') || m.includes('isolation module') || m.includes('_Isolation')) {
+    return {
+      tab: 'gas-isolation',
+      stepNumber: 7,
+      stepName: 'Step 7: Isolation Plan',
+      fieldId: 'field-isolation-no',
+      fieldLabel: 'Isolation Certificate',
+      advice: 'Review isolation points and certificate requirements in the isolation workflow.'
+    };
+  }
+
+  // Fallback to suggestions if provided
+  if (suggestedFieldId && suggestedTab) {
+    const stepMap: Record<TabKey, { num: number; name: string }> = {
+      work: { num: 1, name: 'Step 1: Work Selection' },
+      general: { num: 2, name: 'Step 2: General Details' },
+      procedure: { num: 3, name: 'Step 3: Client Procedure' },
+      workers: { num: 4, name: 'Step 4: Crew Muster' },
+      ppe: { num: 5, name: 'Step 5: PPE & Safety' },
+      hazards: { num: 6, name: 'Step 6: Hazards & 5x5 Risk' },
+      'gas-isolation': { num: 7, name: 'Step 7: Isolation Plan' },
+      payload: { num: 8, name: 'Step 8: Review & Submit' }
+    };
+    const s = stepMap[suggestedTab] || { num: 2, name: 'Step 2: General Details' };
+    return {
+      tab: suggestedTab,
+      stepNumber: s.num,
+      stepName: s.name,
+      fieldId: suggestedFieldId,
+      fieldLabel: 'Required Permit Field',
+      advice: m || 'Complete the required field before creating the permit.'
+    };
+  }
+
+  // Default fallback
+  return {
+    tab: 'general',
+    stepNumber: 2,
+    stepName: 'Step 2: General Details',
+    fieldId: 'field-permit-type',
+    fieldLabel: 'Permit Details',
+    advice: m || 'Complete all mandatory details before submitting the permit.'
+  };
+}
 
 export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, onBack, revisionPermit }) => {
   // A new request starts without asserted work, crew or safety evidence.
@@ -202,6 +714,14 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     return `${validToD}T${cleanTime}`;
   }, [validToD, validToT]);
 
+  // Real-time flag whether the currently selected permit validity end timestamp is in the past
+  const isValidityEnded = useMemo(() => {
+    if (!validToD || !validToT) return false;
+    const cleanT = validToT.length === 5 ? `${validToT}:00` : validToT;
+    const end = new Date(`${validToD}T${cleanT}+05:30`);
+    return Number.isFinite(end.getTime()) && end.getTime() <= Date.now();
+  }, [validToD, validToT]);
+
   const handleValidFromDateTimeChange = (val: string) => {
     if (!val) {
       setValidFromD('');
@@ -252,13 +772,30 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     }
   };
 
-  // Helper preset: Auto-calculate Expiry as +8 Hours from Start Window
+  // Helper preset: Auto-calculate Expiry as +8 Hours from Start Window (auto-bumps to current time if start was in past)
   const handleSetPlus8Hours = () => {
     let baseTime: Date;
     if (validFromD && validFromT) {
-      baseTime = new Date(`${validFromD}T${validFromT.slice(0, 5)}`);
+      baseTime = new Date(`${validFromD}T${validFromT.slice(0, 5)}+05:30`);
+      if (baseTime.getTime() <= Date.now()) {
+        baseTime = new Date();
+        const y = baseTime.getFullYear();
+        const m = String(baseTime.getMonth() + 1).padStart(2, '0');
+        const d = String(baseTime.getDate()).padStart(2, '0');
+        const h = String(baseTime.getHours()).padStart(2, '0');
+        const min = String(baseTime.getMinutes()).padStart(2, '0');
+        setValidFromD(`${y}-${m}-${d}`);
+        setValidFromT(`${h}:${min}:00`);
+      }
     } else {
       baseTime = new Date();
+      const y = baseTime.getFullYear();
+      const m = String(baseTime.getMonth() + 1).padStart(2, '0');
+      const d = String(baseTime.getDate()).padStart(2, '0');
+      const h = String(baseTime.getHours()).padStart(2, '0');
+      const min = String(baseTime.getMinutes()).padStart(2, '0');
+      setValidFromD(`${y}-${m}-${d}`);
+      setValidFromT(`${h}:${min}:00`);
     }
     const end = new Date(baseTime.getTime() + 8 * 3600 * 1000);
     const endY = end.getFullYear();
@@ -662,8 +1199,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     const progress: Record<string, { answered: number; total: number; verified: number }> = {};
     PERMIT_CATEGORIES.forEach((cat) => {
       const sap = cat.sapCode;
-      const questions = categoryQuestions[sap] || [];
-      const answers = categoryAnswers[sap] || {};
+      const questions = (categoryQuestions[sap] && categoryQuestions[sap].length > 0)
+        ? categoryQuestions[sap]
+        : (categoryQuestions[cat.code] && categoryQuestions[cat.code].length > 0)
+        ? categoryQuestions[cat.code]
+        : (FALLBACK_CHECKLISTS[sap] || FALLBACK_CHECKLISTS[cat.code] || []);
+      const answers = categoryAnswers[sap] || categoryAnswers[cat.code] || {};
       let answered = 0;
       questions.forEach((q) => {
         if (answers[q.QuestionaireId]?.response) {
@@ -675,6 +1216,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         total: questions.length,
         verified: answered
       };
+      if (cat.code !== sap) {
+        progress[cat.code] = progress[sap];
+      }
     });
     return progress;
   }, [categoryQuestions, categoryAnswers]);
@@ -810,7 +1354,54 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const handleSelectPermitType = async (rawCode: string) => {
     const sapCode = toSapPermitType(rawCode) || rawCode;
     setPermitType(sapCode);
+    // If newly selected primary was in additionalTypes, remove it from additionalTypes
+    setSitePlan((prev) => ({
+      ...prev,
+      additionalTypes: (prev.additionalTypes || []).filter((c) => {
+        const cSap = toSapPermitType(c) || c;
+        return c !== sapCode && c !== rawCode && cSap !== sapCode;
+      })
+    }));
     await handleOpenChecklistForCategory(sapCode);
+  };
+
+  const handleToggleAdditionalType = (rawCode: string) => {
+    const sapCode = toSapPermitType(rawCode) || rawCode;
+    const currentPrimarySap = toSapPermitType(permitType) || permitType;
+    // Cannot add primary as additional
+    if (sapCode === currentPrimarySap || rawCode === currentPrimarySap) {
+      return;
+    }
+    const current = sitePlan.additionalTypes || [];
+    const isAlready = current.some((c) => {
+      const cSap = toSapPermitType(c) || c;
+      return c === sapCode || c === rawCode || cSap === sapCode;
+    });
+    const next = isAlready
+      ? current.filter((c) => {
+          const cSap = toSapPermitType(c) || c;
+          return c !== sapCode && c !== rawCode && cSap !== sapCode;
+        })
+      : [...current.filter((c) => (toSapPermitType(c) || c) !== sapCode), sapCode];
+
+    setSitePlan((prev) => ({
+      ...prev,
+      additionalTypes: next
+    }));
+
+    if (!isAlready) {
+      void handleOpenChecklistForCategory(sapCode);
+    }
+  };
+
+  const handleOtherScopeChange = (val: string) => {
+    setSitePlan((prev) => ({
+      ...prev,
+      fields: {
+        ...(prev.fields || {}),
+        OTHR: val
+      }
+    }));
   };
 
   const handleSaveChecklist = (answers: ChecklistAnswer[]) => {
@@ -912,30 +1503,52 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     setActiveTab('general');
   };
 
-  // Auto-scroll & Focus Jump Helper for Mandatory Validation
+
+
+  // Auto-scroll & Focus Jump Helper for Mandatory Validation with tab change retry & parent glow
   const jumpToField = (fieldId?: string, targetTab?: TabKey) => {
     if (targetTab && activeTab !== targetTab) {
       setActiveTab(targetTab);
     }
     if (!fieldId) return;
-    setTimeout(() => {
-      const el = document.getElementById(fieldId);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const focusable = (el.matches('input, select, textarea, button')
-          ? el
-          : el.querySelector<HTMLElement>('input, select, textarea, button') || el) as HTMLElement;
-        if (focusable && typeof focusable.focus === 'function') {
-          focusable.focus({ preventScroll: true });
+
+    if (fieldId.startsWith('checklist-cat-') || fieldId.startsWith('checklist-btn-')) {
+      const catCode = fieldId.replace(/^checklist-(cat|btn)-/, '');
+      setTimeout(() => {
+        void handleOpenChecklistForCategory(catCode);
+      }, 350);
+    }
+
+    const tryFocus = (attemptsLeft: number, delayMs: number) => {
+      setTimeout(() => {
+        const el = document.getElementById(fieldId) || document.getElementById(`checklist-cat-${fieldId.replace(/^checklist-(cat|btn)-/, '')}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const focusable = (el.matches('input, select, textarea, button')
+            ? el
+            : el.querySelector<HTMLElement>('input, select, textarea, button') || el) as HTMLElement;
+          if (focusable && typeof focusable.focus === 'function') {
+            focusable.focus({ preventScroll: true });
+          }
+          el.classList.add('field-highlight-error');
+          if (el.parentElement) {
+            el.parentElement.classList.add('ring-2', 'ring-rose-400', 'bg-rose-50/40', 'transition-all');
+          }
+          setTimeout(() => {
+            el.classList.remove('field-highlight-error');
+            if (el.parentElement) {
+              el.parentElement.classList.remove('ring-2', 'ring-rose-400', 'bg-rose-50/40', 'transition-all');
+            }
+          }, 3600);
+        } else if (attemptsLeft > 0) {
+          tryFocus(attemptsLeft - 1, 150);
+        } else {
+          window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         }
-        el.classList.add('field-highlight-error');
-        setTimeout(() => {
-          el.classList.remove('field-highlight-error');
-        }, 3600);
-      } else {
-        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-      }
-    }, 120);
+      }, delayMs);
+    };
+
+    tryFocus(3, 100);
   };
 
   // Tab-level validation helper for mandatory fields with auto-focus jump metadata
@@ -1005,6 +1618,26 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           fieldId: 'field-valid-from-datetime',
           targetTab: 'general'
         };
+      }
+      const startMs = new Date(`${validFromD}T${validFromT.length === 5 ? `${validFromT}:00` : validFromT}+05:30`).getTime();
+      const endMs = new Date(`${validToD}T${validToT.length === 5 ? `${validToT}:00` : validToT}+05:30`).getTime();
+      if (Number.isFinite(startMs) && Number.isFinite(endMs)) {
+        if (endMs <= startMs) {
+          return {
+            valid: false,
+            message: 'Permit end date/time must be after its start.',
+            fieldId: 'field-valid-to-datetime',
+            targetTab: 'general'
+          };
+        }
+        if (endMs <= Date.now()) {
+          return {
+            valid: false,
+            message: 'The permit validity period has already ended.',
+            fieldId: 'field-valid-to-datetime',
+            targetTab: 'general'
+          };
+        }
       }
       if (!supvName.trim()) {
         return {
@@ -1330,6 +1963,37 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           fieldId: 'field-ppe-code',
           targetTab: 'ppe'
         };
+      }
+
+      // Mandatory Compliance Checklists (_CHK) validation across all active categories
+      for (const catCode of allActiveCategories) {
+        const sapCat = toSapChecklistPermitType(catCode) || catCode;
+        const questions = (categoryQuestions[sapCat] && categoryQuestions[sapCat].length > 0)
+          ? categoryQuestions[sapCat]
+          : (categoryQuestions[catCode] && categoryQuestions[catCode].length > 0)
+          ? categoryQuestions[catCode]
+          : (FALLBACK_CHECKLISTS[sapCat] || FALLBACK_CHECKLISTS[catCode] || []);
+
+        const total = questions.length;
+        if (total > 0) {
+          const ansMap = categoryAnswers[sapCat] || categoryAnswers[catCode] || {};
+          let answered = 0;
+          questions.forEach((q) => {
+            if (ansMap[q.QuestionaireId]?.response) {
+              answered++;
+            }
+          });
+          if (answered < total) {
+            const catDef = PERMIT_CATEGORIES.find((c) => c.code === catCode || c.sapCode === catCode);
+            const catLabel = catDef?.label || catCode;
+            return {
+              valid: false,
+              message: `Compliance checklist (_CHK) for "${catLabel}" is incomplete (${answered}/${total} questions verified). Complete all questionnaire items before proceeding.`,
+              fieldId: `checklist-cat-${catCode}`,
+              targetTab: 'ppe'
+            };
+          }
+        }
       }
     }
     if (tab === 'hazards') {
@@ -1725,7 +2389,57 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     catch (error) { return { body: null, error: error instanceof Error ? error.message : 'Complete the required details.' }; }
   }, [fullPayload]);
 
-  const completionPercentage = !workSelection ? 0 : requestPreview.error ? Math.min(baseCompletionPercentage, 90) : 100;
+  // Dynamically analyzes all prerequisites, step validations, and preparePermitCreate checks to pinpoint the exact blocking cause
+  const blockingValidation = useMemo((): { message: string; target: ValidationTarget } | null => {
+    if (!workSelection) {
+      return {
+        message: 'Select a PM maintenance order or notification to begin permit creation.',
+        target: getValidationTarget('Select a real SAP order or notification.', 'field-work-selection', 'work')
+      };
+    }
+    const tabsToValidate: TabKey[] = ['general', 'procedure', 'workers', 'ppe', 'hazards', 'gas-isolation'];
+    for (const stepKey of tabsToValidate) {
+      const result = validateTab(stepKey);
+      if (!result.valid && result.message) {
+        return {
+          message: result.message,
+          target: getValidationTarget(result.message, result.fieldId, result.targetTab || stepKey)
+        };
+      }
+    }
+    if (requestPreview.error) {
+      return {
+        message: requestPreview.error,
+        target: getValidationTarget(requestPreview.error)
+      };
+    }
+    return null;
+  }, [
+    workSelection,
+    requestPreview.error,
+    permitType,
+    jobDesc,
+    areaLoc,
+    tplnr,
+    validFromD,
+    validFromT,
+    validToD,
+    validToT,
+    supvName,
+    supvPhone,
+    execDept,
+    execPlant,
+    gasTestRequired,
+    gasTestFreqHr,
+    isolationRequired,
+    isolationNo,
+    sitePlan,
+    workers,
+    ppeItems,
+    hazards
+  ]);
+
+  const completionPercentage = !workSelection ? 0 : (blockingValidation || requestPreview.error) ? Math.min(baseCompletionPercentage, 90) : 100;
 
   // 12. Submit Deep Insert to SAP
   const handleSubmitDeepInsert = async () => {
@@ -1755,9 +2469,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       if (!result.valid && result.message) {
         toast.warning(result.message, { title: 'Mandatory Field Missing' });
         setNotificationBanner({ type: 'error', message: result.message });
-        if (result.fieldId) {
-          jumpToField(result.fieldId, result.targetTab || stepKey);
-        }
+        const target = getValidationTarget(result.message, result.fieldId, result.targetTab || stepKey);
+        jumpToField(target.fieldId, target.tab);
         return;
       }
     }
@@ -1768,22 +2481,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       const msg = error instanceof Error ? error.message : 'Check the permit details.';
       toast.warning(msg, { title: 'Mandatory Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
-      if (msg.includes('ExecDept')) jumpToField('field-exec-dept-container', 'general');
-      else if (msg.includes('PermitType')) jumpToField('field-permit-type', 'general');
-      else if (msg.includes('JobDesc')) jumpToField('field-job-desc', 'general');
-      else if (msg.includes('SupvName')) jumpToField('field-supv-name', 'general');
-      else if (msg.includes('ValidFrom')) jumpToField('field-valid-from-datetime', 'general');
-      else if (msg.includes('ValidTo')) jumpToField('field-valid-to-datetime', 'general');
-      else if (msg.includes('crew') || msg.includes('worker')) jumpToField('field-worker-name', 'workers');
-      else if (msg.includes('ppe') || msg.includes('protective')) jumpToField('field-ppe-code', 'ppe');
-      else if (msg.includes('hazard')) jumpToField('field-hazard-desc', 'hazards');
-      else if (msg.includes('gas')) jumpToField('field-gas-test-freq', 'gas-isolation');
-      else if (msg.includes('FWCT') || msg.includes('Fire watch contact')) jumpToField('procedure-field-FWCT', 'procedure');
-      else if (msg.includes('SBCT') || msg.includes('Standby person contact') || msg.includes('Standby Contact')) jumpToField('procedure-field-SBCT', 'procedure');
-      else if (msg.includes('Fire watch') || msg.includes('FireWatchName')) jumpToField('procedure-field-FWNM', 'procedure');
-      else if (msg.includes('Standby') || msg.includes('StandByName')) jumpToField('procedure-field-SBNM', 'procedure');
-      else if (msg.includes('Rescue plan') || msg.includes('rescue')) jumpToField('procedure-field-RESC', 'procedure');
-      else if (msg.includes('Rigging plan') || msg.includes('rigging')) jumpToField('procedure-field-RIGP', 'procedure');
+      const target = getValidationTarget(msg);
+      jumpToField(target.fieldId, target.tab);
       return;
     }
     submissionLock.current = true;
@@ -1931,8 +2630,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   const stepsList: { key: TabKey; label: string; shortLabel: string; icon: string; count?: number }[] = [
     { key: 'work', label: '1. Work Selection', shortLabel: 'Work Source', icon: 'construction' },
-    { key: 'general', label: '2. General Details', shortLabel: 'General & PM', icon: 'info' },
-    { key: 'procedure', label: '3. Client Procedure', shortLabel: 'Procedure', icon: 'fact_check' },
+    { key: 'general', label: '2. General Details', shortLabel: 'General & PM', icon: 'info', count: workTypeRecords.length > 0 ? workTypeRecords.length : undefined },
+    { key: 'procedure', label: '3. Client Procedure', shortLabel: 'Procedure', icon: 'fact_check', count: workTypeRecords.length > 0 ? workTypeRecords.length : undefined },
     { key: 'workers', label: '4. Crew Muster', shortLabel: 'Crew Ledger', icon: 'group', count: workers.length },
     { key: 'ppe', label: '5. PPE & Safety', shortLabel: 'PPE & Safety', icon: 'security', count: ppeItems.length },
     { key: 'hazards', label: '6. Hazards & 5x5 Risk', shortLabel: '5×5 Risk Matrix', icon: 'warning', count: hazards.length },
@@ -2112,12 +2811,28 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               ) : (
                 <button
                   type="button"
-                  onClick={handleSubmitDeepInsert}
-                  disabled={isSubmitting || creationUncertain || !workSelection || !!requestPreview.error}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-mono font-bold flex items-center gap-1 shadow-2xs transition-colors disabled:opacity-50"
+                  onClick={() => {
+                    if (blockingValidation) {
+                      toast.warning(blockingValidation.message, {
+                        title: `Validation Incomplete — ${blockingValidation.target.stepName.split(':')[0]}`
+                      });
+                      jumpToField(blockingValidation.target.fieldId, blockingValidation.target.tab);
+                      return;
+                    }
+                    handleSubmitDeepInsert();
+                  }}
+                  disabled={isSubmitting || creationUncertain}
+                  className={`px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1 shadow-2xs transition-colors ${
+                    blockingValidation
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  } disabled:opacity-50`}
+                  title={blockingValidation ? `Blocked: ${blockingValidation.message}. Click to jump to field.` : 'Submit Permit to SAP'}
                 >
-                  <span className="material-symbols-outlined text-[15px]">{isSubmitting ? 'sync' : 'send'}</span>
-                  <span>{isSubmitting ? 'Posting...' : 'Submit'}</span>
+                  <span className="material-symbols-outlined text-[15px]">
+                    {isSubmitting ? 'sync' : blockingValidation ? 'warning' : 'send'}
+                  </span>
+                  <span>{isSubmitting ? 'Posting...' : blockingValidation ? 'Fix Issue' : 'Submit'}</span>
                 </button>
               )}
             </div>
@@ -2398,100 +3113,260 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           {/* TAB 1: General Details & PM Order */}
           {activeTab === 'general' && (
             <div className="space-y-6">
-              {/* SECTION 2.1: Permit Category & Nature of Work */}
+              {/* SECTION 2.1: Permit Category & Applicable Work Types */}
               <SectionCard
                 theme="blue"
                 sectionTag="SECTION 2.1"
                 title="Permit Category & Nature of Work"
-                subtitle="Select the primary high-risk work category. This defines the required safety protocols and compliance checklist."
+                subtitle="Select the primary high-risk work category and any combined additional work types (e.g. hot work inside a confined space). Stored directly in SAP child table _WorkType."
                 icon="category"
                 badge={
                   permitType ? (
-                    <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-blue-100 text-[#006398]">
-                      Selected: {PERMIT_CATEGORIES.find((c) => c.code === permitType || c.sapCode === permitType)?.label || permitType} ({toSapPermitType(permitType) || permitType})
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-blue-100 text-[#006398]">
+                        Primary: {PERMIT_CATEGORIES.find((c) => c.code === permitType || c.sapCode === permitType)?.label || permitType} ({toSapPermitType(permitType) || permitType})
+                      </span>
+                      {workTypeRecords.length > 1 && (
+                        <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-sky-100 text-[#006398] border border-sky-300">
+                          +{workTypeRecords.length - 1} Combined
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-slate-900 text-white shadow-2xs">
+                        {workTypeRecords.length} Active in _WorkType
+                      </span>
+                    </div>
                   ) : (
                     <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-amber-100 text-amber-800">
-                      Category Required *
+                      Primary Category Required *
                     </span>
                   )
                 }
               >
-                <div className="space-y-4">
-                  {/* Dropdown created from Config OData */}
-                  <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                      <label className="ptw-label font-bold text-slate-800 flex items-center gap-1.5">
+                <div className="space-y-3">
+                  {/* Space-Optimized Primary Category Config Bar */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 p-2.5 bg-slate-50/90 rounded-xl border border-slate-200/80">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <label htmlFor="field-permit-type" className="text-xs font-bold text-slate-800 flex items-center gap-1.5 shrink-0">
                         <span className="material-symbols-outlined text-[16px] text-[#006398]">tune</span>
-                        <span>Permit Category / Type (SAP Config OData)</span>
+                        <span>Primary Category (SAP Config):</span>
                         <span className="text-red-500">*</span>
                       </label>
+                      <div className="w-full sm:w-72">
+                        <select
+                          id="field-permit-type"
+                          value={toSapPermitType(permitType) || permitType}
+                          onChange={(e) => void handleSelectPermitType(e.target.value)}
+                          className="w-full py-1 px-2.5 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#006398] shadow-2xs"
+                        >
+                          <option value="" disabled>Select primary category from SAP config dropdown...</option>
+                          {(permitTypeOptions.length > 0
+                            ? permitTypeOptions
+                            : [
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'COLD', Config_Desc: 'COLD WORK' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'CSE', Config_Desc: 'CONFINED SPACE ENTRY' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'EXCV', Config_Desc: 'EXCAVATION' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'HOT', Config_Desc: 'HOT WORK' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'HYD_PNEU', Config_Desc: 'HYDRAULIC & PNEUMATIC SYSTEM' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'LBRK', Config_Desc: 'LINE BREAK' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'RAD', Config_Desc: 'RADIOGRAPHY' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'RIG', Config_Desc: 'RIGGING' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'W@H', Config_Desc: 'WORK AT HEIGHT' },
+                              { Config_Type: 'PERMIT_TYPE', Config_Code: 'ELEC', Config_Desc: 'ELECTRICAL' },
+                            ]
+                          ).map((item) => (
+                            <option key={item.Config_Code} value={item.Config_Code}>
+                              {item.Config_Desc} ({item.Config_Code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       {permitType && (
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20">
-                            Payload Code: <strong>{toSapPermitType(permitType)}</strong>
-                          </span>
-                        </div>
+                        <span className="px-2 py-0.5 rounded font-mono text-[11px] font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20 shrink-0">
+                          Code: <strong>{toSapPermitType(permitType)}</strong>
+                        </span>
                       )}
                     </div>
-                    <select
-                      id="field-permit-type"
-                      value={toSapPermitType(permitType) || permitType}
-                      onChange={(e) => void handleSelectPermitType(e.target.value)}
-                      className="ptw-select font-mono text-xs bg-white"
-                    >
-                      <option value="" disabled>Select permit type from SAP config dropdown...</option>
-                      {(permitTypeOptions.length > 0
-                        ? permitTypeOptions
-                        : [
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'COLD', Config_Desc: 'COLD WORK' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'CSE', Config_Desc: 'CONFINED SPACE ENTRY' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'EXCV', Config_Desc: 'EXCAVATION' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'HOT', Config_Desc: 'HOT WORK' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'HYD_PNEU', Config_Desc: 'HYDRAULIC & PNEUMATIC SYSTEM' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'LBRK', Config_Desc: 'LINE BREAK' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'RAD', Config_Desc: 'RADIOGRAPHY' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'RIG', Config_Desc: 'RIGGING' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'W@H', Config_Desc: 'WORK AT HEIGHT' },
-                          { Config_Type: 'PERMIT_TYPE', Config_Code: 'ELEC', Config_Desc: 'ELECTRICAL' },
-                        ]
-                      ).map((item) => (
-                        <option key={item.Config_Code} value={item.Config_Code}>
-                          {item.Config_Desc} ({item.Config_Code})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[11px] text-slate-500 font-sans">
-                      Select directly from the SAP configuration dropdown or choose from the quick category cards below. Both stay synchronized.
-                    </p>
+
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 shrink-0">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#006398]" />
+                        <span className="font-semibold text-slate-700">★ Primary (Seq 1)</span>
+                      </span>
+                      <span className="text-slate-300">|</span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded bg-sky-400" />
+                        <span className="font-semibold text-slate-700">☑ Combined ({workTypeRecords.length > 1 ? workTypeRecords.length - 1 : 0})</span>
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono">
+                  {/* High-Density Space-Optimized 11 Category Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 font-mono">
                     {PERMIT_CATEGORIES.map((t) => {
-                      const isSelected = permitType === t.code || permitType === t.sapCode;
+                      const isPrimary = permitType === t.code || permitType === t.sapCode;
+                      const isAdditional = (sitePlan.additionalTypes || []).includes(t.code) || (sitePlan.additionalTypes || []).includes(t.sapCode);
+                      const isActive = isPrimary || isAdditional;
+                      const progress = checklistProgressMap[t.sapCode];
+
                       return (
                         <div
                           key={t.code}
-                          onClick={() => void handleSelectPermitType(t.sapCode)}
-                          className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${isSelected
-                              ? 'bg-sky-50/80 border-[#006398] shadow-xs text-[#006398] ring-2 ring-[#006398]/20'
-                              : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 text-slate-600'
-                            }`}
+                          className={`group relative p-2.5 rounded-xl border transition-all duration-150 flex flex-col justify-between ${
+                            isPrimary
+                              ? 'bg-gradient-to-br from-sky-50/95 via-sky-50/60 to-white border-[#006398] ring-2 ring-[#006398]/30 shadow-xs text-slate-800'
+                              : isAdditional
+                              ? 'bg-gradient-to-br from-sky-50/50 via-white to-slate-50 border-sky-400 shadow-2xs text-slate-700'
+                              : 'bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/70 text-slate-600'
+                          }`}
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? 'bg-[#006398] text-white' : 'bg-slate-100 text-slate-500'}`}>
-                              <span className="material-symbols-outlined text-[18px]">{t.icon}</span>
+                          <div>
+                            {/* Card Top: Icon + Label + Code + Primary/Additional Badge */}
+                            <div className="flex items-start justify-between gap-1.5 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                    isPrimary
+                                      ? 'bg-[#006398] text-white shadow-2xs'
+                                      : isAdditional
+                                      ? 'bg-sky-500 text-white shadow-2xs'
+                                      : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+                                  }`}
+                                >
+                                  <span className="material-symbols-outlined text-[17px]">{t.icon}</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-bold text-xs text-slate-900 leading-tight truncate" title={t.label}>
+                                    {t.label}
+                                  </h4>
+                                  <span className="font-mono text-[10px] text-slate-400 block leading-tight">
+                                    {t.sapCode}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Primary / Additional Action Pill */}
+                              <div className="shrink-0">
+                                {isPrimary ? (
+                                  <span
+                                    className="px-1.5 py-0.5 rounded font-mono text-[9px] font-bold bg-[#006398] text-white flex items-center gap-0.5 shadow-2xs"
+                                    title="Primary Category (SeqNo 1 in SAP _WorkType)"
+                                  >
+                                    <span className="material-symbols-outlined text-[10px]">star</span>
+                                    <span>PRIMARY</span>
+                                  </span>
+                                ) : (
+                                  <label
+                                    className="flex items-center gap-1 text-[10px] font-mono cursor-pointer select-none px-1 py-0.5 rounded hover:bg-slate-100 transition-colors"
+                                    title={isAdditional ? 'Remove from combined categories' : 'Add as combined work category (_WorkType)'}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isAdditional}
+                                      onChange={() => handleToggleAdditionalType(t.sapCode)}
+                                      className="w-3.5 h-3.5 rounded text-[#006398] focus:ring-[#006398] border-slate-300 cursor-pointer"
+                                    />
+                                    <span className={`font-bold text-[9px] ${isAdditional ? 'text-[#006398]' : 'text-slate-400'}`}>
+                                      {isAdditional ? 'COMBINED' : '+ Add'}
+                                    </span>
+                                  </label>
+                                )}
+                              </div>
                             </div>
-                            {isSelected && (
-                              <span className="material-symbols-outlined text-[18px] text-[#006398]">check_circle</span>
-                            )}
                           </div>
-                          <span className="font-bold text-xs text-slate-900">{t.label}</span>
-                          <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{t.sapCode} · {t.desc}</span>
+
+                          {/* Card Bottom: Set Primary & Checklist Pill */}
+                          <div className="mt-2 pt-1.5 border-t border-slate-100/90 flex items-center justify-between gap-1 text-[10px]">
+                            {!isPrimary ? (
+                              <button
+                                type="button"
+                                onClick={() => void handleSelectPermitType(t.sapCode)}
+                                className="font-mono text-[10px] text-slate-400 hover:text-[#006398] transition-colors flex items-center gap-0.5 truncate cursor-pointer"
+                                title={`Set ${t.label} as the Primary Category`}
+                              >
+                                <span className="material-symbols-outlined text-[12px]">radio_button_unchecked</span>
+                                <span className="truncate">Set Primary</span>
+                              </button>
+                            ) : (
+                              <span className="font-mono text-[10px] text-[#006398] font-bold flex items-center gap-0.5">
+                                <span className="material-symbols-outlined text-[12px] text-[#006398]">verified</span>
+                                <span>Seq #1</span>
+                              </span>
+                            )}
+
+                            {/* Checklist Micro-Pill if active & questions exist */}
+                            {isActive && progress && progress.total > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => void handleOpenChecklistForCategory(t.sapCode)}
+                                className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold flex items-center gap-0.5 transition-all shrink-0 cursor-pointer ${
+                                  progress.answered === progress.total
+                                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300'
+                                    : progress.answered > 0
+                                    ? 'bg-sky-100 text-sky-800 hover:bg-sky-200 border border-sky-300'
+                                    : 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300'
+                                }`}
+                                title={`Open ${t.label} Compliance Checklist (${progress.answered}/${progress.total} answered)`}
+                              >
+                                <span className="material-symbols-outlined text-[11px]">
+                                  {progress.answered === progress.total ? 'verified' : 'fact_check'}
+                                </span>
+                                <span>{progress.answered}/{progress.total}</span>
+                              </button>
+                            ) : null}
+                          </div>
+
+                          {/* Scope Input for OTHER category if active */}
+                          {((t.sapCode as string) === 'OTHER' || (t.code as string) === 'OTHER') && isActive && (
+                            <div className="mt-1.5 pt-1.5 border-t border-sky-200/80">
+                              <input
+                                type="text"
+                                value={sitePlan.fields?.OTHR || ''}
+                                onChange={(e) => handleOtherScopeChange(e.target.value)}
+                                placeholder="Scope & controls required *"
+                                maxLength={255}
+                                className="w-full px-1.5 py-0.5 text-[10px] bg-white border border-[#006398]/40 rounded text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#006398]"
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
+
+                  {/* Compact Active Work Categories & SAP _WorkType Summary Ribbon */}
+                  {permitType && (
+                    <div className="p-2.5 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50/80 via-white to-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-2xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-[#006398] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                          <span className="material-symbols-outlined text-[16px]">alt_route</span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-800">
+                              {workTypeRecords.length} Active {workTypeRecords.length === 1 ? 'Category' : 'Categories'}:
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-[#006398] text-white">
+                              Primary: {PERMIT_CATEGORIES.find(c => c.code === permitType || c.sapCode === permitType)?.label || permitType}
+                            </span>
+                            {workTypeRecords.length > 1 && (
+                              <span className="text-slate-600 font-mono text-[11px]">
+                                + Combined: {workTypeRecords.slice(1).map(wt => PERMIT_CATEGORIES.find(x => x.code === wt.WorkType || x.sapCode === wt.WorkType)?.label || wt.WorkType).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                            Mapped to SAP child table <code className="font-bold text-[#006398]">_WorkType</code> ({workTypeRecords.map(w => `${w.WorkType} [Seq ${w.SeqNo}]`).join(', ')})
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="px-2.5 py-1 rounded-full font-mono text-[10px] font-bold bg-white border border-sky-200 text-[#006398] shadow-2xs">
+                          {overallChecklistStats.answered} of {overallChecklistStats.total} Questions Cleared ({overallChecklistStats.percent}%)
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Dynamic SAP Compliance Questionnaire Status Strip */}
                   {isLoadingChecklist && (
@@ -2500,75 +3375,6 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       <span>Checking SAP for required compliance checklist questionnaire...</span>
                     </div>
                   )}
-
-                  {!isLoadingChecklist && permitType && (categoryQuestions[toSapChecklistPermitType(permitType)] || []).length > 0 && (() => {
-                    const primarySap = toSapChecklistPermitType(permitType);
-                    const pQuestions = categoryQuestions[primarySap] || [];
-                    const pAnswers = categoryAnswers[primarySap] || {};
-                    let pAnswered = 0;
-                    let pYes = 0; let pNo = 0; let pNa = 0;
-                    pQuestions.forEach((q) => {
-                      const r = pAnswers[q.QuestionaireId]?.response;
-                      if (r === 'YES') { pYes++; pAnswered++; }
-                      else if (r === 'NO') { pNo++; pAnswered++; }
-                      else if (r === 'NA') { pNa++; pAnswered++; }
-                    });
-                    const pPercent = pQuestions.length > 0 ? Math.round((pAnswered / pQuestions.length) * 100) : 0;
-                    const isComplete = pQuestions.length > 0 && pAnswered === pQuestions.length;
-
-                    return (
-                      <div className="p-4 rounded-xl border border-[#006398]/30 bg-gradient-to-r from-sky-50/70 via-slate-50 to-white shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-[#006398] text-white flex items-center justify-center shadow-xs shrink-0">
-                            <span className="material-symbols-outlined text-[22px]">assignment_turned_in</span>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-xs text-slate-800 uppercase tracking-wide">
-                                {PERMIT_CATEGORIES.find((c) => c.code === permitType || c.sapCode === permitType)?.label || permitType} Compliance Checklist
-                              </span>
-                              <span className="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20">
-                                SAP: {primarySap}
-                              </span>
-                              {isComplete ? (
-                                <span className="px-2 py-0.5 rounded-full font-sans text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                                  <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                                  Complete
-                                </span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-full font-sans text-[10px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
-                                  <span className="material-symbols-outlined text-[12px]">warning</span>
-                                  Verification Pending
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-500 mt-1">
-                              {pAnswered} of {pQuestions.length} questions completed ({pPercent}%)
-                              {pAnswered > 0 && (
-                                <span className="ml-2 font-mono text-[11px] text-slate-600">
-                                  · YES: {pYes} · NO: {pNo} · NA: {pNa}
-                                </span>
-                              )}
-                              {sitePlan.additionalTypes.length > 0 && (
-                                <span className="ml-2 font-mono text-[11px] text-[#006398] font-bold">
-                                  · +{sitePlan.additionalTypes.length} additional work {sitePlan.additionalTypes.length === 1 ? 'checklist' : 'checklists'} in Step 3
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleOpenChecklistForCategory(permitType)}
-                          className="px-4 py-2 rounded-xl bg-[#006398] hover:bg-[#004e78] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs shrink-0"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">fact_check</span>
-                          {isComplete ? 'Review Checklist' : 'Fill Compliance Questionnaire'}
-                        </button>
-                      </div>
-                    );
-                  })()}
                 </div>
               </SectionCard>
 
@@ -3067,8 +3873,26 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         required
                         value={validToDateTime}
                         onChange={(e) => handleValidToDateTimeChange(e.target.value)}
-                        className="ptw-input font-mono text-xs w-full bg-white shadow-2xs"
+                        className={`ptw-input font-mono text-xs w-full bg-white shadow-2xs ${
+                          isValidityEnded ? 'border-rose-400 bg-rose-50/20' : ''
+                        }`}
                       />
+                      {isValidityEnded && (
+                        <div className="mt-1.5 p-2 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-between gap-2 text-[11px] text-rose-900 animate-fadeIn">
+                          <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[15px] text-rose-600 shrink-0">error</span>
+                            <span>The permit validity period has already ended.</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleSetPlus8Hours}
+                            className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-mono font-bold text-[10px] transition shrink-0"
+                            title="Reset Validity to Now + 8 Hours"
+                          >
+                            Set +8h
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -3693,23 +4517,33 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       <div className="flex items-center gap-2 flex-wrap">
                         {allActiveCategories.map((catCode) => {
                           const catDef = PERMIT_CATEGORIES.find((c) => c.code === catCode || c.sapCode === catCode);
-                          const qCount = (categoryQuestions[catCode] || []).length;
-                          const pStat = checklistProgressMap[catCode];
+                          const sapCat = toSapChecklistPermitType(catCode) || catCode;
+                          const questions = (categoryQuestions[sapCat] && categoryQuestions[sapCat].length > 0)
+                            ? categoryQuestions[sapCat]
+                            : (categoryQuestions[catCode] && categoryQuestions[catCode].length > 0)
+                            ? categoryQuestions[catCode]
+                            : (FALLBACK_CHECKLISTS[sapCat] || FALLBACK_CHECKLISTS[catCode] || []);
+                          const qCount = questions.length;
+                          const pStat = checklistProgressMap[sapCat] || checklistProgressMap[catCode];
                           const answered = pStat?.answered || 0;
                           const isComplete = answered === qCount && qCount > 0;
                           return (
                             <button
                               key={catCode}
+                              id={`checklist-cat-${catCode}`}
                               type="button"
                               onClick={() => void handleOpenChecklistForCategory(catCode)}
-                              className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs shrink-0 ${isComplete
+                              className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer ${
+                                isComplete
                                   ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
-                                  : 'bg-white border-[#006398] text-[#006398] hover:bg-[#006398] hover:text-white'
-                                }`}
+                                  : answered > 0
+                                  ? 'bg-sky-50 text-[#006398] border-sky-300 hover:bg-[#006398] hover:text-white'
+                                  : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100 ring-1 ring-amber-300/60'
+                              }`}
                               title={`Open ${catDef?.label || catCode} Compliance Questionnaire`}
                             >
                               <span className="material-symbols-outlined text-[15px]">
-                                {isComplete ? 'verified' : 'fact_check'}
+                                {isComplete ? 'verified' : answered > 0 ? 'fact_check' : 'warning'}
                               </span>
                               <span>{catDef?.label || catCode} ({answered}/{qCount})</span>
                             </button>
@@ -3717,6 +4551,27 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         })}
                       </div>
                     </div>
+                    {allActiveCategories.some((catCode) => {
+                      const sapCat = toSapChecklistPermitType(catCode) || catCode;
+                      const questions = (categoryQuestions[sapCat] && categoryQuestions[sapCat].length > 0)
+                        ? categoryQuestions[sapCat]
+                        : (categoryQuestions[catCode] && categoryQuestions[catCode].length > 0)
+                        ? categoryQuestions[catCode]
+                        : (FALLBACK_CHECKLISTS[sapCat] || FALLBACK_CHECKLISTS[catCode] || []);
+                      const total = questions.length;
+                      if (total === 0) return false;
+                      const ansMap = categoryAnswers[sapCat] || categoryAnswers[catCode] || {};
+                      let answered = 0;
+                      questions.forEach((q) => { if (ansMap[q.QuestionaireId]?.response) answered++; });
+                      return answered < total;
+                    }) && (
+                      <div className="mt-3 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                        <span className="material-symbols-outlined text-amber-700 text-[18px] shrink-0">info</span>
+                        <span>
+                          <strong>Verification Required:</strong> Statutory compliance questionnaires for all active categories must be 100% completed before advancing to the next step or submitting the permit.
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Custom Safety Inspection Checks (_Safety) */}
@@ -3910,6 +4765,52 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               icon="verified"
             >
               <div className="space-y-6">
+                {/* Top-Level Permit Creation Blocking Validation Alert Banner */}
+                {blockingValidation && (
+                  <div
+                    role="alert"
+                    className="relative overflow-hidden rounded-2xl border-2 border-rose-400 bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 p-4 sm:p-5 shadow-sm transition-all animate-fadeIn"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-700 shrink-0 shadow-2xs">
+                          <span className="material-symbols-outlined text-[24px]">error</span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 text-rose-900 border border-rose-300">
+                              Permit Creation Blocked
+                            </span>
+                            <span className="text-xs text-rose-700 font-semibold">
+                              Action Required in {blockingValidation.target.stepName}
+                            </span>
+                          </div>
+                          <h4 className="font-display font-bold text-sm sm:text-base text-rose-950">
+                            {blockingValidation.message}
+                          </h4>
+                          <p className="text-xs text-rose-800">
+                            {blockingValidation.target.advice}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          jumpToField(blockingValidation.target.fieldId, blockingValidation.target.tab);
+                          toast.info(`Navigated to ${blockingValidation.target.stepName}: ${blockingValidation.target.fieldLabel}`, {
+                            title: 'Field Focused'
+                          });
+                        }}
+                        className="self-start md:self-center flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-mono font-bold shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] shrink-0 cursor-pointer"
+                      >
+                        <span>Fix in {blockingValidation.target.stepName.split(':')[0]}: {blockingValidation.target.fieldLabel}</span>
+                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Payload Summary Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50/80 border border-slate-200 rounded-xl">
                   <div>
@@ -3935,14 +4836,34 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
                     <button
                       type="button"
-                      onClick={handleSubmitDeepInsert}
-                      disabled={isSubmitting || creationUncertain || !workSelection || !!requestPreview.error}
-                      className="flex items-center gap-1.5 px-4 py-1.5 bg-[#006398] hover:bg-[#004f7a] text-white rounded-xl text-xs font-mono font-bold shadow-sm transition-colors disabled:opacity-50"
+                      onClick={() => {
+                        if (blockingValidation) {
+                          toast.warning(blockingValidation.message, {
+                            title: `Validation Incomplete — ${blockingValidation.target.stepName.split(':')[0]}`
+                          });
+                          jumpToField(blockingValidation.target.fieldId, blockingValidation.target.tab);
+                          return;
+                        }
+                        handleSubmitDeepInsert();
+                      }}
+                      disabled={isSubmitting || creationUncertain}
+                      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-mono font-bold shadow-sm transition-all ${
+                        blockingValidation
+                          ? 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer ring-1 ring-amber-400'
+                          : 'bg-[#006398] hover:bg-[#004f7a] text-white'
+                      } disabled:opacity-50`}
+                      title={blockingValidation ? `Submission blocked: ${blockingValidation.message}. Click to jump to field.` : 'Submit Permit to SAP'}
                     >
                       <span className="material-symbols-outlined text-[18px]">
-                        {isSubmitting ? 'sync' : 'send'}
+                        {isSubmitting ? 'sync' : blockingValidation ? 'warning' : 'send'}
                       </span>
-                      <span>{isSubmitting ? 'Posting to SAP...' : 'Create permit request'}</span>
+                      <span>
+                        {isSubmitting
+                          ? 'Posting to SAP...'
+                          : blockingValidation
+                          ? 'Fix Missing Requirement'
+                          : 'Create permit request'}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -4053,7 +4974,6 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       </div>
                     )}
                   </dl>
-                  {requestPreview.error && <p role="alert" className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">{requestPreview.error}</p>}
                 </div>
                 <ProcedureGuidance />
                 <details className="ptw-card p-4 border-slate-200">
@@ -4119,19 +5039,35 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <button
                 type="button"
                 onClick={() => {
-                  if (requestPreview.error) {
-                    toast.warning(requestPreview.error, { title: 'Mandatory Requirement Incomplete' });
+                  if (blockingValidation) {
+                    toast.warning(blockingValidation.message, {
+                      title: `Action Required — ${blockingValidation.target.stepName.split(':')[0]}`
+                    });
+                    jumpToField(blockingValidation.target.fieldId, blockingValidation.target.tab);
                     return;
                   }
                   handleSubmitDeepInsert();
                 }}
                 disabled={isSubmitting || creationUncertain}
-                className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-50"
+                className={`px-5 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer ${
+                  blockingValidation
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white ring-1 ring-amber-400'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                } disabled:opacity-50`}
+                title={blockingValidation ? `Submission blocked: ${blockingValidation.message}. Click to jump to field.` : 'Submit Permit Request to SAP'}
               >
                 <span className="material-symbols-outlined text-[17px]">
-                  {isSubmitting ? 'sync' : 'verified'}
+                  {isSubmitting ? 'sync' : blockingValidation ? 'warning' : 'verified'}
                 </span>
-                <span>{isSubmitting ? 'Submitting to SAP...' : revisionPermit ? 'Save Changes & Resubmit for Approval' : 'Create permit request'}</span>
+                <span>
+                  {isSubmitting
+                    ? 'Submitting to SAP...'
+                    : blockingValidation
+                    ? 'Fix Missing Requirement'
+                    : revisionPermit
+                    ? 'Save Changes & Resubmit for Approval'
+                    : 'Create permit request'}
+                </span>
               </button>
             )}
           </div>

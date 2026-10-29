@@ -25,6 +25,8 @@ import {
 } from './RiskMatrix5x5Section';
 import { PermitJhaPrintView } from './PermitJhaPrintView';
 import { validatePhoneNumber } from '../../core/utils/phoneValidation';
+import { useUserPtwRoles } from '../../shared/hooks/useUserPtwRoles';
+import { getPermitClearanceLevels } from '../../core/ptw/permitClearanceLevels';
 
 interface PermitDisplayWorkspaceProps {
   user: SapUser | null;
@@ -58,6 +60,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
   const [search, setSearch] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [levelFilter, setLevelFilter] = useState<'ALL' | 'GAS_TEST' | 'APPROVER' | 'ACCEPTER' | 'AREA_OPERATOR'>('ALL');
   const [quickLookupNo, setQuickLookupNo] = useState<string>(initialPermitNo || '');
 
   // Local Findability State (Instant Client-side Filter & Inspect)
@@ -107,6 +110,18 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
   const [acceptorComments, setAcceptorComments] = useState<string>('');
   const [submittingAcceptor, setSubmittingAcceptor] = useState<boolean>(false);
 
+  // User Authorization Evaluation strictly from SAP /UserRole entity set
+  const {
+    roles: userRoles,
+    displayRoles: userDisplayRoles,
+    isLoadingRoles,
+    isUserAdmin,
+    hasApproverRole,
+    hasAcceptorRole,
+    hasAreaOperatorRole,
+    refreshRoles
+  } = useUserPtwRoles(user);
+
   const handleOpenAcceptorModal = (action: 'accept' | 'reject') => {
     if (!selectedPermit) return;
     setAcceptorActionType(action);
@@ -122,6 +137,14 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
   const handleSubmitAcceptor = async () => {
     if (!selectedPermit) return;
+
+    if (!hasAcceptorRole) {
+      toast.error('You do not have the required Acceptor (PTW_ACCP) role to execute field acceptance.', {
+        title: 'Authorization Required'
+      });
+      return;
+    }
+
     const finalVal = acceptorComments.trim();
     if (!finalVal) {
       toast.warning(
@@ -232,6 +255,20 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
   const handleSubmitApproval = async (customSignedBy?: string) => {
     if (!selectedPermit) return;
+
+    if ((approvalAction === 'CAO' || approvalAction === 'RAO') && !hasAreaOperatorRole) {
+      toast.error('You do not have the required Area Operator (PTW_AREA_OPP) role for this action.', {
+        title: 'Authorization Required'
+      });
+      return;
+    }
+    if ((approvalAction === 'AP' || approvalAction === 'VR' || approvalAction === 'RJ') && !hasApproverRole) {
+      toast.error('You do not have the required Approver (PTW_APPR1/2/3) role to submit digital approvals.', {
+        title: 'Authorization Required'
+      });
+      return;
+    }
+
     setSubmittingApproval(true);
     try {
       // Re-calculate unique incremented SeqNo and role to avoid duplicate key collision in SAP
@@ -381,7 +418,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     );
   }, [currentJhaTemplate, dossierSearch]);
 
-  // Dynamic Max Initial Risk from live filled-up Hazard Controls (_HazardControl)
+  // Dynamic Max Residual Risk from live filled-up Hazard Controls (_HazardControl)
   const dynamicHazardRisk = useMemo(() => {
     return getMaxHazardRisk(selectedPermit?._HazardControl);
   }, [selectedPermit?._HazardControl]);
@@ -703,11 +740,22 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     };
   }, [plantSummary, totalCount, permits]);
 
-  // Client-filtered permits for instant search-as-you-type
+  // Client-filtered permits for instant search-as-you-type and level filtering
   const displayedPermits = useMemo(() => {
-    if (!tableQuery.trim()) return permits;
+    let list = permits;
+    if (levelFilter !== 'ALL') {
+      list = list.filter(p => {
+        const cl = getPermitClearanceLevels(p);
+        if (levelFilter === 'GAS_TEST') return cl.overallCurrentLevel === 'GAS_TEST' || cl.gas.status === 'REQUIRED_PENDING';
+        if (levelFilter === 'APPROVER') return cl.overallCurrentLevel === 'APPROVER' || cl.approver.status === 'IN_PROGRESS';
+        if (levelFilter === 'ACCEPTER') return cl.overallCurrentLevel === 'ACCEPTER' || cl.accepter.status === 'PENDING';
+        if (levelFilter === 'AREA_OPERATOR') return cl.overallCurrentLevel === 'AREA_OPERATOR' || cl.areaOperator.status === 'PENDING';
+        return true;
+      });
+    }
+    if (!tableQuery.trim()) return list;
     const q = tableQuery.toLowerCase().trim();
-    return permits.filter(p =>
+    return list.filter(p =>
       (p.Permit_No && p.Permit_No.toLowerCase().includes(q)) ||
       (p.Aufnr && p.Aufnr.toLowerCase().includes(q)) ||
       (p.Qmnum && p.Qmnum.toLowerCase().includes(q)) ||
@@ -720,7 +768,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
       (p.PermitType && p.PermitType.toLowerCase().includes(q)) ||
       (p.Status && p.Status.toLowerCase().includes(q))
     );
-  }, [permits, tableQuery]);
+  }, [permits, levelFilter, tableQuery]);
 
   // Helper: Status Badges with enhanced color depth
   const renderStatusBadge = (status: string, compact = false) => {
@@ -1035,7 +1083,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
               </div>
             </button>
 
-            {/* Intended / Prereq */}
+            {/* Initiated / Prereq */}
             <button
               type="button"
               onClick={() => handleKpiFilter('PENDING')}
@@ -1046,7 +1094,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
               }`}
             >
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-xs font-semibold text-indigo-800">Intended / Prereq</span>
+                <span className="text-xs font-semibold text-indigo-800">Initiated / Prereq</span>
                 <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700">
                   <span className="material-symbols-outlined text-[16px]">hourglass_top</span>
                 </div>
@@ -1270,7 +1318,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                 {[
                   { id: 'ALL', label: 'All', count: statusCounts.ALL },
                   { id: 'ISSU', label: 'Issued (Active)', count: statusCounts.ISSU },
-                  { id: 'INTD', label: 'Intended', count: statusCounts.INTD },
+                  { id: 'INTD', label: 'Initiated', count: statusCounts.INTD },
                   { id: 'APPR', label: 'Approved', count: statusCounts.APPR },
                   { id: 'CRTD', label: 'Created', count: statusCounts.CRTD },
                   { id: 'REJT', label: 'Rejected', count: statusCounts.REJT },
@@ -1297,22 +1345,51 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     </span>
                   </button>
                 ))}
+
+                <div className="h-4 w-[1px] bg-slate-200 mx-1.5 hidden sm:block" />
+
+                <span className="text-[11px] font-mono text-slate-400 mr-1 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">alt_route</span>
+                  <span>Clearance Stage:</span>
+                </span>
+                {[
+                  { id: 'ALL', label: 'All Levels' },
+                  { id: 'GAS_TEST', label: '1. Gas Req', icon: 'air' },
+                  { id: 'APPROVER', label: '2. Approver Pend', icon: 'draw' },
+                  { id: 'ACCEPTER', label: '3. Acceptor Pend', icon: 'hourglass_top' },
+                  { id: 'AREA_OPERATOR', label: '4. Area Op Pend', icon: 'engineering' }
+                ].map(lvl => (
+                  <button
+                    key={lvl.id}
+                    type="button"
+                    onClick={() => setLevelFilter(lvl.id as any)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all inline-flex items-center gap-1 cursor-pointer ${
+                      levelFilter === lvl.id
+                        ? 'bg-[#006398] text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {lvl.icon && <span className="material-symbols-outlined text-[13px]">{lvl.icon}</span>}
+                    <span>{lvl.label}</span>
+                  </button>
+                ))}
               </div>
 
               {/* Active Filter Clear & Result Counts */}
               <div className="flex items-center gap-2 ml-auto">
-                {(categoryFilter !== 'ALL' || statusFilter !== 'ALL' || tableQuery || search) && (
+                {(categoryFilter !== 'ALL' || statusFilter !== 'ALL' || levelFilter !== 'ALL' || tableQuery || search) && (
                   <button
                     type="button"
                     onClick={() => {
                       setCategoryFilter('ALL');
                       setStatusFilter('ALL');
+                      setLevelFilter('ALL');
                       setTableQuery('');
                       setSearch('');
                       void loadPermitList(0, 'ALL', 'ALL');
                       void loadPlantSummary(plant);
                     }}
-                    className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 px-2 py-0.5 rounded hover:bg-rose-50"
+                    className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 px-2 py-0.5 rounded hover:bg-rose-50 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
                     <span>Reset All Filters</span>
@@ -1390,8 +1467,9 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       <th className="py-3 px-3.5 w-40">Permit Number</th>
                       <th className="py-3 px-3.5 w-32">Type</th>
                       <th className="py-3 px-3.5 w-36">Status</th>
-                      <th className="py-3 px-3.5">Job Scope & Technical Reference</th>
-                      <th className="py-3 px-3.5 w-44">Location & Plant</th>
+                      <th className="py-3 px-3.5 w-60">Workflow &amp; Clearance Levels</th>
+                      <th className="py-3 px-3.5">Job Scope &amp; Technical Reference</th>
+                      <th className="py-3 px-3.5 w-44">Location &amp; Plant</th>
                       <th className="py-3 px-3.5 w-48">Validity Window (IST)</th>
                       <th className="py-3 px-3.5 w-32 text-right">Action</th>
                     </tr>
@@ -1461,6 +1539,69 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                             {/* Status */}
                             <td className="py-3 px-3.5 whitespace-nowrap">
                               {renderStatusBadge(item.Status, true)}
+                            </td>
+
+                            {/* Workflow & Clearance Levels (Gas Test · Approver · Accepter · Area Operator) */}
+                            <td className="py-2.5 px-3.5">
+                              {(() => {
+                                const cl = getPermitClearanceLevels(item);
+                                return (
+                                  <div className="space-y-1.5 min-w-[210px]">
+                                    {/* Overall active stage badge */}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-2xs ${cl.overallLevelBadgeClass}`}>
+                                        <span className="material-symbols-outlined text-[12px]">
+                                          {cl.overallCurrentLevel === 'GAS_TEST'
+                                            ? 'air'
+                                            : cl.overallCurrentLevel === 'APPROVER'
+                                            ? 'draw'
+                                            : cl.overallCurrentLevel === 'ACCEPTER'
+                                            ? 'hourglass_top'
+                                            : cl.overallCurrentLevel === 'AREA_OPERATOR'
+                                            ? 'engineering'
+                                            : cl.overallCurrentLevel === 'ACTIVE_EXECUTION'
+                                            ? 'verified'
+                                            : cl.overallCurrentLevel === 'REJECTED'
+                                            ? 'cancel'
+                                            : 'flag'}
+                                        </span>
+                                        <span>{cl.overallLevelLabel}</span>
+                                      </span>
+                                    </div>
+
+                                    {/* 4-Step Micro Clearance Strip */}
+                                    <div className="grid grid-cols-4 gap-1 text-center font-mono">
+                                      <span
+                                        className={`px-1 py-0.5 rounded text-[9px] font-bold border truncate transition-all cursor-help ${cl.gas.badgeClass}`}
+                                        title={`Level 1: Gas Testing\nStatus: ${cl.gas.status}\nDetails: ${cl.gas.detailText}`}
+                                      >
+                                        {cl.gas.status === 'DONE' ? '✓ Gas' : cl.gas.status === 'NOT_REQUIRED' ? '— Gas' : '⚠ Gas'}
+                                      </span>
+
+                                      <span
+                                        className={`px-1 py-0.5 rounded text-[9px] font-bold border truncate transition-all cursor-help ${cl.approver.badgeClass}`}
+                                        title={`Level 2: Managerial Approver\nStatus: ${cl.approver.status}\nDetails: ${cl.approver.detailText}`}
+                                      >
+                                        {cl.approver.status === 'APPROVED' ? '✓ Appr' : cl.approver.status === 'REJECTED' ? '✕ Appr' : '● Appr'}
+                                      </span>
+
+                                      <span
+                                        className={`px-1 py-0.5 rounded text-[9px] font-bold border truncate transition-all cursor-help ${cl.accepter.badgeClass}`}
+                                        title={`Level 3: Permit Acceptor (Section K)\nStatus: ${cl.accepter.status}\nDetails: ${cl.accepter.detailText}`}
+                                      >
+                                        {cl.accepter.status === 'ACCEPTED' ? '✓ Accp' : cl.accepter.status === 'PENDING' ? '● Accp' : '— Accp'}
+                                      </span>
+
+                                      <span
+                                        className={`px-1 py-0.5 rounded text-[9px] font-bold border truncate transition-all cursor-help ${cl.areaOperator.badgeClass}`}
+                                        title={`Level 4: Area Operator Clearance\nStatus: ${cl.areaOperator.status}\nDetails: ${cl.areaOperator.detailText}`}
+                                      >
+                                        {cl.areaOperator.status === 'CLEARED' ? '✓ Area' : cl.areaOperator.status === 'PENDING' ? '● Area' : '— Area'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Job Description & Reference Badges */}
@@ -1536,8 +1677,78 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                           {/* Inline Expanded Preview Drawer */}
                           {isExpanded && (
                             <tr className="bg-sky-50/20 border-b border-sky-100">
-                              <td colSpan={8} className="p-4 pl-12">
-                                <div className="bg-white rounded-xl border border-sky-200/80 p-3.5 shadow-xs grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
+                              <td colSpan={9} className="p-4 pl-12">
+                                {(() => {
+                                  const cl = getPermitClearanceLevels(item);
+                                  return (
+                                    <div className="space-y-3">
+                                      {/* 4-Level Safety & Authorization Clearance Stepper Banner */}
+                                      <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/90 shadow-2xs">
+                                        <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className="p-1 rounded-md bg-[#006398]/10 text-[#006398]">
+                                              <span className="material-symbols-outlined text-[16px]">alt_route</span>
+                                            </span>
+                                            <div>
+                                              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                                                4-Level Workflow Clearance Status
+                                              </h4>
+                                              <p className="text-[11px] text-slate-500 font-sans">
+                                                Next Action: <strong className="text-slate-800">{cl.nextActionText}</strong>
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-mono text-slate-500">
+                                              Progress: <strong className="text-slate-800">{cl.completedCount}/{cl.totalApplicableLevels} Cleared</strong>
+                                            </span>
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${cl.overallLevelBadgeClass}`}>
+                                              {cl.overallLevelLabel}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                                          {cl.levels.map(lvl => (
+                                            <div
+                                              key={lvl.id}
+                                              className={`p-2.5 rounded-xl border flex flex-col justify-between transition-all ${
+                                                lvl.isComplete && !lvl.isNotApplicable
+                                                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                                                  : lvl.isPendingCurrent
+                                                  ? 'bg-amber-50/80 border-amber-300 text-amber-950 ring-1 ring-amber-400/20'
+                                                  : lvl.isRejected
+                                                  ? 'bg-rose-50/70 border-rose-200 text-rose-950'
+                                                  : lvl.isNotApplicable
+                                                  ? 'bg-slate-50 border-slate-200/80 text-slate-500'
+                                                  : 'bg-white border-slate-200 text-slate-600'
+                                              }`}
+                                            >
+                                              <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">
+                                                  Step {lvl.stepNumber}: {lvl.shortLabel}
+                                                </span>
+                                                <span className={`material-symbols-outlined text-[15px] ${
+                                                  lvl.isComplete && !lvl.isNotApplicable ? 'text-emerald-600' : lvl.isPendingCurrent ? 'text-amber-600' : 'text-slate-400'
+                                                }`}>
+                                                  {lvl.icon}
+                                                </span>
+                                              </div>
+                                              <div className="font-bold text-xs truncate">
+                                                {lvl.badgeLabel}
+                                              </div>
+                                              <p className="text-[10px] text-slate-500 leading-tight mt-1 line-clamp-2" title={lvl.detailText}>
+                                                {lvl.detailText}
+                                              </p>
+                                              <div className="text-[9px] font-mono text-slate-400 mt-1 pt-1 border-t border-slate-200/60">
+                                                Role: {lvl.responsibleRole}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      <div className="bg-white rounded-xl border border-sky-200/80 p-3.5 shadow-xs grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
                                   <div>
                                     <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block mb-1">
                                       Supervision & Agency
@@ -1597,6 +1808,9 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                                     </button>
                                   </div>
                                 </div>
+                              </div>
+                            );
+                          })()}
                               </td>
                             </tr>
                           )}
@@ -1884,6 +2098,111 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
               </div>
             </div>
 
+            {/* 4-Level Safety & Authorization Clearance Pipeline Banner in Detailed Dossier */}
+            {(() => {
+              const dossierClearance = getPermitClearanceLevels(selectedPermit);
+              return (
+                <div className="mt-3.5 p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 rounded-lg bg-[#006398]/10 text-[#006398]">
+                        <span className="material-symbols-outlined text-[20px]">alt_route</span>
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                            4-Level Safety &amp; Authorization Clearance Pipeline
+                          </h3>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${dossierClearance.overallLevelBadgeClass}`}>
+                            {dossierClearance.overallLevelLabel}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Current Required Action: <strong className="text-slate-800 font-semibold">{dossierClearance.nextActionText}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] font-mono text-slate-500">
+                        Clearance Progress: <strong className="text-slate-900">{dossierClearance.completedCount} of {dossierClearance.totalApplicableLevels}</strong>
+                      </span>
+                      <div className="w-24 bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200">
+                        <div
+                          className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all"
+                          style={{ width: `${Math.round((dossierClearance.completedCount / dossierClearance.totalApplicableLevels) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {dossierClearance.levels.map(lvl => {
+                      const targetTab =
+                        lvl.id === 'gas'
+                          ? 'gastest'
+                          : lvl.id === 'approver' || lvl.id === 'accepter' || lvl.id === 'area_operator'
+                          ? 'approvals'
+                          : 'overview';
+
+                      return (
+                        <div
+                          key={lvl.id}
+                          onClick={() => setActiveTab(targetTab as any)}
+                          className={`p-3 rounded-xl border flex flex-col justify-between transition-all cursor-pointer hover:shadow-xs ${
+                            lvl.isComplete && !lvl.isNotApplicable
+                              ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950 hover:bg-emerald-50'
+                              : lvl.isPendingCurrent
+                              ? 'bg-amber-50/80 border-amber-300 text-amber-950 ring-2 ring-amber-400/20 shadow-xs'
+                              : lvl.isRejected
+                              ? 'bg-rose-50/70 border-rose-200 text-rose-950'
+                              : lvl.isNotApplicable
+                              ? 'bg-slate-50 border-slate-200 text-slate-500'
+                              : 'bg-white border-slate-200/80 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-mono uppercase tracking-wider font-bold opacity-75">
+                                Level {lvl.stepNumber}: {lvl.shortLabel}
+                              </span>
+                              <span className={`material-symbols-outlined text-[18px] ${
+                                lvl.isComplete && !lvl.isNotApplicable
+                                  ? 'text-emerald-600'
+                                  : lvl.isPendingCurrent
+                                  ? 'text-amber-600 animate-pulse'
+                                  : lvl.isRejected
+                                  ? 'text-rose-600'
+                                  : 'text-slate-400'
+                              }`}>
+                                {lvl.icon}
+                              </span>
+                            </div>
+
+                            <div className="font-bold text-xs">
+                              {lvl.badgeLabel}
+                            </div>
+
+                            <p className="text-[11px] opacity-80 leading-relaxed mt-1 line-clamp-2" title={lvl.detailText}>
+                              {lvl.detailText}
+                            </p>
+                          </div>
+
+                          <div className="mt-2.5 pt-2 border-t border-current/10 flex items-center justify-between text-[10px] font-mono opacity-80">
+                            <span>Role: <strong>{lvl.responsibleRole}</strong></span>
+                            <span className="flex items-center gap-0.5 text-[#006398] font-bold">
+                              <span>Inspect</span>
+                              <span className="material-symbols-outlined text-[11px]">arrow_forward</span>
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* At-a-Glance 4-Card Operational Summary Grid */}
             <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* 1. Location & Execution Agency */}
@@ -2013,7 +2332,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
             </div>
 
             {/* Embedded Prerequisite Actions Panel for eligible roles */}
-            {user?.roles?.some(r => ['ZPTW_GAS_TESTER', 'ZPTW_SAFETY_OFFICER', 'ZPTW_ADMIN'].includes(r)) && (
+            {(isUserAdmin || userRoles.some(r => ['ZPTW_GAS_TESTER', 'PTW_GAS_TESTER', 'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE', 'ZPTW_ADMIN', 'PTW_ADMIN'].includes(r))) && (
               <div className="mt-3 pt-3 border-t border-slate-200/60">
                 <PrerequisitePanel
                   key={`${selectedPermit.Permit_No}:${selectedPermit['@odata.etag'] || ''}`}
@@ -2802,11 +3121,11 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     </div>
                     <div className="text-[10px] text-slate-500 mt-0.5">Sequential hazard evaluation</div>
                   </div>
-                  {/* Max Initial Risk Card Styled by 5×5 Risk Matrix */}
+                  {/* Max Residual Risk Card Styled by 5×5 Risk Matrix */}
                   <div className={`p-3 rounded-xl border transition-all ${maxInitialRiskStyle.cardClass}`}>
                     <div className="flex items-center justify-between">
                       <div className={`text-[10px] font-mono uppercase font-bold ${maxInitialRiskStyle.titleClass}`}>
-                        Max Initial Risk
+                        Max Residual Risk
                       </div>
                       {maxInitialS > 0 && maxInitialL > 0 && (
                         <span className="font-mono text-[9px] font-extrabold px-1.5 py-0.2 rounded border bg-white/75 shadow-2xs text-slate-800">
@@ -3402,18 +3721,30 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
+                            disabled={!hasAcceptorRole}
                             onClick={() => handleOpenAcceptorModal('accept')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-600 text-white text-xs font-bold shadow-xs hover:bg-teal-700 transition active:scale-[0.98]"
-                            title="Accept Permit as Permit Acceptor (.acceptPermit)"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-600 text-white text-xs font-bold shadow-xs hover:bg-teal-700 transition active:scale-[0.98] disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                            title={
+                              hasAcceptorRole
+                                ? 'Accept Permit as Permit Acceptor (.acceptPermit)'
+                                : `Permit Acceptor role (PTW_ACCP) required in SAP /UserRole. Current roles: ${userDisplayRoles.join(', ') || 'None'}`
+                            }
                           >
-                            <span className="material-symbols-outlined text-[14px]">task_alt</span>
-                            <span>Accept Permit</span>
+                            <span className="material-symbols-outlined text-[14px]">
+                              {hasAcceptorRole ? 'task_alt' : 'lock'}
+                            </span>
+                            <span>{hasAcceptorRole ? 'Accept Permit' : 'Acceptor Role Req'}</span>
                           </button>
                           <button
                             type="button"
+                            disabled={!hasAcceptorRole}
                             onClick={() => handleOpenAcceptorModal('reject')}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-50 transition active:scale-[0.98]"
-                            title="Reject Permit as Permit Acceptor (.rejectAcceptor)"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-50 transition active:scale-[0.98] disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                            title={
+                              hasAcceptorRole
+                                ? 'Reject Permit as Permit Acceptor (.rejectAcceptor)'
+                                : 'Permit Acceptor role required to reject'
+                            }
                           >
                             <span className="material-symbols-outlined text-[14px]">cancel</span>
                             <span>Reject (Acceptor)</span>
@@ -3425,10 +3756,21 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     <button
                       type="button"
                       onClick={handleOpenApprovalModal}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#006398] text-white text-xs font-bold shadow-xs hover:bg-[#004e78] transition active:scale-[0.98]"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold shadow-xs transition active:scale-[0.98] ${
+                        hasApproverRole
+                          ? 'bg-[#006398] text-white hover:bg-[#004e78]'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
+                      }`}
+                      title={
+                        hasApproverRole
+                          ? 'Sign Clearance / Approve'
+                          : `Approver authorization required in SAP /UserRole. Current roles: ${userDisplayRoles.join(', ') || 'None'}. Click to view in audit mode.`
+                      }
                     >
-                      <span className="material-symbols-outlined text-[14px]">draw</span>
-                      <span>Sign Clearance / Approve</span>
+                      <span className="material-symbols-outlined text-[14px]">
+                        {hasApproverRole ? 'draw' : 'shield_lock'}
+                      </span>
+                      <span>{hasApproverRole ? 'Sign Clearance / Approve' : 'Approver Review (Audit)'}</span>
                     </button>
                   )}
                 </div>
@@ -3557,7 +3899,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     cards.push({
                       id: 'PTW_APPR1',
                       role: 'Approver I (PTW_APPR1)',
-                      title: 'Primary Approval',
+                      title: 'PTW Approver I',
                       signerName: appr1Record?.SignedBy?.trim() || selectedPermit.ApprovedBy || 'Pending Approver I',
                       actionLabel: isAppr1Done ? 'APPROVED' : isAppr1Rj ? 'REJECTED' : 'PENDING',
                       actionDate: appr1Record?.ActionDate || undefined,
@@ -3577,7 +3919,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     cards.push({
                       id: 'PTW_APPR2',
                       role: 'Approver II (PTW_APPR2)',
-                      title: reqRoles.length === 1 && reqRoles[0] === 'PTW_APPR2' ? 'Night Shift Authorization' : 'Secondary Approval',
+                      title: reqRoles.length === 1 && reqRoles[0] === 'PTW_APPR2' ? 'Night Shift Authorization' : 'PTW Approver II',
                       signerName: appr2Record?.SignedBy?.trim() || 'Pending Approver II',
                       actionLabel: isAppr2Done ? 'APPROVED' : isAppr2Rj ? 'REJECTED' : 'PENDING',
                       actionDate: appr2Record?.ActionDate || undefined,
@@ -3597,7 +3939,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     cards.push({
                       id: 'PTW_APPR3',
                       role: 'Approver III (PTW_APPR3)',
-                      title: reqRoles.length === 1 && reqRoles[0] === 'PTW_APPR3' ? 'Night Confined Space Clearance' : 'Tertiary Approval (HSE Head)',
+                      title: reqRoles.length === 1 && reqRoles[0] === 'PTW_APPR3' ? 'Night Confined Space Clearance' : 'PTW Approver III',
                       signerName: appr3Record?.SignedBy?.trim() || 'Pending Approver III',
                       actionLabel: isAppr3Done ? 'APPROVED' : isAppr3Rj ? 'REJECTED' : 'PENDING',
                       actionDate: appr3Record?.ActionDate || undefined,
@@ -3793,18 +4135,30 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       <>
                         <button
                           type="button"
+                          disabled={!hasAcceptorRole}
                           onClick={() => handleOpenAcceptorModal('accept')}
-                          className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 active:scale-95"
-                          title="Accept Permit as Permit Acceptor (.acceptPermit)"
+                          className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                          title={
+                            hasAcceptorRole
+                              ? 'Accept Permit as Permit Acceptor (.acceptPermit)'
+                              : `Permit Acceptor role (PTW_ACCP) required in SAP /UserRole. Current roles: ${userDisplayRoles.join(', ') || 'None'}`
+                          }
                         >
-                          <span className="material-symbols-outlined text-[15px]">task_alt</span>
-                          <span>Accept Permit</span>
+                          <span className="material-symbols-outlined text-[15px]">
+                            {hasAcceptorRole ? 'task_alt' : 'lock'}
+                          </span>
+                          <span>{hasAcceptorRole ? 'Accept Permit' : 'Acceptor Role Required'}</span>
                         </button>
                         <button
                           type="button"
+                          disabled={!hasAcceptorRole}
                           onClick={() => handleOpenAcceptorModal('reject')}
-                          className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 active:scale-95"
-                          title="Reject Permit as Permit Acceptor (.rejectAcceptor)"
+                          className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                          title={
+                            hasAcceptorRole
+                              ? 'Reject Permit as Permit Acceptor (.rejectAcceptor)'
+                              : 'Permit Acceptor role required to reject'
+                          }
                         >
                           <span className="material-symbols-outlined text-[15px]">cancel</span>
                           <span>Reject (Acceptor)</span>
@@ -3821,8 +4175,9 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                         <span>Permit Denied / Rejected</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-medium">
-                        <span>Awaiting Approver Signoff</span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold shadow-2xs">
+                        <span className="material-symbols-outlined text-[16px] text-amber-700">hourglass_top</span>
+                        <span>Awaiting Approvals ({selectedPermit.Status || 'CRTD'})</span>
                       </span>
                     )}
                   </div>
@@ -3856,6 +4211,32 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </button>
                     </div>
 
+                    {/* Role Guidance Notice when user lacks approver role in SAP /UserRole */}
+                    {!hasApproverRole && (
+                      <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-xl text-amber-950 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                            <span className="material-symbols-outlined text-[16px]">shield_lock</span>
+                            <span>Viewing in Read-Only Audit Mode</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void refreshRoles()}
+                            disabled={isLoadingRoles}
+                            className="text-[10px] font-bold text-amber-900 bg-amber-200/60 hover:bg-amber-200 px-1.5 py-0.5 rounded border border-amber-300 flex items-center gap-1"
+                            title="Refresh from SAP /UserRole"
+                          >
+                            <span className={`material-symbols-outlined text-[12px] ${isLoadingRoles ? 'animate-spin' : ''}`}>sync</span>
+                            <span>{isLoadingRoles ? '...' : '/UserRole'}</span>
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-amber-900 leading-relaxed">
+                          Your current SAP account (<strong>{user?.id || 'Unknown'}</strong>) active roles in <code className="font-bold text-amber-950 bg-white/90 px-1 py-0.5 rounded border border-amber-200">SAP /UserRole</code>: <code className="font-mono bg-white px-1 py-0.5 rounded border border-amber-200 font-bold">{userDisplayRoles.join(', ') || 'No PTW Roles Assigned'}</code>.
+                          Signing approvals requires <strong>PTW_APPR1</strong>, <strong>PTW_APPR2</strong>, <strong>PTW_APPR3</strong>, or <strong>PTW_ADMIN</strong> in the SAP <code>/UserRole</code> table.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Auto-Determined Multi-Tier Role & Sequence Card (No Dropdown Required) */}
                     <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200 text-blue-900">
                       <div className="flex items-center justify-between">
@@ -3871,11 +4252,11 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                         <div>
                           <div className="font-bold text-sm text-slate-900">
                             {approvalRoleId === 'PTW_APPR1'
-                              ? 'Primary Approver (PTW_APPR1)'
+                              ? 'PTW Approver I'
                               : approvalRoleId === 'PTW_APPR2'
-                              ? 'Secondary Approver (PTW_APPR2)'
+                              ? 'PTW Approver II'
                               : approvalRoleId === 'PTW_APPR3'
-                              ? 'Tertiary Approver (PTW_APPR3 - HSE Head)'
+                              ? 'PTW Approver III'
                               : approvalRoleId === 'VER'
                               ? 'Site Verification (VER)'
                               : 'Permit Issuer (ISS)'}
@@ -3956,17 +4337,23 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </button>
                       <button
                         type="button"
-                        disabled={submittingApproval}
+                        disabled={submittingApproval || !hasApproverRole}
                         onClick={() => {
                           const signedInput = (document.getElementById('approval-signed-by') as HTMLInputElement)?.value;
                           void handleSubmitApproval(signedInput);
                         }}
-                        className="px-4 py-2 rounded-xl bg-[#006398] text-white font-bold text-xs hover:bg-[#004e78] transition disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                        className="px-4 py-2 rounded-xl bg-[#006398] text-white font-bold text-xs hover:bg-[#004e78] transition disabled:opacity-50 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:cursor-not-allowed"
+                        title={!hasApproverRole ? 'Approver authorization required' : 'Submit to SAP /Approval'}
                       >
                         {submittingApproval ? (
                           <>
                             <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
                             <span>Submitting to SAP...</span>
+                          </>
+                        ) : !hasApproverRole ? (
+                          <>
+                            <span className="material-symbols-outlined text-[16px]">lock</span>
+                            <span>Approver Role Required</span>
                           </>
                         ) : (
                           <>
@@ -4010,6 +4397,32 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     </div>
 
                     <div className="space-y-3 text-xs">
+                      {/* Role Guidance Notice when user lacks acceptor role */}
+                      {!hasAcceptorRole && (
+                        <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-xl text-amber-950 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                              <span className="material-symbols-outlined text-[16px]">shield_lock</span>
+                              <span>Viewing in Read-Only Audit Mode</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void refreshRoles()}
+                              disabled={isLoadingRoles}
+                              className="text-[10px] font-bold text-amber-900 bg-amber-200/60 hover:bg-amber-200 px-1.5 py-0.5 rounded border border-amber-300 flex items-center gap-1"
+                              title="Refresh from SAP /UserRole"
+                            >
+                              <span className={`material-symbols-outlined text-[12px] ${isLoadingRoles ? 'animate-spin' : ''}`}>sync</span>
+                              <span>{isLoadingRoles ? '...' : '/UserRole'}</span>
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-amber-900 leading-relaxed">
+                            Your current SAP account (<strong>{user?.id || 'Unknown'}</strong>) active roles in <code className="font-bold text-amber-950 bg-white/90 px-1 py-0.5 rounded border border-amber-200">SAP /UserRole</code>: <code className="font-mono bg-white px-1 py-0.5 rounded border border-amber-200 font-bold">{userDisplayRoles.join(', ') || 'No PTW Roles Assigned'}</code>.
+                            Section K Field Acceptance requires <strong>PTW_ACCP</strong> / <strong>PTW_ACCEPTOR</strong> or <strong>PTW_ADMIN</strong> in the SAP <code>/UserRole</code> table.
+                          </p>
+                        </div>
+                      )}
+
                       {acceptorActionType === 'accept' ? (
                         <>
                           <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-xl text-teal-950 text-[11px] leading-relaxed">
@@ -4058,16 +4471,22 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                         </button>
                         <button
                           type="button"
-                          disabled={submittingAcceptor || !acceptorComments.trim()}
+                          disabled={submittingAcceptor || !hasAcceptorRole || !acceptorComments.trim()}
                           onClick={handleSubmitAcceptor}
-                          className={`px-4 py-2 rounded-xl text-white font-bold text-xs transition disabled:opacity-50 flex items-center gap-1.5 shadow-xs ${
+                          className={`px-4 py-2 rounded-xl text-white font-bold text-xs transition disabled:opacity-50 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:cursor-not-allowed ${
                             acceptorActionType === 'accept' ? 'bg-teal-600 hover:bg-teal-700' : 'bg-rose-600 hover:bg-rose-700'
                           }`}
+                          title={!hasAcceptorRole ? 'Acceptor role required' : ''}
                         >
                           {submittingAcceptor ? (
                             <>
                               <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
                               <span>Submitting to SAP...</span>
+                            </>
+                          ) : !hasAcceptorRole ? (
+                            <>
+                              <span className="material-symbols-outlined text-[16px]">lock</span>
+                              <span>Acceptor Role Required</span>
                             </>
                           ) : (
                             <>
@@ -4382,8 +4801,8 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
               <SectionCard
                 theme="slate"
                 sectionTag="SECTION N.2"
-                title="Lifecycle Event Audit Trail (_AuditLog)"
-                subtitle="Complete chronological timeline of SAP state changes and transitions."
+                title="Lifecycle Event Audit Trail (AuditLog)"
+                subtitle="Live chronological timeline directly from SAP S/4HANA AuditLog entity set."
                 icon="history"
                 badge={
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
@@ -4392,7 +4811,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                 }
               >
                 {!selectedPermit._AuditLog || selectedPermit._AuditLog.length === 0 ? (
-                  <p className="p-6 text-center text-xs text-slate-400">No audit log records found.</p>
+                  <p className="p-6 text-center text-xs text-slate-400">No audit log records found for this permit.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -4402,20 +4821,49 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                           <th className="p-2.5">Transition</th>
                           <th className="p-2.5">Actor (SAP User)</th>
                           <th className="p-2.5">Event Timestamp</th>
-                          <th className="p-2.5">Reason / Notes</th>
+                          <th className="p-2.5">Reason / Comments</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {selectedPermit._AuditLog.map((log, i) => (
-                          <tr key={i} className="hover:bg-slate-50 font-mono">
-                            <td className="p-2.5 font-bold text-slate-800">{log.Action}</td>
+                          <tr key={log.AuditId || i} className="hover:bg-slate-50 font-mono">
+                            <td className="p-2.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
+                                {log.Action}
+                              </span>
+                            </td>
                             <td className="p-2.5 text-slate-600">
-                              <span>{log.OldStatus || 'INIT'}</span>
-                              <span className="mx-1 text-slate-400">→</span>
-                              <span className="font-bold text-slate-900">{log.NewStatus}</span>
+                              {log.OldStatus || log.NewStatus ? (
+                                <>
+                                  <span className="text-slate-500">{log.OldStatus || 'INIT'}</span>
+                                  <span className="mx-1 text-slate-400">→</span>
+                                  <span className="font-bold text-slate-900">{log.NewStatus || '—'}</span>
+                                </>
+                              ) : (
+                                <span className="text-slate-400 font-sans italic text-[11px]">Initial Record</span>
+                              )}
                             </td>
                             <td className="p-2.5 text-indigo-700 font-bold">{log.Actor}</td>
-                            <td className="p-2.5 text-slate-500 whitespace-nowrap">{log.EventAt}</td>
+                            <td className="p-2.5 text-slate-500 whitespace-nowrap" title={log.EventAt || undefined}>
+                              {(() => {
+                                if (!log.EventAt) return '—';
+                                try {
+                                  const d = new Date(log.EventAt);
+                                  if (isNaN(d.getTime())) return log.EventAt;
+                                  return d.toLocaleString('en-IN', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: true
+                                  });
+                                } catch {
+                                  return log.EventAt;
+                                }
+                              })()}
+                            </td>
                             <td className="p-2.5 font-sans text-slate-600">{log.Comments || '—'}</td>
                           </tr>
                         ))}

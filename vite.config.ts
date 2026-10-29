@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
 
   const sapTarget = env.VITE_SAP_TARGET || 'https://vhgfldevci.sap.gfl.co.in:44300';
   const sapClient = env.VITE_SAP_CLIENT || undefined;
+  const proxyHeaders = sapClient ? { 'sap-client': sapClient } : undefined;
 
   return {
     plugins: [react()],
@@ -44,9 +45,7 @@ export default defineConfig(({ mode }) => {
           cookieDomainRewrite: { '*': '' },
           cookiePathRewrite: { '*': '/' },
           secure: false,
-          headers: {
-            'sap-client': sapClient
-          },
+          ...(proxyHeaders ? { headers: proxyHeaders } : {}),
           configure: (proxy) => {
             proxy.on('proxyRes', (proxyRes) => {
               const sc = proxyRes.headers['set-cookie'];
@@ -74,9 +73,7 @@ export default defineConfig(({ mode }) => {
           cookieDomainRewrite: { '*': '' },
           cookiePathRewrite: { '*': '/' },
           secure: false,
-          headers: {
-            'sap-client': sapClient
-          },
+          ...(proxyHeaders ? { headers: proxyHeaders } : {}),
           configure: (proxy) => {
             proxy.on('proxyRes', (proxyRes) => {
               const sc = proxyRes.headers['set-cookie'];
@@ -111,9 +108,7 @@ export default defineConfig(({ mode }) => {
           cookieDomainRewrite: { '*': '' },
           cookiePathRewrite: { '*': '/' },
           secure: false,
-          headers: {
-            'sap-client': sapClient
-          },
+          ...(proxyHeaders ? { headers: proxyHeaders } : {}),
           configure: (proxy) => {
             proxy.on('proxyRes', (proxyRes) => {
               const sc = proxyRes.headers['set-cookie'];

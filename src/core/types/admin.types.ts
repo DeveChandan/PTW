@@ -21,14 +21,31 @@ export interface SapUserRoleRecord {
   }>;
 }
 
+/**
+ * Enterprise User Record matching SAP OData V4 /PFCGUsers schema:
+ * Service Endpoint: /sap/opu/odata4/sap/zptw_mamagement_srv/srvd_a2x/sap/zptw_services/0001/PFCGUsers
+ */
+export interface PFCGUserRecord {
+  SAPUser: string;
+  PFCGRole: string;
+  FirstName: string;
+  LastName: string;
+  EmailAddress: string;
+}
+
 export type PtwRoleCode =
   | 'PTW_ADMIN'
+  | 'PTW_ACCP'
+  | 'PTW_ACCEPTOR'
   | 'PTW_APPR1'
   | 'PTW_APPR2'
   | 'PTW_APPR3'
+  | 'PTW_AREA_OPP'
   | 'PTW_AOPR'
   | 'PTW_GAS'
   | 'PTW_HOLD'
+  | 'PTW_ISO_REQ'
+  | 'PTW_ISOLATION_REQUESTOR'
   | 'PTW_ISSU'
   | 'PTW_SAFE'
   | 'PTW_REQUESTER'
@@ -56,6 +73,16 @@ export interface PtwRoleMetadata {
  * Source: /Config?$filter=startswith(Config_Type, 'PTW_')
  */
 export const PTW_ROLE_CATALOG: PtwRoleMetadata[] = [
+  {
+    code: 'PTW_ACCP',
+    configType: 'PTW_ACCEPTOR_ROLE',
+    legacyCode: 'PTW_ACCEPTOR',
+    label: 'Permit Acceptor',
+    description: 'Toolbox Briefing, Section K Agreement & Field Acceptance',
+    icon: 'verified_user',
+    colorBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/10',
+    category: 'AUTHORIZATION'
+  },
   {
     code: 'PTW_ADMIN',
     configType: 'PTW_ADMIN',
@@ -97,8 +124,18 @@ export const PTW_ROLE_CATALOG: PtwRoleMetadata[] = [
     category: 'AUTHORIZATION'
   },
   {
+    code: 'PTW_AREA_OPP',
+    configType: 'PTW_AREA_ROLE',
+    legacyCode: 'PTW_AREA_OWNER',
+    label: 'Permit Area Operator',
+    description: 'Process Unit Authority, Area Demarcation & Field Safe Clearance',
+    icon: 'domain',
+    colorBadge: 'bg-purple-50 text-purple-700 border-purple-200 ring-purple-500/10',
+    category: 'AUTHORIZATION'
+  },
+  {
     code: 'PTW_AOPR',
-    configType: 'PTW_AREA_OPP_ROLE',
+    configType: 'PTW_AREA_ROLE',
     legacyCode: 'PTW_AREA_OWNER',
     label: 'Permit Area Operator',
     description: 'Process Unit Authority, Area Demarcation & Field Safe Clearance',
@@ -125,6 +162,16 @@ export const PTW_ROLE_CATALOG: PtwRoleMetadata[] = [
     icon: 'engineering',
     colorBadge: 'bg-indigo-50 text-indigo-700 border-indigo-200 ring-indigo-500/10',
     category: 'FIELD'
+  },
+  {
+    code: 'PTW_ISO_REQ',
+    configType: 'PTW_ISOLATION_ROLE',
+    legacyCode: 'PTW_ISOLATOR',
+    label: 'Isolation Requestor',
+    description: 'Zero-Energy Breaker, Valve Lock & Blind Flange Isolation Request',
+    icon: 'lock_reset',
+    colorBadge: 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/10',
+    category: 'SAFETY'
   },
   {
     code: 'PTW_ISSU',
@@ -157,12 +204,18 @@ export function getPtwRoleInfo(roleCode: string): PtwRoleMetadata {
       r.code === `PTW_${clean}` ||
       clean === `PTW_${r.code}` ||
       (clean === 'PTW_APPROVER' && r.code.startsWith('PTW_APPR')) ||
-      (clean === 'PTW_AREA_OWNER' && r.code === 'PTW_AOPR') ||
-      (clean === 'PTW_AOPR' && r.code === 'PTW_AREA_OWNER') ||
+      (clean === 'PTW_ACCEPTOR' && r.code === 'PTW_ACCP') ||
+      (clean === 'PTW_ACCP' && (r.code === 'PTW_ACCP' || r.code === 'PTW_ACCEPTOR')) ||
+      (clean === 'PTW_AREA_OWNER' && (r.code === 'PTW_AREA_OPP' || r.code === 'PTW_AOPR')) ||
+      (clean === 'PTW_AOPR' && (r.code === 'PTW_AREA_OPP' || r.code === 'PTW_AOPR')) ||
+      (clean === 'PTW_AREA_OPP' && (r.code === 'PTW_AREA_OPP' || r.code === 'PTW_AOPR')) ||
       (clean === 'PTW_GAS_TESTER' && r.code === 'PTW_GAS') ||
       (clean === 'PTW_GAS' && r.code === 'PTW_GAS_TESTER') ||
       (clean === 'PTW_HOLDER' && r.code === 'PTW_HOLD') ||
       (clean === 'PTW_HOLD' && r.code === 'PTW_HOLDER') ||
+      (clean === 'PTW_ISOLATOR' && (r.code === 'PTW_ISO_REQ' || r.code === 'PTW_ISOLATOR')) ||
+      (clean === 'PTW_ISO_REQ' && (r.code === 'PTW_ISO_REQ' || r.code === 'PTW_ISOLATOR')) ||
+      (clean === 'PTW_ISOLATION_REQUESTOR' && r.code === 'PTW_ISO_REQ') ||
       (clean === 'PTW_ISSUER' && r.code === 'PTW_ISSU') ||
       (clean === 'PTW_ISSU' && r.code === 'PTW_ISSUER') ||
       (clean === 'PTW_SAFETY_OFFICER' && r.code === 'PTW_SAFE') ||
@@ -171,14 +224,22 @@ export function getPtwRoleInfo(roleCode: string): PtwRoleMetadata {
   if (found) return found;
 
   const legacyLookup: Record<string, Partial<PtwRoleMetadata>> = {
+    PTW_ACCP: { label: 'Permit Acceptor', icon: 'verified_user', colorBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/10', category: 'AUTHORIZATION' },
+    ZPTW_ACCP: { label: 'Permit Acceptor', icon: 'verified_user', colorBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/10', category: 'AUTHORIZATION' },
+    PTW_ACCEPTOR: { label: 'Permit Acceptor', icon: 'verified_user', colorBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/10', category: 'AUTHORIZATION' },
+    ZPTW_ACCEPTOR: { label: 'Permit Acceptor', icon: 'verified_user', colorBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/10', category: 'AUTHORIZATION' },
     PTW_REQUESTER: { label: 'Permit Requester / Creator', icon: 'note_add', colorBadge: 'bg-sky-50 text-sky-700 border-sky-200 ring-sky-500/10', category: 'FIELD' },
     ZPTW_REQUESTER: { label: 'Permit Requester / Creator', icon: 'note_add', colorBadge: 'bg-sky-50 text-sky-700 border-sky-200 ring-sky-500/10', category: 'FIELD' },
+    PTW_ISO_REQ: { label: 'Isolation Requestor', icon: 'lock_reset', colorBadge: 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/10', category: 'SAFETY' },
+    ZPTW_ISO_REQ: { label: 'Isolation Requestor', icon: 'lock_reset', colorBadge: 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/10', category: 'SAFETY' },
     PTW_ISOLATOR: { label: 'Isolation Engineer / Isolator', icon: 'lock_reset', colorBadge: 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/10', category: 'SAFETY' },
     ZPTW_ISOLATOR: { label: 'Isolation Engineer / Isolator', icon: 'lock_reset', colorBadge: 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/10', category: 'SAFETY' },
     PTW_APPROVER: { label: 'Permit Approver', icon: 'draw', colorBadge: 'bg-blue-50 text-blue-700 border-blue-200 ring-blue-500/10', category: 'AUTHORIZATION' },
     ZPTW_APPROVER: { label: 'Permit Approver', icon: 'draw', colorBadge: 'bg-blue-50 text-blue-700 border-blue-200 ring-blue-500/10', category: 'AUTHORIZATION' },
     PTW_HOLDER: { label: 'Permit Holder', icon: 'engineering', colorBadge: 'bg-indigo-50 text-indigo-700 border-indigo-200 ring-indigo-500/10', category: 'FIELD' },
     PTW_ISSUER: { label: 'Permit Issuer', icon: 'verified', colorBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-500/10', category: 'AUTHORIZATION' },
+    PTW_AREA_OPP: { label: 'Permit Area Operator', icon: 'domain', colorBadge: 'bg-purple-50 text-purple-700 border-purple-200 ring-purple-500/10', category: 'AUTHORIZATION' },
+    ZPTW_AREA_OPP: { label: 'Permit Area Operator', icon: 'domain', colorBadge: 'bg-purple-50 text-purple-700 border-purple-200 ring-purple-500/10', category: 'AUTHORIZATION' },
     PTW_AREA_OWNER: { label: 'Permit Area Operator', icon: 'domain', colorBadge: 'bg-purple-50 text-purple-700 border-purple-200 ring-purple-500/10', category: 'AUTHORIZATION' },
     PTW_GAS_TESTER: { label: 'Permit Gas Tester', icon: 'air', colorBadge: 'bg-cyan-50 text-cyan-700 border-cyan-200 ring-cyan-500/10', category: 'SAFETY' },
     PTW_SAFETY_OFFICER: { label: 'Permit Safety Officer', icon: 'health_and_safety', colorBadge: 'bg-teal-50 text-teal-700 border-teal-200 ring-teal-500/10', category: 'SAFETY' }

@@ -26,6 +26,7 @@ export const ODATA_ENTITIES = {
   USER_INFO: 'userinfo',
   USER_ROLE: 'UserRole',
   USER_ROLES: 'UserRole',
+  PFCG_USERS: 'PFCGUsers',
   CONFIG: 'Config',
   CHECKLIST: 'Checklist',
 

@@ -21,4 +21,4 @@ export { gasTesterApi, default as gasTesterApiDefault, DEFAULT_GAS_THRESHOLDS } 
 export { isolationApi, default as isolationApiDefault } from './modules/isolation.api';
 export { adminApi, default as adminApiDefault } from './modules/admin.api';
 export { configApi, default as configApiDefault, FALLBACK_CONFIG_DATA } from './modules/config.api';
-export { checklistApi, default as checklistApiDefault, toSapChecklistPermitType, toSapPermitType } from './modules/checklist.api';
+export { checklistApi, default as checklistApiDefault, toSapChecklistPermitType, toSapPermitType, FALLBACK_CHECKLISTS } from './modules/checklist.api';

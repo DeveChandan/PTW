@@ -198,6 +198,9 @@ export const FALLBACK_CONFIG_DATA: Record<ConfigType, SapConfigRecord[]> = {
     { Config_Type: 'DEISOLATED_STATE', Config_Code: 'UN_LOCKED', Config_Desc: 'UN-LOCKED', Parent_Code: '', Active: 'X' },
     { Config_Type: 'DEISOLATED_STATE', Config_Code: 'UNLOCKED', Config_Desc: 'UNLOCKED', Parent_Code: '', Active: 'X' }
   ],
+  PTW_ACCEPTOR_ROLE: [
+    { Config_Type: 'PTW_ACCEPTOR_ROLE', Config_Code: 'PTW_ACCP', Config_Desc: 'PERMIT ACCEPTOR', Parent_Code: '', Active: 'X' }
+  ],
   PTW_ADMIN: [
     { Config_Type: 'PTW_ADMIN', Config_Code: 'PTW_ADMIN', Config_Desc: 'PTW ADMINISTRATOR', Parent_Code: '', Active: 'X' }
   ],
@@ -206,14 +209,17 @@ export const FALLBACK_CONFIG_DATA: Record<ConfigType, SapConfigRecord[]> = {
     { Config_Type: 'PTW_APPROVAL_ROLE', Config_Code: 'PTW_APPR2', Config_Desc: 'PERMIT APPROVER-II', Parent_Code: '', Active: 'X' },
     { Config_Type: 'PTW_APPROVAL_ROLE', Config_Code: 'PTW_APPR3', Config_Desc: 'PERMIT APPROVER-III', Parent_Code: '', Active: 'X' }
   ],
-  PTW_AREA_OPP_ROLE: [
-    { Config_Type: 'PTW_AREA_OPP_ROLE', Config_Code: 'PTW_AOPR', Config_Desc: 'PERMIT AREA OPERATOR', Parent_Code: '', Active: 'X' }
+  PTW_AREA_ROLE: [
+    { Config_Type: 'PTW_AREA_ROLE', Config_Code: 'PTW_AREA_OPP', Config_Desc: 'PERMIT AREA OPERATOR', Parent_Code: '', Active: 'X' }
   ],
   PTW_GASTESTER_ROLE: [
     { Config_Type: 'PTW_GASTESTER_ROLE', Config_Code: 'PTW_GAS', Config_Desc: 'PERMIT GAS TESTER', Parent_Code: '', Active: 'X' }
   ],
   PTW_HOLDER_ROLE: [
     { Config_Type: 'PTW_HOLDER_ROLE', Config_Code: 'PTW_HOLD', Config_Desc: 'PERMIT HOLDER', Parent_Code: '', Active: 'X' }
+  ],
+  PTW_ISOLATION_ROLE: [
+    { Config_Type: 'PTW_ISOLATION_ROLE', Config_Code: 'PTW_ISO_REQ', Config_Desc: 'ISOLATION REQUESTOR', Parent_Code: '', Active: 'X' }
   ],
   PTW_ISSUER_ROLE: [
     { Config_Type: 'PTW_ISSUER_ROLE', Config_Code: 'PTW_ISSU', Config_Desc: 'PERMIT ISSUER', Parent_Code: '', Active: 'X' }
@@ -317,11 +323,13 @@ class ConfigApiService {
     }
 
     const roleTypes: ConfigType[] = [
+      'PTW_ACCEPTOR_ROLE',
       'PTW_ADMIN',
       'PTW_APPROVAL_ROLE',
-      'PTW_AREA_OPP_ROLE',
+      'PTW_AREA_ROLE',
       'PTW_GASTESTER_ROLE',
       'PTW_HOLDER_ROLE',
+      'PTW_ISOLATION_ROLE',
       'PTW_ISSUER_ROLE',
       'PTW_SAFETY_ROLE'
     ];

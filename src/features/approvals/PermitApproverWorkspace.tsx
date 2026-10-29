@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
-import { sitePermitApi } from '../../core/api/modules/sitePermit.api';
+import { sitePermitApi, type PlantPermitSummary } from '../../core/api/modules/sitePermit.api';
 import { permitApproverApi, getNextApprovalStep, getActiveCycleApprovals, NextApprovalStepInfo } from '../../core/api/modules/permitApprover.api';
 import { PERMIT_CATEGORIES } from '../../core/ptw/siteProcedure';
 import { toast } from '../../shared/context/ToastContext';
 import { getMaxHazardRisk, extractHazardRisk } from '../permits/RiskMatrix5x5Section';
+import { useUserPtwRoles } from '../../shared/hooks/useUserPtwRoles';
 
 interface PermitApproverWorkspaceProps {
   user: SapUser | null;
@@ -107,6 +108,12 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
   const [permits, setPermits] = useState<PermitInfoRecord[]>([]);
   const [selectedPermitNo, setSelectedPermitNo] = useState<string>(initialPermitNo || '');
   const [selectedPermit, setSelectedPermit] = useState<PermitDeepInsertResponse | null>(null);
+
+  // Pagination & Plant Summary State
+  const [offset, setOffset] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [plantSummary, setPlantSummary] = useState<PlantPermitSummary | null>(null);
 
   // Guarantee view changes (selecting permit, changing dossier tabs, switching mobile views) open at the top
   useEffect(() => {
@@ -290,24 +297,51 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showMatrixModal]);
 
-  // Load Permit List from SAP
-  const loadPermits = async () => {
+  // Load Plant-wide aggregate counts for KPI cards
+  const loadPlantSummary = async (targetPlant: string, signal?: AbortSignal) => {
+    if (!targetPlant?.trim()) return;
+    try {
+      const summary = await sitePermitApi.getPlantSummary(targetPlant, signal);
+      if (!signal?.aborted) {
+        setPlantSummary(summary);
+      }
+    } catch (err) {
+      console.warn('[PermitApproverWorkspace] Could not load plant summary:', err);
+    }
+  };
+
+  // Load Permit List from SAP with pagination and server-side status filtering
+  const loadPermits = async (
+    targetOffset = offset,
+    targetStatus = filterStatus,
+    targetPageSize = pageSize,
+    targetSearch = searchQuery
+  ) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
     setLoadingList(true);
+
+    // Map filterStatus to SAP OData filter parameter
+    let sapStatus = 'ALL';
+    if (targetStatus === 'PENDING_APPROVAL') sapStatus = 'CRTD';
+    else if (targetStatus === 'APPROVED') sapStatus = 'APPROVED';
+    else if (targetStatus === 'REJECTED') sapStatus = 'REJT';
+
     try {
       const list = await sitePermitApi.list(
         plant,
-        searchQuery,
-        0,
+        targetSearch,
+        targetOffset,
         abortControllerRef.current.signal,
         'ALL',
-        'ALL',
-        50
+        sapStatus,
+        targetPageSize
       );
       setPermits(list);
+      setTotalCount(typeof list.totalCount === 'number' ? list.totalCount : list.length);
+      setOffset(targetOffset);
 
       // Auto-select first permit if none selected or not in list
       if (list.length > 0) {
@@ -349,7 +383,9 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
   };
 
   useEffect(() => {
-    void loadPermits();
+    setOffset(0);
+    void loadPermits(0, filterStatus, pageSize, searchQuery);
+    void loadPlantSummary(plant);
     return () => {
       abortControllerRef.current?.abort();
     };
@@ -357,7 +393,8 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    void loadPermits();
+    setOffset(0);
+    void loadPermits(0, filterStatus, pageSize, searchQuery);
   };
 
   const handleCopyPermit = (pNo: string) => {
@@ -376,7 +413,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
         seqNo: '1',
         roleId: 'PTW_APPR1',
         action: 'AP',
-        roleTitle: 'Primary Approver (PTW_APPR1)',
+        roleTitle: 'Approver I (PTW_APPR1)',
         pendingRoleName: 'Approver I (Area In-Charge)',
         isFullyApproved: false,
         stepIndex: 1
@@ -438,6 +475,119 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
       time: ''
     };
   }, [selectedPermit, isPermitRejected, user?.id]);
+
+  // User authorization evaluation strictly from SAP /UserRole entity set
+  const {
+    roles: userRoles,
+    displayRoles: userDisplayRoles,
+    isLoadingRoles,
+    isUserAdmin,
+    approverTiers: userApproverTiers,
+    hasApproverRole: hasApproverAuthorization,
+    refreshRoles
+  } = useUserPtwRoles(user);
+
+  // Dynamic Readiness & Prerequisite Evaluation
+  const approvalReadiness = useMemo(() => {
+    if (!selectedPermit) return null;
+
+    // 1. Gas test check
+    const isGasRequired =
+      activeWorkTypes.some(wt => wt.code === 'HOT' || wt.code === 'CONF' || wt.code === 'CSE') ||
+      Boolean(selectedPermit.GasTestFreqHr && Number(selectedPermit.GasTestFreqHr) > 0) ||
+      selectedPermit.GasTestRequired === 'X';
+
+    const gasTests = selectedPermit._GasTest || [];
+    const hasGasRecord = gasTests.length > 0;
+    const latestGas = hasGasRecord ? gasTests[gasTests.length - 1] : null;
+    const isGasSafe = !isGasRequired || (
+      hasGasRecord &&
+      Number(latestGas?.O2Pct || 0) >= 19.5 &&
+      Number(latestGas?.O2Pct || 0) <= 23.5 &&
+      Number(latestGas?.LelPct || 0) <= 5.0
+    );
+
+    // 2. Isolation check
+    const isIsoReq = isIsolationRequired;
+    const hasIsoRecord = (selectedPermit._Isolation || []).length > 0 || Boolean(selectedPermit.IsolationNo);
+    const isIsoReady = !isIsoReq || hasIsoRecord;
+
+    // 3. Status check
+    const isStatusReady = (selectedPermit.Status === 'CRTD' || !selectedPermit.Status) && !isPermitRejected;
+
+    // 4. Step sequence check
+    const isStepReady = !nextStepInfo.isFullyApproved && !isPermitRejected;
+
+    // 5. User role match for next step
+    const canUserSignCurrentStep =
+      isUserAdmin ||
+      userApproverTiers.includes(nextStepInfo.roleId) ||
+      (nextStepInfo.roleId === 'PTW_APPR1' && userRoles.includes('PTW_APPROVER')) ||
+      (nextStepInfo.roleId === 'PTW_APPR2' && userRoles.includes('PTW_APPROVER'));
+
+    const allPrerequisitesMet =
+      isStatusReady &&
+      isGasSafe &&
+      isIsoReady &&
+      isStepReady;
+
+    return {
+      isGasRequired,
+      hasGasRecord,
+      isGasSafe,
+      isIsoReq,
+      hasIsoRecord,
+      isIsoReady,
+      isStatusReady,
+      isStepReady,
+      canUserSignCurrentStep,
+      allPrerequisitesMet,
+      items: [
+        {
+          id: 'status',
+          label: 'Permit Lifecycle Status',
+          status: isPermitRejected ? 'FAILED' : (selectedPermit.Status === 'CRTD' || !selectedPermit.Status) ? 'READY' : selectedPermit.Status === 'APPR' ? 'COMPLETED' : 'WARNING',
+          message: isPermitRejected
+            ? 'Permit is REJECTED. Approval cannot be granted until requester revises it.'
+            : (selectedPermit.Status === 'CRTD' || !selectedPermit.Status)
+            ? 'Permit is in CRTD (Initiated) status and ready for multi-tier review.'
+            : `Current permit status is ${selectedPermit.Status}.`
+        },
+        {
+          id: 'gas',
+          label: 'Atmospheric Gas Testing',
+          status: !isGasRequired ? 'NOT_APPLICABLE' : isGasSafe ? 'READY' : !hasGasRecord ? 'PENDING' : 'FAILED',
+          message: !isGasRequired
+            ? 'Atmospheric gas testing is not mandated for this work category.'
+            : !hasGasRecord
+            ? 'Initial Gas Test (Seq #1) has not been recorded in SAP yet.'
+            : isGasSafe
+            ? `Gas readings cleared safe (O2: ${latestGas?.O2Pct || 20.9}%, LEL: ${latestGas?.LelPct || 0}%).`
+            : 'Latest gas readings indicate hazardous atmosphere. Re-test required.'
+        },
+        {
+          id: 'isolation',
+          label: 'Energy Isolation & LOTO',
+          status: !isIsoReq ? 'NOT_APPLICABLE' : isIsoReady ? 'READY' : 'PENDING',
+          message: !isIsoReq
+            ? 'Energy isolation is not required for this activity.'
+            : isIsoReady
+            ? `Isolation confirmed (${(selectedPermit._Isolation || []).length} attached cert / ${selectedPermit.IsolationNo || 'Active'}).`
+            : "Isolation is flagged as required (IsolationRequired = 'X'), but certificate is pending."
+        },
+        {
+          id: 'role',
+          label: 'Approver Role Authorization',
+          status: !hasApproverAuthorization ? 'UNAUTHORIZED' : canUserSignCurrentStep ? 'READY' : 'MISMATCH',
+          message: !hasApproverAuthorization
+            ? `Signed in as ${user?.id || 'Unknown'} without Permit Approver authorization.`
+            : canUserSignCurrentStep
+            ? `Authorized as ${isUserAdmin ? 'Administrator (All Tiers)' : nextStepInfo.roleId}.`
+            : `Next step requires ${nextStepInfo.roleId}. Current user role: ${userApproverTiers.join(', ')}.`
+        }
+      ]
+    };
+  }, [selectedPermit, activeWorkTypes, isIsolationRequired, isPermitRejected, nextStepInfo, isUserAdmin, userApproverTiers, hasApproverAuthorization, user?.id]);
 
   // Handle Digital Approval Submission via SAP RAP Bound Action
   const handleSubmitApproval = async (actionToSubmit: 'AP' | 'RJ', customReason?: string) => {
@@ -517,9 +667,10 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
       setRejectReason('');
       setRejectCustomComments('');
 
-      // Reload detail and list from SAP backend
+      // Reload detail, list and plant summary from SAP backend
       await loadPermitDetail(selectedPermit.Permit_No);
-      void loadPermits();
+      void loadPermits(offset, filterStatus, pageSize, searchQuery);
+      void loadPlantSummary(plant);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to submit approval to SAP', {
         title: `${actionToSubmit === 'AP' ? 'Approval' : 'Rejection'} Submission Failed`
@@ -529,44 +680,37 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
     }
   };
 
-  // Filtered Permits list based on filterStatus and searchQuery
-  const filteredPermits = useMemo(() => {
-    return permits.filter(p => {
-      // Search matching
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchNo = p.Permit_No?.toLowerCase().includes(q);
-        const matchDesc = p.JobDesc?.toLowerCase().includes(q);
-        const matchReq = p.Ernam?.toLowerCase().includes(q) || p.SupvName?.toLowerCase().includes(q);
-        if (!matchNo && !matchDesc && !matchReq) return false;
-      }
+  const handleFilterChange = (newStatus: FilterStatus) => {
+    setFilterStatus(newStatus);
+    setOffset(0);
+    void loadPermits(0, newStatus, pageSize, searchQuery);
+  };
 
-      // Status matching
-      if (filterStatus === 'PENDING_APPROVAL') {
-        return p.Status === 'CRTD';
-      }
-      if (filterStatus === 'APPROVED') {
-        return p.Status === 'ISSU' || p.Status === 'ACTV' || p.Status === 'APPR' || p.Status === 'ACCP';
-      }
-      if (filterStatus === 'REJECTED') {
-        return p.Status === 'REJT' || p.Status === 'CANC';
-      }
-      return true;
-    });
-  }, [permits, filterStatus, searchQuery]);
+  // Current page permits (already filtered and paginated server-side by SAP OData)
+  const filteredPermits = permits;
 
-  // Counts for KPI Strip (Awaiting Approvals are strictly CRTD status)
+  // Counts for KPI Strip (Plant-wide summary from SAP with fallback)
   const pendingCount = useMemo(() => {
+    if (plantSummary?.draft !== undefined) return plantSummary.draft;
     return permits.filter(p => p.Status === 'CRTD').length;
-  }, [permits]);
+  }, [plantSummary, permits]);
 
   const approvedCount = useMemo(() => {
+    if (plantSummary) {
+      return (plantSummary.approved || 0) + (plantSummary.active || 0) + (plantSummary.accepted || 0);
+    }
     return permits.filter(p => p.Status === 'ISSU' || p.Status === 'ACTV' || p.Status === 'APPR' || p.Status === 'ACCP').length;
-  }, [permits]);
+  }, [plantSummary, permits]);
 
   const rejectedCount = useMemo(() => {
+    if (plantSummary?.rejected !== undefined) return plantSummary.rejected;
     return permits.filter(p => p.Status === 'REJT' || p.Status === 'CANC').length;
-  }, [permits]);
+  }, [plantSummary, permits]);
+
+  const totalPlantCount = useMemo(() => {
+    if (plantSummary?.total !== undefined) return plantSummary.total;
+    return totalCount > 0 ? totalCount : permits.length;
+  }, [plantSummary, totalCount, permits]);
 
   // Dynamic 5×5 Matrix Assessment from live filled-up Hazard Controls (_HazardControl)
   const riskInfo = useMemo(() => {
@@ -678,7 +822,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
       <section className="bg-white border-b border-slate-200/80 py-2.5">
         <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-10 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
           <div
-            onClick={() => setFilterStatus('PENDING_APPROVAL')}
+            onClick={() => handleFilterChange('PENDING_APPROVAL')}
             className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
               filterStatus === 'PENDING_APPROVAL'
                 ? 'bg-amber-50/90 border-amber-300 ring-2 ring-amber-400/20 shadow-xs'
@@ -699,7 +843,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
           </div>
 
           <div
-            onClick={() => setFilterStatus('APPROVED')}
+            onClick={() => handleFilterChange('APPROVED')}
             className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
               filterStatus === 'APPROVED'
                 ? 'bg-emerald-50/90 border-emerald-300 ring-2 ring-emerald-400/20 shadow-xs'
@@ -720,7 +864,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
           </div>
 
           <div
-            onClick={() => setFilterStatus('REJECTED')}
+            onClick={() => handleFilterChange('REJECTED')}
             className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
               filterStatus === 'REJECTED'
                 ? 'bg-rose-50/90 border-rose-300 ring-2 ring-rose-400/20 shadow-xs'
@@ -741,7 +885,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
           </div>
 
           <div
-            onClick={() => setFilterStatus('ALL')}
+            onClick={() => handleFilterChange('ALL')}
             className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
               filterStatus === 'ALL'
                 ? 'bg-blue-50/90 border-blue-300 ring-2 ring-blue-400/20 shadow-xs'
@@ -753,7 +897,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                 Total Plant {plant}
               </span>
               <span className="text-xl sm:text-2xl font-extrabold text-blue-950 font-mono">
-                {permits.length}
+                {totalPlantCount}
               </span>
             </div>
             <div className="w-10 h-10 rounded-xl bg-blue-100/80 text-blue-700 flex items-center justify-center">
@@ -836,7 +980,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
               <button
                 type="button"
-                onClick={() => setFilterStatus('PENDING_APPROVAL')}
+                onClick={() => handleFilterChange('PENDING_APPROVAL')}
                 className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                   filterStatus === 'PENDING_APPROVAL'
                     ? 'bg-[#006398] text-white shadow-xs'
@@ -853,7 +997,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
               <button
                 type="button"
-                onClick={() => setFilterStatus('APPROVED')}
+                onClick={() => handleFilterChange('APPROVED')}
                 className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                   filterStatus === 'APPROVED'
                     ? 'bg-emerald-600 text-white shadow-xs'
@@ -870,7 +1014,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
               <button
                 type="button"
-                onClick={() => setFilterStatus('ALL')}
+                onClick={() => handleFilterChange('ALL')}
                 className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                   filterStatus === 'ALL'
                     ? 'bg-[#006398] text-white shadow-xs'
@@ -881,7 +1025,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                 <span className={`px-1.5 py-0.2 rounded-md font-mono text-[10px] ${
                   filterStatus === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
                 }`}>
-                  {permits.length}
+                  {totalPlantCount}
                 </span>
               </button>
             </div>
@@ -1010,6 +1154,92 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
               })
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {totalCount > 0 && (
+            <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col gap-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2 flex-wrap text-slate-600 font-mono">
+                <span className="text-[11px]">
+                  Showing <span className="font-bold text-slate-900">{totalCount === 0 ? 0 : offset + 1}</span>–
+                  <span className="font-bold text-slate-900">{Math.min(offset + permits.length, totalCount)}</span> of{' '}
+                  <span className="font-bold text-[#006398]">{totalCount}</span>
+                </span>
+
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className="text-slate-400">Size:</span>
+                  <select
+                    value={pageSize}
+                    disabled={loadingList}
+                    onChange={(e) => {
+                      const newSize = Number(e.target.value);
+                      setPageSize(newSize);
+                      void loadPermits(0, filterStatus, newSize, searchQuery);
+                    }}
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-0.5 text-[11px] font-mono font-bold text-slate-700 focus:outline-none focus:border-[#006398] cursor-pointer"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={offset === 0 || loadingList}
+                    onClick={() => void loadPermits(0, filterStatus, pageSize, searchQuery)}
+                    title="First Page"
+                    className="p-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">first_page</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={offset === 0 || loadingList}
+                    onClick={() => void loadPermits(Math.max(0, offset - pageSize), filterStatus, pageSize, searchQuery)}
+                    title="Previous Page"
+                    className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white font-medium transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-0.5"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">chevron_left</span>
+                    <span className="text-[11px]">Prev</span>
+                  </button>
+                </div>
+
+                <span className="text-[11px] font-mono font-semibold text-slate-600">
+                  Page {Math.floor(offset / pageSize) + 1} of {Math.max(1, Math.ceil(totalCount / pageSize))}
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={offset + pageSize >= totalCount || loadingList || permits.length === 0}
+                    onClick={() => void loadPermits(offset + pageSize, filterStatus, pageSize, searchQuery)}
+                    title="Next Page"
+                    className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white font-medium transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-0.5"
+                  >
+                    <span className="text-[11px]">Next</span>
+                    <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={offset + pageSize >= totalCount || loadingList || permits.length === 0}
+                    onClick={() => {
+                      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+                      void loadPermits((totalPages - 1) * pageSize, filterStatus, pageSize, searchQuery);
+                    }}
+                    title="Last Page"
+                    className="p-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">last_page</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ===================================================================== */}
@@ -1626,9 +1856,9 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
                   const steps = [
                     { step: 1, stage: '01', roleId: 'ISSUER', title: 'Issuer Creation', role: 'Permit Issuer (Form Creator)', defaultName: selectedPermit.PermitIssuer || selectedPermit.Ernam || 'Issuer' },
-                    ...(shouldShowAppr1 ? [{ step: 1, stage: 'APPR', roleId: 'PTW_APPR1', title: 'Primary Approval', role: 'Approver I (Area In-Charge)', defaultName: 'Pending Approver I' }] : []),
-                    ...(shouldShowAppr2 ? [{ step: 2, stage: 'APPR', roleId: 'PTW_APPR2', title: reqRoles.length === 1 && reqRoles[0] === 'PTW_APPR2' ? 'Night Shift Authorization' : 'Secondary Approval', role: 'Approver II (Safety / Shift Head)', defaultName: 'Pending Approver II' }] : []),
-                    ...(shouldShowAppr3 ? [{ step: 3, stage: 'APPR', roleId: 'PTW_APPR3', title: reqRoles.length === 1 && reqRoles[0] === 'PTW_APPR3' ? 'Night Confined Space Clearance' : 'Tertiary Approval', role: 'Approver III (HSE Head / Shift Manager)', defaultName: 'Pending Approver III' }] : []),
+                    ...(shouldShowAppr1 ? [{ step: 1, stage: 'APPR', roleId: 'PTW_APPR1', title: 'PTW Approver I', role: 'Approver I (Area In-Charge)', defaultName: 'Pending Approver I' }] : []),
+                    ...(shouldShowAppr2 ? [{ step: 2, stage: 'APPR', roleId: 'PTW_APPR2', title: reqRoles.length === 1 && reqRoles[0] === 'PTW_APPR2' ? 'Night Shift Authorization' : 'PTW Approver II', role: 'Approver II (Safety / Shift Head)', defaultName: 'Pending Approver II' }] : []),
+                    ...(shouldShowAppr3 ? [{ step: 3, stage: 'APPR', roleId: 'PTW_APPR3', title: reqRoles.length === 1 && reqRoles[0] === 'PTW_APPR3' ? 'Night Confined Space Clearance' : 'PTW Approver III', role: 'Approver III (HSE Head / Shift Manager)', defaultName: 'Pending Approver III' }] : []),
                     {
                       step: 4,
                       stage: 'STATUS',
@@ -1787,7 +2017,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                       {!approvalPolicy?.isApprovalRequired
                         ? 'Cold Work does not require Approver signatures under official policy ZPTW_APPR_MAT. Fast-tracked for site issuance and execution.'
                         : activeApprovals.some(a => a.RoleId === 'PTW_APPR3' || (a.Stage === 'APPR' && a.SeqNo === '3'))
-                        ? 'All required approvals (including Tertiary Approver III - HSE Head) have signed this permit in SAP. The permit status is APPROVED.'
+                        ? 'All required approvals (including Approver III - HSE Head) have signed this permit in SAP. The permit status is APPROVED.'
                         : activeApprovals.some(a => a.RoleId === 'PTW_APPR2')
                         ? 'Required approvers have signed this permit in SAP according to the shift matrix. The permit status is APPROVED.'
                         : 'All required approvals have been completed in SAP. The permit status is APPROVED and fully authorized for site execution.'}
@@ -1830,6 +2060,103 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                   </div>
                 ) : (
                   <>
+                    {/* Safety & Prerequisite Readiness Panel */}
+                    {approvalReadiness && (
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[18px] text-[#006398]">fact_check</span>
+                            <span>Approval Prerequisites &amp; Safety Readiness</span>
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                            approvalReadiness.allPrerequisitesMet && hasApproverAuthorization && approvalReadiness.canUserSignCurrentStep
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                          }`}>
+                            {approvalReadiness.allPrerequisitesMet && hasApproverAuthorization && approvalReadiness.canUserSignCurrentStep
+                              ? 'READY FOR APPROVAL'
+                              : 'ACTION / CLEARANCE REQUIRED'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          {approvalReadiness.items.map(item => {
+                            const isReady = item.status === 'READY' || item.status === 'NOT_APPLICABLE' || item.status === 'COMPLETED';
+                            const isFailed = item.status === 'FAILED';
+                            const isUnauth = item.status === 'UNAUTHORIZED' || item.status === 'MISMATCH';
+
+                            return (
+                              <div
+                                key={item.id}
+                                className={`p-2.5 rounded-xl border flex items-start gap-2 ${
+                                  isReady
+                                    ? 'bg-emerald-50/40 border-emerald-200/80 text-emerald-950'
+                                    : isFailed
+                                    ? 'bg-rose-50/60 border-rose-200 text-rose-950'
+                                    : isUnauth
+                                    ? 'bg-purple-50/60 border-purple-200 text-purple-950'
+                                    : 'bg-amber-50/60 border-amber-200 text-amber-950'
+                                }`}
+                              >
+                                <span className={`material-symbols-outlined text-[17px] mt-0.5 shrink-0 ${
+                                  isReady
+                                    ? 'text-emerald-600'
+                                    : isFailed
+                                    ? 'text-rose-600'
+                                    : isUnauth
+                                    ? 'text-purple-600'
+                                    : 'text-amber-600'
+                                }`}>
+                                  {isReady ? 'check_circle' : isFailed ? 'cancel' : isUnauth ? 'shield_lock' : 'pending'}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-[11px] flex items-center justify-between">
+                                    <span>{item.label}</span>
+                                    <span className="font-mono text-[9px] uppercase px-1 rounded bg-white/70 border border-current/20">
+                                      {item.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] leading-relaxed opacity-90 mt-0.5">
+                                    {item.message}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Role Guidance Notice when user lacks approver role in SAP /UserRole */}
+                    {!hasApproverAuthorization && (
+                      <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 text-amber-950 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-amber-700 text-[20px]">shield_lock</span>
+                            <span className="font-bold text-xs uppercase tracking-wide">
+                              Viewing in Read-Only Audit Mode
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void refreshRoles()}
+                            disabled={isLoadingRoles}
+                            className="text-[11px] font-bold text-amber-900 bg-amber-200/60 hover:bg-amber-200 px-2 py-0.5 rounded-lg border border-amber-300 flex items-center gap-1 transition cursor-pointer"
+                            title="Re-verify authorizations in SAP /UserRole"
+                          >
+                            <span className={`material-symbols-outlined text-[14px] ${isLoadingRoles ? 'animate-spin' : ''}`}>sync</span>
+                            <span>{isLoadingRoles ? 'Checking...' : 'Check /UserRole'}</span>
+                          </button>
+                        </div>
+                        <p className="text-xs text-amber-900 leading-relaxed">
+                          Your current SAP account (<strong>{user?.id || 'Unknown'}</strong>) active roles in <code className="font-bold text-amber-950 bg-white/90 px-1 py-0.5 rounded border border-amber-200">SAP /UserRole</code>: <code className="font-mono bg-white/80 px-1 py-0.5 rounded border border-amber-200 font-bold">{userDisplayRoles.join(', ') || 'No PTW Roles Assigned'}</code>.
+                        </p>
+                        <p className="text-[11px] text-amber-800 leading-relaxed">
+                          Permit Approver actions require role <strong>PTW_APPR1</strong>, <strong>PTW_APPR2</strong>, <strong>PTW_APPR3</strong>, or <strong>PTW_ADMIN</strong> in the SAP <code>/UserRole</code> table. You can review safety documentation and audit trails, but digital sign-offs are restricted.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Auto-Assigned Pipeline Step Display (No Dropdown Needed) */}
                     <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-2xs">
                       <div className="flex items-center justify-between">
@@ -1913,14 +2240,35 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                       <button
                         type="button"
-                        disabled={submitting}
+                        disabled={
+                          submitting ||
+                          !hasApproverAuthorization ||
+                          (!isUserAdmin && !approvalReadiness?.canUserSignCurrentStep)
+                        }
                         onClick={() => void handleSubmitApproval('AP')}
-                        className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                        title={
+                          !hasApproverAuthorization
+                            ? `Approver authorization required. Current roles: ${userRoles.join(', ') || 'None'}`
+                            : !approvalReadiness?.canUserSignCurrentStep
+                            ? `Current step requires ${nextStepInfo.roleId}. Authorized: ${userApproverTiers.join(', ')}`
+                            : `Approve Permit as ${nextStepInfo.roleId}`
+                        }
                       >
                         {submitting ? (
                           <>
                             <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
                             <span>Signing in SAP...</span>
+                          </>
+                        ) : !hasApproverAuthorization ? (
+                          <>
+                            <span className="material-symbols-outlined text-[18px]">lock</span>
+                            <span>Approver Role Required</span>
+                          </>
+                        ) : !approvalReadiness?.canUserSignCurrentStep ? (
+                          <>
+                            <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                            <span>Awaiting {nextStepInfo.roleId} Signoff</span>
                           </>
                         ) : (
                           <>
@@ -1932,9 +2280,10 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
                       <button
                         type="button"
-                        disabled={submitting}
+                        disabled={submitting || !hasApproverAuthorization}
                         onClick={() => setShowRejectModal(true)}
-                        className="py-3 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="py-3 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                        title={!hasApproverAuthorization ? 'Approver authorization required to reject permits' : 'Reject with safety justification'}
                       >
                         <span className="material-symbols-outlined text-[18px]">cancel</span>
                         <span>Reject with Safety Reason</span>

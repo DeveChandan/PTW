@@ -31,7 +31,202 @@
     </script>
   </head>
   <body class="text-[#0b1c30] antialiased m-0 p-0 font-sans selection:bg-[#006398] selection:text-white">
-    <div id="root"><p style="padding: 2rem; font-family: sans-serif">Starting GFL ChemSafe. If this message remains, reload the page and check that the complete app files were uploaded to SAP.</p></div>
+    <div id="root">
+      <style>
+        .gfl-preloader-bg {
+          min-height: 100vh;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: #e2edf6;
+          background-image: radial-gradient(circle 900px at 0% 0%, rgba(0, 99, 152, 0.12), transparent 70%),
+                            radial-gradient(circle 850px at 100% 0%, rgba(5, 150, 105, 0.08), transparent 65%),
+                            linear-gradient(135deg, #e1edf6 0%, #edf5f4 50%, #e7f5ee 100%);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+          color: #0b1c30;
+          user-select: none;
+          box-sizing: border-box;
+          padding: 1.5rem;
+          margin: 0;
+        }
+        .gfl-card {
+          width: 100%;
+          max-width: 480px;
+          background: linear-gradient(180deg, #ffffff 0%, #fcfdff 60%, rgba(240, 249, 255, 0.4) 100%);
+          border: 1px solid rgba(203, 213, 225, 0.9);
+          border-radius: 24px;
+          box-shadow: 0 4px 6px rgba(15, 23, 42, 0.02), 0 24px 60px -12px rgba(0, 99, 152, 0.18), inset 0 1px 0 rgba(255, 255, 255, 1);
+          padding: 2.25rem 2rem;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+          box-sizing: border-box;
+        }
+        .gfl-card-topbar {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, #006398, #38bdf8, #059669, #006398);
+        }
+        .gfl-logo-wrap {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 96px;
+          height: 96px;
+          margin-bottom: 1.25rem;
+        }
+        .gfl-spinner-ring {
+          position: absolute;
+          width: 88px;
+          height: 88px;
+          border-radius: 50%;
+          border: 3px solid #e2e8f0;
+          border-top-color: #006398;
+          border-right-color: #059669;
+          animation: gflSpin 2s linear infinite;
+        }
+        .gfl-logo-box {
+          width: 60px;
+          height: 60px;
+          background: #ffffff;
+          border-radius: 16px;
+          border: 1px solid #f1f5f9;
+          box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(0, 99, 152, 0.08);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1;
+        }
+        .gfl-logo-box img {
+          max-width: 44px;
+          max-height: 44px;
+          object-fit: contain;
+        }
+        .gfl-pill {
+          display: inline-block;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          background: #f0f9ff;
+          color: #006398;
+          border: 1px solid #bae6fd;
+          padding: 3px 10px;
+          border-radius: 9999px;
+          margin-bottom: 0.5rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .gfl-title {
+          font-size: 24px;
+          font-weight: 800;
+          color: #0f172a;
+          margin: 0 0 4px 0;
+          letter-spacing: -0.02em;
+        }
+        .gfl-subtitle {
+          font-size: 12px;
+          color: #64748b;
+          margin: 0 0 1.5rem 0;
+          font-weight: 500;
+        }
+        .gfl-progress-track {
+          width: 100%;
+          height: 8px;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          border-radius: 9999px;
+          overflow: hidden;
+          position: relative;
+          margin-bottom: 0.75rem;
+        }
+        .gfl-progress-bar {
+          height: 100%;
+          width: 65%;
+          background: linear-gradient(90deg, #006398 0%, #0284c7 50%, #059669 100%);
+          border-radius: 9999px;
+          position: relative;
+          overflow: hidden;
+          animation: gflPulseBar 2.5s ease-in-out infinite;
+        }
+        .gfl-progress-shimmer {
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          right: 0;
+          background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%);
+          animation: gflShimmer 1.8s infinite;
+        }
+        .gfl-status-text {
+          font-size: 12px;
+          font-weight: 600;
+          color: #334155;
+          margin: 0 0 4px 0;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .gfl-hint-text {
+          font-size: 11px;
+          color: #94a3b8;
+          margin: 0 0 1.25rem 0;
+          line-height: 1.4;
+        }
+        .gfl-meta-strip {
+          padding-top: 0.85rem;
+          border-top: 1px solid #f1f5f9;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 10px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          color: #94a3b8;
+        }
+        @keyframes gflSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes gflPulseBar {
+          0%, 100% { width: 45%; }
+          50% { width: 85%; }
+        }
+        @keyframes gflShimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+      </style>
+      <div class="gfl-preloader-bg">
+        <div class="gfl-card">
+          <div class="gfl-card-topbar"></div>
+          <div class="gfl-logo-wrap">
+            <div class="gfl-spinner-ring"></div>
+            <div class="gfl-logo-box">
+              <img src="./GFL-Logo.webp" alt="GFL Logo" onerror="this.onerror=null; this.src='https://gfl.co.in/assets/images/New_GFL-Logo29.webp';" />
+            </div>
+          </div>
+          <div class="gfl-pill">Enterprise Safety Platform</div>
+          <h1 class="gfl-title">GFL ChemSafe</h1>
+          <p class="gfl-subtitle">Permit To Work (PTW) - Industrial Hazard Control</p>
+          <div class="gfl-progress-track">
+            <div class="gfl-progress-bar">
+              <div class="gfl-progress-shimmer"></div>
+            </div>
+          </div>
+          <div class="gfl-status-text">Initializing Enterprise Safety Console...</div>
+          <div class="gfl-hint-text">
+            Starting GFL ChemSafe. If this message remains, reload the page and check that the complete app files were uploaded to SAP.
+          </div>
+          <div class="gfl-meta-strip">
+            <span>SAP NetWeaver - OData V4</span>
+            <span>OSHA PSM - ISO 45001</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

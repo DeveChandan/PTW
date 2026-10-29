@@ -67,280 +67,170 @@ export function SiteProcedureStep({
         </div>
       </div>
 
-      {/* SECTION A: Additional Applicable Work Categories */}
-      <SectionCard
-        theme="blue"
-        sectionTag="SECTION A"
-        title="Additional Applicable Work Categories"
-        subtitle="Select combined activities, e.g. hot work inside a confined space. Primary permit category is defined in Section 2.1. Primary and additional work types are stored in SAP child table _WorkType."
-        icon="category"
-        badge={
-          <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-blue-100 text-[#006398]">
-            {types.length} Active {types.length === 1 ? 'Category' : 'Categories'}
-            {types.length >= 1 ? ' · _WorkType Active' : ''}
-          </span>
-        }
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {PERMIT_CATEGORIES.map((category) => {
-            const isPrimary = primary === category.code || primary === category.sapCode;
-            const isSelected = types.includes(category.code) || types.includes(category.sapCode);
-            const progress = checklistProgress?.[category.sapCode];
+      {/* Active Work Categories & Compliance Checklists */}
+      {types.length > 0 && (
+        <SectionCard
+          theme="blue"
+          sectionTag="COMPLIANCE"
+          title="Active Work Categories & Compliance Checklists"
+          subtitle="Work categories configured in Section 2.1 (General Details). Review and verify mandatory corporate safety checklists below before field authorization."
+          icon="checklist"
+          badge={
+            <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-blue-100 text-[#006398]">
+              {types.length} Active {types.length === 1 ? 'Category' : 'Categories'} (_WorkType)
+            </span>
+          }
+        >
+          {(() => {
+            const activeWithChecklists = types.filter((typeCode) => {
+              const cat = PERMIT_CATEGORIES.find((c) => c.code === typeCode || c.sapCode === typeCode);
+              const sap = cat?.sapCode || typeCode;
+              return (checklistProgress?.[sap]?.total || 0) > 0;
+            });
+
+            if (activeWithChecklists.length === 0) {
+              return (
+                <div className="p-3.5 rounded-xl border border-sky-100 bg-sky-50/40 text-xs text-slate-600 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-[#006398]">verified</span>
+                    <span>No separate checklist questionnaires required for the selected work categories.</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-slate-500">
+                    Categories: {types.map(c => PERMIT_CATEGORIES.find(x => x.code === c || x.sapCode === c)?.label || c).join(', ')}
+                  </span>
+                </div>
+              );
+            }
 
             return (
-              <div
-                key={category.code}
-                className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between ${
-                  isPrimary
-                    ? 'bg-blue-50/70 border-[#006398] ring-1 ring-[#006398]/30 shadow-xs'
-                    : isSelected
-                    ? 'bg-sky-50/60 border-[#006398] shadow-xs'
-                    : 'bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/60'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected || isPrimary
-                          ? 'bg-[#006398] text-white'
-                          : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[20px]">{category.icon}</span>
+              <div id="procedure-chk-modal-btn" className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-[#006398] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <span className="material-symbols-outlined text-[15px]">checklist</span>
                     </div>
-                    <div className="min-w-0">
-                      <span className="block text-xs font-bold text-slate-900 truncate">
-                        {category.label}
-                      </span>
-                      <span className="block font-mono text-[10px] text-slate-500 truncate">
-                        Code: {category.sapCode}
-                      </span>
-                    </div>
+                    <h4 className="font-display font-bold text-xs text-slate-900 uppercase tracking-wider">
+                      Compliance Questionnaires ({activeWithChecklists.length} of {types.length} Active {types.length === 1 ? 'Category' : 'Categories'})
+                    </h4>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isPrimary ? (
-                      <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-[#006398] text-white">
-                        PRIMARY
-                      </span>
-                    ) : (
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isPrimary}
-                        onChange={() => {
-                          const willSelect = !isSelected;
-                          const newTypes = toggle(plan.additionalTypes, category.sapCode);
-                          onChange({
-                            ...plan,
-                            additionalTypes: newTypes
-                          });
-                          if (willSelect && onOpenChecklist && progress && progress.total > 0) {
-                            onOpenChecklist(category.sapCode);
-                          }
-                        }}
-                        className="w-4 h-4 rounded text-[#006398] focus:ring-[#006398] border-slate-300 transition-colors cursor-pointer"
-                      />
-                    )}
-                  </div>
+                  <span className="text-[11px] font-mono text-slate-500">
+                    Verify safety questionnaire for each applicable work activity
+                  </span>
                 </div>
 
-                {/* Checklist Action Pill on Card - ONLY shown if category has a checklist */}
-                {(isPrimary || isSelected) && onOpenChecklist && progress && progress.total > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onOpenChecklist(category.sapCode);
-                    }}
-                    className={`mt-2.5 w-full py-1 px-2 rounded-lg text-[10px] font-mono font-bold flex items-center justify-between transition-all ${
-                      progress.answered === progress.total
-                        ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
-                        : progress.answered > 0
-                        ? 'bg-sky-100/90 text-sky-800 border border-sky-300 hover:bg-sky-200'
-                        : 'bg-amber-100/80 text-amber-900 border border-amber-300 hover:bg-amber-200'
-                    }`}
-                    title={`Open ${category.label} Compliance Checklist`}
-                  >
-                    <span className="flex items-center gap-1 truncate">
-                      <span className="material-symbols-outlined text-[13px]">
-                        {progress.answered === progress.total ? 'verified' : 'fact_check'}
-                      </span>
-                      <span>Checklist</span>
-                    </span>
-                    <span className="shrink-0 ml-1 font-semibold">
-                      {progress.answered}/{progress.total} Verified
-                    </span>
-                  </button>
-                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {activeWithChecklists.map((typeCode) => {
+                    const cat = PERMIT_CATEGORIES.find((c) => c.code === typeCode || c.sapCode === typeCode);
+                    const isCatPrimary = primary === typeCode || (cat && (primary === cat.code || primary === cat.sapCode));
+                    const progress = checklistProgress?.[cat?.sapCode || typeCode];
+                    const answered = progress?.answered || 0;
+                    const total = progress?.total || 0;
+                    const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
+                    const isComplete = total > 0 && answered === total;
 
-                {/* Other Work description input directly on the card if selected or primary */}
-                {((category.code as string) === 'OTHER' || (category.sapCode as string) === 'OTHER') && (isPrimary || isSelected) && (
-                  <div className="mt-2.5 pt-2 border-t border-sky-200/80">
-                    <label className="block text-[10px] font-semibold text-[#006398] mb-1">
-                      Specify Other Work Scope &amp; Controls <span className="text-red-500 font-bold">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={plan.fields.OTHR || ''}
-                      onChange={(e) =>
-                        onChange({
-                          ...plan,
-                          fields: { ...plan.fields, OTHR: e.target.value }
-                        })
-                      }
-                      onClick={(e) => e.stopPropagation()}
-                      placeholder="Describe scope of work and required controls..."
-                      maxLength={255}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-[#006398]/40 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#006398]/20 focus:border-[#006398] font-sans"
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Multi-Activity Safety Questionnaires Hub - only shown for categories with a found checklist */}
-        {(() => {
-          const activeWithChecklists = types.filter((typeCode) => {
-            const cat = PERMIT_CATEGORIES.find((c) => c.code === typeCode || c.sapCode === typeCode);
-            const sap = cat?.sapCode || typeCode;
-            return (checklistProgress?.[sap]?.total || 0) > 0;
-          });
-
-          if (activeWithChecklists.length === 0) return null;
-
-          return (
-            <div className="mt-5 pt-4 border-t border-slate-200/90 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-[#006398] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                    <span className="material-symbols-outlined text-[15px]">checklist</span>
-                  </div>
-                  <h4 className="font-display font-bold text-xs text-slate-900 uppercase tracking-wider">
-                    Compliance Checklists ({activeWithChecklists.length} {activeWithChecklists.length === 1 ? 'Category' : 'Categories'})
-                  </h4>
-                </div>
-                <span className="text-[11px] font-mono text-slate-500">
-                  Complete and verify safety questionnaire for each applicable work activity
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {activeWithChecklists.map((typeCode) => {
-                const cat = PERMIT_CATEGORIES.find((c) => c.code === typeCode || c.sapCode === typeCode);
-                const isCatPrimary = primary === typeCode || (cat && (primary === cat.code || primary === cat.sapCode));
-                const progress = checklistProgress?.[cat?.sapCode || typeCode];
-                const answered = progress?.answered || 0;
-                const total = progress?.total || 0;
-                const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
-                const isComplete = total > 0 && answered === total;
-
-                return (
-                  <div
-                    key={typeCode}
-                    className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all shadow-xs ${
-                      isComplete
-                        ? 'bg-emerald-50/70 border-emerald-300'
-                        : answered > 0
-                        ? 'bg-sky-50/60 border-sky-300'
-                        : 'bg-amber-50/60 border-amber-300'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                              isComplete
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-[#006398] text-white'
-                            }`}
-                          >
-                            <span className="material-symbols-outlined text-[18px]">
-                              {cat?.icon || 'fact_check'}
-                            </span>
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-xs text-slate-900 truncate">
-                                {cat?.label || typeCode}
-                              </span>
-                              <span
-                                className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-bold ${
-                                  isCatPrimary
-                                    ? 'bg-blue-100 text-[#006398]'
-                                    : 'bg-slate-200 text-slate-700'
+                    return (
+                      <div
+                        key={typeCode}
+                        className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all shadow-xs ${
+                          isComplete
+                            ? 'bg-emerald-50/70 border-emerald-300'
+                            : answered > 0
+                            ? 'bg-sky-50/60 border-sky-300'
+                            : 'bg-amber-50/60 border-amber-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                  isComplete
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-[#006398] text-white'
                                 }`}
                               >
-                                {isCatPrimary ? 'PRIMARY' : 'ADDITIONAL'}
+                                <span className="material-symbols-outlined text-[18px]">
+                                  {cat?.icon || 'fact_check'}
+                                </span>
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-xs text-slate-900 truncate">
+                                    {cat?.label || typeCode}
+                                  </span>
+                                  <span
+                                    className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-bold ${
+                                      isCatPrimary
+                                        ? 'bg-blue-100 text-[#006398]'
+                                        : 'bg-slate-200 text-slate-700'
+                                    }`}
+                                  >
+                                    {isCatPrimary ? 'PRIMARY' : 'ADDITIONAL'}
+                                  </span>
+                                </div>
+                                <span className="font-mono text-[10px] text-slate-500 block truncate">
+                                  SAP: {cat?.sapCode || typeCode}
+                                </span>
+                              </div>
+                            </div>
+
+                            {isComplete && (
+                              <span className="material-symbols-outlined text-[18px] text-emerald-600 shrink-0">
+                                check_circle
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Progress bar and metrics */}
+                          <div className="space-y-1 my-2">
+                            <div className="flex items-center justify-between text-[11px] font-mono">
+                              <span className="text-slate-600 font-medium">
+                                {total > 0 ? `${answered}/${total} questions` : 'Checklist pending'}
+                              </span>
+                              <span
+                                className={`font-bold ${
+                                  isComplete ? 'text-emerald-700' : 'text-slate-700'
+                                }`}
+                              >
+                                {percent}%
                               </span>
                             </div>
-                            <span className="font-mono text-[10px] text-slate-500 block truncate">
-                              SAP: {cat?.sapCode || typeCode}
-                            </span>
+                            <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className={`h-1.5 rounded-full transition-all duration-300 ${
+                                  isComplete ? 'bg-emerald-500' : 'bg-[#006398]'
+                                }`}
+                                style={{ width: `${percent}%` }}
+                              ></div>
+                            </div>
                           </div>
                         </div>
 
-                        {isComplete && (
-                          <span className="material-symbols-outlined text-[18px] text-emerald-600 shrink-0">
-                            check_circle
+                        <button
+                          type="button"
+                          onClick={() => onOpenChecklist?.(cat?.sapCode || typeCode)}
+                          className={`mt-2 w-full py-1.5 px-3 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs ${
+                            isComplete
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              : 'bg-[#006398] hover:bg-[#004f7a] text-white'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">
+                            {isComplete ? 'edit' : 'assignment_turned_in'}
                           </span>
-                        )}
+                          <span>
+                            {isComplete ? 'Review Answers' : 'Open Checklist'}
+                          </span>
+                        </button>
                       </div>
-
-                      {/* Progress bar and metrics */}
-                      <div className="space-y-1 my-2">
-                        <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-slate-600 font-medium">
-                            {total > 0 ? `${answered}/${total} questions` : 'Checklist pending'}
-                          </span>
-                          <span
-                            className={`font-bold ${
-                              isComplete ? 'text-emerald-700' : 'text-slate-700'
-                            }`}
-                          >
-                            {percent}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className={`h-1.5 rounded-full transition-all duration-300 ${
-                              isComplete ? 'bg-emerald-500' : 'bg-[#006398]'
-                            }`}
-                            style={{ width: `${percent}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => onOpenChecklist?.(cat?.sapCode || typeCode)}
-                      className={`mt-2 w-full py-1.5 px-3 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs ${
-                        isComplete
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          : 'bg-[#006398] hover:bg-[#004f7a] text-white'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[15px]">
-                        {isComplete ? 'edit' : 'assignment_turned_in'}
-                      </span>
-                      <span>
-                        {isComplete ? 'Review Answers' : 'Open Checklist'}
-                      </span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
-      </SectionCard>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </SectionCard>
+      )}
 
       {/* SECTION B: Nature of Work */}
       <SectionCard
@@ -751,13 +641,14 @@ export function SiteProcedureStep({
           );
         })()}
       >
-        <div className="space-y-3">
+        <div id="procedure-prep-checklist" className="space-y-3">
           {preparationsFor(types).map((item) => {
             const check = plan.checks[item.code] || { response: '', remarks: '' };
 
             return (
               <div
                 key={item.code}
+                id={`procedure-prep-${item.code}`}
                 className="ptw-card p-3.5 sm:p-4 border-slate-200/90 hover:border-slate-300 transition-all grid gap-3 sm:grid-cols-[1.2fr_180px_1fr] items-center"
               >
                 {/* Preparation Requirement Name & Doc Reference */}
