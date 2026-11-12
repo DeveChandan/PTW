@@ -2,9 +2,22 @@ import { gasTesterApi } from './gasTester.api';
 import { permitApproverApi } from './permitApprover.api';
 import { auditLogApi } from './auditLog.api';
 import odataClient from '../odataClient';
-import { buildODataQuery, ODATA_ENTITIES, ODATA_ACTIONS } from '../odataEndpoints';
+import { buildODataQuery, ODATA_ENTITIES, ODATA_ACTIONS, ODATA_NAV_PROPERTIES } from '../odataEndpoints';
 import { toSapPermitType } from '../../ptw/siteProcedure';
-import type { ApprovalRecord, AuditLogRecord, PermitDeepInsertResponse, PermitInfoRecord } from '../../types/ptw.types';
+import type {
+  ApprovalRecord,
+  AuditLogRecord,
+  PermitDeepInsertResponse,
+  PermitInfoRecord,
+  ShiftRenewalRecord
+} from '../../types/ptw.types';
+
+export interface ShiftRenewalCreatePayload {
+  NewShift: string;
+  NewValidToD: string;
+  NewValidToT: string;
+  Reason: string;
+}
 
 export interface PermitListResult extends Array<PermitInfoRecord> {
   totalCount: number;
@@ -325,5 +338,72 @@ export const sitePermitApi = {
   },
   async executeRejectAreaOperatorAction(params: { permitNo: string; reason: string }): Promise<any> {
     return permitApproverApi.executeRejectAreaOperatorAction(params);
+  },
+
+  /**
+   * Submits a shift renewal / validity extension to SAP child navigation:
+   * POST /PermitInfo('<PermitNo>')/_ShiftRenewal
+   */
+  async renewShift(
+    permitNo: string,
+    payload: ShiftRenewalCreatePayload
+  ): Promise<ShiftRenewalRecord> {
+    if (!permitNo?.trim()) {
+      throw new Error('Valid permit number is required for shift renewal.');
+    }
+    const newShift = (payload.NewShift || '').trim();
+    const newValidToD = (payload.NewValidToD || '').trim();
+    const rawTime = (payload.NewValidToT || '').trim();
+    const reason = (payload.Reason || '').trim();
+
+    if (!newShift) {
+      throw new Error('Select the target shift for renewal.');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newValidToD) || !Number.isFinite(Date.parse(newValidToD))) {
+      throw new Error('Select a valid extended end date (YYYY-MM-DD).');
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(rawTime)) {
+      throw new Error('Select a valid extended end time (HH:mm or HH:mm:ss).');
+    }
+    if (!reason) {
+      throw new Error('Provide a reason for the shift renewal.');
+    }
+    if (reason.length > 255) {
+      throw new Error('Renewal reason must be at most 255 characters.');
+    }
+
+    const normalizedTime = rawTime.length === 5 ? `${rawTime}:00` : rawTime;
+    const cleanNo = permitNo.trim().replace(/^'|'$/g, '');
+    const key = encodeURIComponent(literal(cleanNo)).replace(/'/g, '%27');
+    const url = `${ODATA_ENTITIES.PERMIT_INFO}('${key}')/${ODATA_NAV_PROPERTIES.SHIFT_RENEWAL}`;
+    const body: ShiftRenewalCreatePayload = {
+      NewShift: newShift,
+      NewValidToD: newValidToD,
+      NewValidToT: normalizedTime,
+      Reason: reason
+    };
+
+    let response;
+    try {
+      response = await odataClient.post<ShiftRenewalRecord>(url, body, {
+        headers: { Prefer: 'return=representation' }
+      });
+    } catch (err: any) {
+      if (err?.response?.status === 404 && url.includes("('")) {
+        const namedUrl = `${ODATA_ENTITIES.PERMIT_INFO}(Permit_No='${key}')/${ODATA_NAV_PROPERTIES.SHIFT_RENEWAL}`;
+        response = await odataClient.post<ShiftRenewalRecord>(namedUrl, body, {
+          headers: { Prefer: 'return=representation' }
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    const created = response.data;
+    if (!created || (!created.PermitNo && !created.RenewalNo) || created.SAP__Messages?.some((m) => (m.numericSeverity || 0) >= 4)) {
+      const sapMsg = created?.SAP__Messages?.map((m) => m.message).filter(Boolean).join(' | ');
+      throw new Error(sapMsg || 'SAP did not confirm the shift renewal.');
+    }
+    return created;
   }
 };

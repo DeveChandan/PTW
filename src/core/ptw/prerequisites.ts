@@ -1,4 +1,5 @@
-import type { PermitDeepInsertPayload, SafetyRecord } from '../types/ptw.types';
+import type { PermitDeepInsertPayload, PermitDeepInsertResponse, SafetyRecord } from '../types/ptw.types';
+import type { SapIsolationHeader } from '../types/isolation.types';
 
 export type Requirement = 'Y' | 'N' | 'X' | ' ' | '';
 export function initialPermitStatus(isolation: string, gas: string): 'INTD' | 'CRTD' {
@@ -29,4 +30,37 @@ export function prerequisiteStatus(isolation: string, gas: string, isolationAppr
   const isIsoYes = isolation === 'Y' || isolation === 'X';
   const isGasYes = gas === 'Y' || gas === 'X';
   return (isIsoYes && !isolationApproved) || (isGasYes && !gasApproved) ? 'INTD' : 'CRTD';
+}
+
+/** Resolves expanded _Isolation records or synthesizes a stub header from PermitInfo.IsolationNo so CertificateActions can load/approve it. */
+export function resolveLinkedIsolations(
+  permit: Pick<PermitDeepInsertResponse, 'Permit_No' | 'IsolationNo' | 'IsolationStatus' | '_Isolation'>
+): SapIsolationHeader[] {
+  if (permit._Isolation && permit._Isolation.length > 0) {
+    return permit._Isolation;
+  }
+  const isoNo = (permit.IsolationNo || '').trim();
+  if (!isoNo) return [];
+  return [
+    {
+      IsolationNo: isoNo,
+      PermitNo: permit.Permit_No,
+      Status: permit.IsolationStatus || 'CRTD',
+      RequestedBy: '',
+      RequestedDate: '',
+      RequestedTime: '',
+      VerifiedBy: '',
+      VerifiedDate: null,
+      VerifiedTime: '',
+      ApprovedBy: '',
+      ApprovedDate: null,
+      ApprovedTime: '',
+      NormalizedBy: '',
+      NormalizedDate: null,
+      NormalizedTime: '',
+      Remarks: '',
+      LastChangedAt: null,
+      _Item: []
+    }
+  ];
 }

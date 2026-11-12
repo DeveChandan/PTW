@@ -27,7 +27,19 @@ export const backendWorkflowApi = {
   async isolation(certificate: SapIsolationHeader, action: IsolationAction): Promise<SapIsolationHeader> {
     if (!['completeIsolation', 'approveIsolation', 'normalizeIsolation'].includes(action)) throw new Error('Unsupported isolation action.');
     if (!certificate.IsolationNo?.trim()) throw new Error('A saved SAP certificate is required.');
-    const result = await invoke<SapIsolationHeader>(`Isolation('${entityKey(certificate.IsolationNo)}')/${namespace}.${action}`, certificate['@odata.etag']);
+    const key = entityKey(certificate.IsolationNo);
+    const shortUrl = `Isolation('${key}')/${namespace}.${action}`;
+    let result: SapIsolationHeader;
+    try {
+      result = await invoke<SapIsolationHeader>(shortUrl, certificate['@odata.etag']);
+    } catch (reason: any) {
+      if (reason?.response?.status === 404) {
+        const namedUrl = `Isolation(IsolationNo='${key}')/${namespace}.${action}`;
+        result = await invoke<SapIsolationHeader>(namedUrl, certificate['@odata.etag']);
+      } else {
+        throw reason;
+      }
+    }
     if (result.IsolationNo !== certificate.IsolationNo || !result.Status) throw new WorkflowUnconfirmedError('SAP did not confirm the requested isolation certificate. Check SAP before retrying.');
     return result;
   },

@@ -40,7 +40,17 @@ class IsolationApiService {
     }));
   }
   public async read(isolationNo: string, signal?: AbortSignal): Promise<SapIsolationHeader | null> {
-    const response = await odataClient.get<SapIsolationHeader>(`Isolation('${entityKey(isolationNo)}')?$expand=_Item`, { signal });
+    const key = entityKey(isolationNo);
+    let response;
+    try {
+      response = await odataClient.get<SapIsolationHeader>(`Isolation('${key}')?$expand=_Item`, { signal });
+    } catch (reason: any) {
+      if (reason?.response?.status === 404) {
+        response = await odataClient.get<SapIsolationHeader>(`Isolation(IsolationNo='${key}')?$expand=_Item`, { signal });
+      } else {
+        throw reason;
+      }
+    }
     if (!response.data?.IsolationNo) throw new Error('SAP did not return this isolation certificate.');
     const localLinks = getStoredPermitLinks();
     return {

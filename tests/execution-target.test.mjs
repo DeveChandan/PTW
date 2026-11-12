@@ -12,7 +12,8 @@ const result = await build({
         parseCombinedExecutionTarget,
         normalizeWorkCenterTarget,
         isWorkCenterExecutionTarget,
-        isSubPlantRequiredForExecutionTarget
+        isSubPlantRequiredForExecutionTarget,
+        resolveIsolationPointReference
       } from './src/features/permits/PermitCreateModule';
       export { preparePermitCreate } from './src/core/api/modules/permitCreate.validation';
     `,
@@ -40,6 +41,7 @@ const {
   normalizeWorkCenterTarget,
   isWorkCenterExecutionTarget,
   isSubPlantRequiredForExecutionTarget,
+  resolveIsolationPointReference,
   preparePermitCreate
 } = compiled.exports;
 
@@ -250,5 +252,64 @@ test('parseCombinedExecutionTarget preserves plant names containing hyphens such
     plant: '',
     dept: 'ELECTRICAL CMS 1'
   });
+});
+
+test('resolveIsolationPointReference uses Work Center (Arbpl) when FLOC is selected and respects SAP 30-char ReferenceId cap', () => {
+  // Selecting FLOC takes Work Center (Arbpl) even when Equipment or a 36-char Tplnr is present
+  assert.deepEqual(
+    resolveIsolationPointReference({
+      referenceType: 'FLOC',
+      equnr: '10002931',
+      arbpl: 'DELE-CM1',
+      tplnr: '1002-005-XXXXXX-XXXXXX-ECTPIPERACK34'
+    }),
+    { referenceType: 'FLOC', referenceId: 'DELE-CM1' }
+  );
+
+  // Opening with empty Equipment and populated Tplnr/Arbpl resolves to FLOC + Arbpl (within 30-char limit)
+  assert.deepEqual(
+    resolveIsolationPointReference({
+      equnr: '',
+      arbpl: 'DELE-CM1',
+      tplnr: '1002-005-XXXXXX-XXXXXX-ECTPIPERACK34'
+    }),
+    { referenceType: 'FLOC', referenceId: 'DELE-CM1' }
+  );
+
+  // Switching back to EQUI uses Equipment No or fallback 10000001
+  assert.deepEqual(
+    resolveIsolationPointReference({
+      referenceType: 'EQUI',
+      equnr: '10002931',
+      arbpl: 'DELE-CM1'
+    }),
+    { referenceType: 'EQUI', referenceId: '10002931' }
+  );
+  assert.deepEqual(
+    resolveIsolationPointReference({
+      referenceType: 'EQUI',
+      equnr: '',
+      arbpl: 'DELE-CM1'
+    }),
+    { referenceType: 'EQUI', referenceId: '10000001' }
+  );
+
+  // When Arbpl is blank: uses short Tplnr (<= 30 chars) if available, otherwise clears >30-char Tplnr
+  assert.deepEqual(
+    resolveIsolationPointReference({
+      referenceType: 'FLOC',
+      arbpl: '',
+      tplnr: '1002-U01-PUMP'
+    }),
+    { referenceType: 'FLOC', referenceId: '1002-U01-PUMP' }
+  );
+  assert.deepEqual(
+    resolveIsolationPointReference({
+      referenceType: 'FLOC',
+      arbpl: '',
+      tplnr: '1002-005-XXXXXX-XXXXXX-ECTPIPERACK34'
+    }),
+    { referenceType: 'FLOC', referenceId: '' }
+  );
 });
 

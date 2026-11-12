@@ -3,10 +3,10 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { build } from 'esbuild';
 
-const result = await build({ stdin: { contents: `export * from './src/core/ptw/prerequisites'; export * from './src/core/api/modules/backendWorkflow.api'; export * from './src/core/api/modules/isolation.validation'; export * from './src/core/api/modules/permitCreate.validation'; export * from './src/core/api/modules/permitCreate.api'; export { odataClient } from './src/core/api/odataClient';`, resolveDir: process.cwd(), loader: 'ts' }, bundle: true, write: false, platform: 'node', format: 'cjs', define: { 'import.meta.env': '{}' } });
+const result = await build({ stdin: { contents: `export * from './src/core/ptw/prerequisites'; export * from './src/core/api/modules/backendWorkflow.api'; export * from './src/core/api/modules/isolation.validation'; export * from './src/core/api/modules/permitCreate.validation'; export * from './src/core/api/modules/permitCreate.api'; export { sitePermitApi } from './src/core/api/modules/sitePermit.api'; export { odataClient } from './src/core/api/odataClient';`, resolveDir: process.cwd(), loader: 'ts' }, bundle: true, write: false, platform: 'node', format: 'cjs', define: { 'import.meta.env': '{}' } });
 const compiled = { exports: {} };
 new Function('require', 'module', 'exports', result.outputFiles[0].text)(createRequire(import.meta.url), compiled, compiled.exports);
-const { initialPermitStatus, prerequisiteStatus, gasRequirementRow, readGasRequirement, backendWorkflowApi, WorkflowUnconfirmedError, prepareIsolationCreate, preparePermitCreate, permitCreateApi, PermitCreateUnconfirmedError, odataClient } = compiled.exports;
+const { initialPermitStatus, prerequisiteStatus, gasRequirementRow, readGasRequirement, backendWorkflowApi, WorkflowUnconfirmedError, prepareIsolationCreate, preparePermitCreate, permitCreateApi, PermitCreateUnconfirmedError, sitePermitApi, odataClient } = compiled.exports;
 const permit = () => ({ Permit_No: '0000000001', Status: 'INTD', IsolationRequired: 'Y', '@odata.etag': 'W/"1"', _Safety: [gasRequirementRow('Y')], _Isolation: [], _GasTest: [], _Approval: [] });
 const request = () => ({ RequestId: '12345678-1234-1234-1234-123456789012', Kind: 'ISOLATION', Decision: 'SAVE', Comments: 'Recorded by module user', IsolationPoints: [{ IsolationPoint: 'Valve V1', IsolType: 'MECH', IsolMethod: 'Lock', LockTagNo: 'L1', IsIsolated: true, ZeroEnergyConf: true }] });
 const create = () => ({ ExecDept: 'Maintenance', IsolationRequired: 'N', GasTestRequired: 'N', PermitType: 'COLD', Werks: '1000', Aufnr: '1', JobDesc: 'Inspect', SupvName: 'Supervisor', ValidFromD: '2099-01-01', ValidFromT: '08:00', ValidToD: '2099-01-01', ValidToT: '16:00', PersonsQty: 1, _Worker: [{ WorkerName: 'Worker', WorkerTypeCode: 'EMP', EmpId: '1' }], _HazardControl: [{ HazardDesc: 'Energy', ControlDesc: 'Control' }] });
@@ -104,4 +104,114 @@ test('creation with pending prerequisite cannot treat backend CRTD as success', 
     odataClient.post = async () => ({ data: { Permit_No: '0000000001', Status: 'CRTD' } });
     await assert.rejects(() => permitCreateApi.createPermitDeepInsert({ ...create(), IsolationRequired: 'Y' }), PermitCreateUnconfirmedError);
   } finally { odataClient.post = original; }
+});
+
+test('shift renewal posts exact _ShiftRenewal payload, normalizes time, falls back on 404, validates inputs, and rejects SAP error messages', async () => {
+  const original = odataClient.post;
+  try {
+    let calls = 0;
+    odataClient.post = async (url, body, config) => {
+      calls++;
+      assert.equal(url, "PermitInfo('PTW0000098')/_ShiftRenewal");
+      assert.deepEqual(body, {
+        NewShift: 'B',
+        NewValidToD: '2026-11-10',
+        NewValidToT: '23:15:00',
+        Reason: 'Work pending; continuing into the next shift'
+      });
+      assert.equal(config.headers.Prefer, 'return=representation');
+      return {
+        data: {
+          PermitNo: 'PTW0000098',
+          RenewalNo: '1',
+          PreviousShift: 'B',
+          NewShift: 'B',
+          PreviousValidToD: '2026-11-10',
+          PreviousValidToT: '23:00:00',
+          NewValidToD: '2026-11-10',
+          NewValidToT: '23:15:00',
+          Status: 'RENEWED',
+          Reason: 'WORK PENDING; CONTINUING INTO THE NEXT SHIFT'
+        }
+      };
+    };
+
+    const renewed = await sitePermitApi.renewShift('PTW0000098', {
+      NewShift: 'B',
+      NewValidToD: '2026-11-10',
+      NewValidToT: '23:15',
+      Reason: 'Work pending; continuing into the next shift'
+    });
+    assert.equal(calls, 1);
+    assert.equal(renewed.RenewalNo, '1');
+    assert.equal(renewed.Status, 'RENEWED');
+
+    // 404 fallback to PermitInfo(Permit_No='...')/_ShiftRenewal
+    let fallbackCalls = 0;
+    odataClient.post = async (url) => {
+      fallbackCalls++;
+      if (fallbackCalls === 1) {
+        assert.equal(url, "PermitInfo('PTW0000098')/_ShiftRenewal");
+        throw Object.assign(new Error('Not Found'), { response: { status: 404 } });
+      }
+      assert.equal(url, "PermitInfo(Permit_No='PTW0000098')/_ShiftRenewal");
+      return { data: { PermitNo: 'PTW0000098', RenewalNo: '2', Status: 'RENEWED' } };
+    };
+    const fallbackResult = await sitePermitApi.renewShift('PTW0000098', {
+      NewShift: 'C',
+      NewValidToD: '2026-11-11',
+      NewValidToT: '07:00:00',
+      Reason: 'Handover to night shift'
+    });
+    assert.equal(fallbackCalls, 2);
+    assert.equal(fallbackResult.RenewalNo, '2');
+
+    // Client-side validation checks
+    await assert.rejects(() => sitePermitApi.renewShift('', { NewShift: 'B', NewValidToD: '2026-11-10', NewValidToT: '23:15:00', Reason: 'Reason' }));
+    await assert.rejects(() => sitePermitApi.renewShift('PTW0000098', { NewShift: '', NewValidToD: '2026-11-10', NewValidToT: '23:15:00', Reason: 'Reason' }));
+    await assert.rejects(() => sitePermitApi.renewShift('PTW0000098', { NewShift: 'B', NewValidToD: '10-11-2026', NewValidToT: '23:15:00', Reason: 'Reason' }));
+    await assert.rejects(() => sitePermitApi.renewShift('PTW0000098', { NewShift: 'B', NewValidToD: '2026-11-10', NewValidToT: '25:99', Reason: 'Reason' }));
+    await assert.rejects(() => sitePermitApi.renewShift('PTW0000098', { NewShift: 'B', NewValidToD: '2026-11-10', NewValidToT: '23:15:00', Reason: '   ' }));
+
+    // SAP__Messages severity >= 4 rejection
+    odataClient.post = async () => ({
+      data: {
+        PermitNo: 'PTW0000098',
+        SAP__Messages: [{ code: 'ZPTW/01', message: 'Shift renewal rejected by SAP rule', numericSeverity: 4 }]
+      }
+    });
+    await assert.rejects(() => sitePermitApi.renewShift('PTW0000098', {
+      NewShift: 'B',
+      NewValidToD: '2026-11-10',
+      NewValidToT: '23:15:00',
+      Reason: 'Work pending; continuing into the next shift'
+    }));
+  } finally {
+    odataClient.post = original;
+  }
+});
+
+test('isolation bound action falls back on 404 to named IsolationNo key syntax', async () => {
+  const original = odataClient.post;
+  try {
+    let calls = 0;
+    odataClient.post = async (url, body, config) => {
+      calls++;
+      assert.deepEqual(body, {});
+      assert.equal(config.headers['If-Match'], 'W/"1"');
+      if (calls === 1) {
+        assert.equal(url, "Isolation('ISO0000001')/com.sap.gateway.srvd_a2x.zptw_services.v0001.approveIsolation");
+        throw Object.assign(new Error('Not Found'), { response: { status: 404 } });
+      }
+      assert.equal(url, "Isolation(IsolationNo='ISO0000001')/com.sap.gateway.srvd_a2x.zptw_services.v0001.approveIsolation");
+      return { data: { IsolationNo: 'ISO0000001', Status: 'ISOL' } };
+    };
+
+    const result = await backendWorkflowApi.isolation({ IsolationNo: 'ISO0000001', '@odata.etag': 'W/"1"' }, 'approveIsolation');
+    assert.equal(calls, 2);
+    assert.equal(result.IsolationNo, 'ISO0000001');
+    assert.equal(result.Status, 'ISOL');
+  } finally {
+    odataClient.post = original;
+  }
 });

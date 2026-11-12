@@ -145,6 +145,28 @@ export function buildPlantSelectOptions(currentWerks?: string): string[] {
   return base;
 }
 
+/**
+ * Resolves ReferenceType ('EQUI' | 'FLOC') and ReferenceId (<= 30 chars per SAP ItemType)
+ * for inline isolation points. Selecting FLOC populates Work Center (Arbpl) first.
+ */
+export function resolveIsolationPointReference(params: {
+  referenceType?: 'EQUI' | 'FLOC';
+  equnr?: string;
+  arbpl?: string;
+  tplnr?: string;
+}): { referenceType: 'EQUI' | 'FLOC'; referenceId: string } {
+  const eq = (params.equnr || '').trim();
+  const wc = (params.arbpl || '').trim();
+  const fl = (params.tplnr || '').trim();
+  const refType: 'EQUI' | 'FLOC' =
+    params.referenceType ?? (eq ? 'EQUI' : fl ? 'FLOC' : 'EQUI');
+  if (refType === 'FLOC') {
+    const flocRef = wc || (fl.length <= 30 ? fl : '');
+    return { referenceType: 'FLOC', referenceId: flocRef.slice(0, 30) };
+  }
+  return { referenceType: 'EQUI', referenceId: (eq || '10000001').slice(0, 30) };
+}
+
 interface PermitCreateModuleProps {
   user: SapUser | null;
   onBack?: () => void;
@@ -1212,8 +1234,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const handleOpenCreateIsoModal = () => {
     const defaultDesc = jobDesc?.trim() ? `${jobDesc.trim()} - LOTO Boundary` : 'Plant Maintenance Isolation Boundary';
     const defaultRemarks = areaLoc?.trim() ? `Work Area: ${areaLoc.trim()}` : (werks ? `Plant ${werks}` : '');
-    const refType = equnr?.trim() ? 'EQUI' : (tplnr?.trim() ? 'FLOC' : 'EQUI');
-    const refId = equnr?.trim() || tplnr?.trim() || '10000001';
+    const { referenceType: refType, referenceId: refId } = resolveIsolationPointReference({ equnr, arbpl, tplnr });
     const defaultPoint = equnr?.trim() ? `${equnr.trim()}-ISO-01` : 'POINT-01';
 
     setNewIsoDescription(defaultDesc);
@@ -1235,8 +1256,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   const handleAddIsoPoint = () => {
     const nextIdx = newIsoPoints.length + 1;
-    const refType = equnr?.trim() ? 'EQUI' : (tplnr?.trim() ? 'FLOC' : 'EQUI');
-    const refId = equnr?.trim() || tplnr?.trim() || '10000001';
+    const { referenceType: refType, referenceId: refId } = resolveIsolationPointReference({ equnr, arbpl, tplnr });
     setNewIsoPoints((prev) => [
       ...prev,
       {
@@ -1259,7 +1279,24 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   const handleUpdateIsoPoint = (idx: number, field: string, val: string) => {
     setNewIsoPoints((prev) =>
-      prev.map((pt, i) => (i === idx ? { ...pt, [field]: val } : pt))
+      prev.map((pt, i) => {
+        if (i !== idx) return pt;
+        if (field === 'ReferenceType') {
+          const nextType: 'EQUI' | 'FLOC' = val === 'FLOC' ? 'FLOC' : 'EQUI';
+          const resolved = resolveIsolationPointReference({
+            referenceType: nextType,
+            equnr,
+            arbpl,
+            tplnr
+          });
+          return {
+            ...pt,
+            ReferenceType: resolved.referenceType,
+            ReferenceId: resolved.referenceId
+          };
+        }
+        return { ...pt, [field]: val };
+      })
     );
   };
 
@@ -1310,6 +1347,11 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       }
 
       setIsolationNo(result.IsolationNo);
+      if (newIsoPoints.length > 0 && newIsoPoints.every((p) => p.ReferenceType === 'FLOC')) {
+        setIsolationRefType('FLOC');
+      } else if (newIsoPoints.some((p) => p.ReferenceType === 'EQUI')) {
+        setIsolationRefType('EQUIP');
+      }
       setAvailableIsolations((prev) => Array.from(new Set([result.IsolationNo, ...prev])));
 
       if (result._Item && result._Item.length > 0) {
@@ -4679,9 +4721,22 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                                 }
                                 onChange={() => {
                                   setIsolationRequired(value as Requirement);
-                                  if (value === ' ') {
+                                  if (value === 'X') {
+                                    handleOpenCreateIsoModal();
+                                  } else {
                                     setIsolationNo('');
                                     setIsolations([]);
+                                    setShowCreateIsoModal(false);
+                                  }
+                                }}
+                                onClick={() => {
+                                  if (
+                                    value === 'X' &&
+                                    (isolationRequired === 'X' || isolationRequired === 'Y') &&
+                                    !isolationNo.trim() &&
+                                    !showCreateIsoModal
+                                  ) {
+                                    handleOpenCreateIsoModal();
                                   }
                                 }}
                                 className="accent-[#006398] w-4 h-4 cursor-pointer"
@@ -4758,9 +4813,11 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                             <label className="ptw-label text-[11px]">Reference Type</label>
                             <input
                               type="text"
+                              maxLength={6}
+                              placeholder="EQUIP or FLOC"
                               value={isolationRefType}
                               onChange={(e) => setIsolationRefType(e.target.value)}
-                              className="ptw-input font-mono text-xs"
+                              className="ptw-input font-mono text-xs uppercase"
                             />
                           </div>
                           <div>
@@ -5986,6 +6043,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 font-mono">
                 <span className="font-bold text-slate-700">Permit Context:</span>
                 <span className="px-2 py-0.5 rounded bg-white border border-slate-200">Plant: {werks || '1000'}</span>
+                {arbpl && <span className="px-2 py-0.5 rounded bg-white border border-slate-200">Work Center: {arbpl}</span>}
                 {equnr && <span className="px-2 py-0.5 rounded bg-white border border-slate-200">Equip: {equnr}</span>}
                 {tplnr && <span className="px-2 py-0.5 rounded bg-white border border-slate-200">FLoc: {tplnr}</span>}
                 {areaLoc && <span className="px-2 py-0.5 rounded bg-white border border-slate-200">Area: {areaLoc}</span>}
@@ -6099,11 +6157,19 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                           <input
                             type="text"
                             required
-                            placeholder="e.g. 10000045"
+                            maxLength={30}
+                            placeholder={pt.ReferenceType === 'FLOC' ? (arbpl.trim() || 'e.g. DELE-CM1 (Work Center)') : 'e.g. 10000045'}
                             value={pt.ReferenceId}
                             onChange={(e) => handleUpdateIsoPoint(idx, 'ReferenceId', e.target.value)}
                             className="ptw-input font-mono text-xs w-full"
                           />
+                          {pt.ReferenceType === 'FLOC' && (
+                            <p className="mt-0.5 text-[10px] font-mono text-slate-500">
+                              {arbpl.trim()
+                                ? `Using Work Center (Arbpl): ${arbpl.trim()}`
+                                : 'Work Center (Arbpl) is blank — enter Reference ID'}
+                            </p>
+                          )}
                         </div>
                       </div>
 

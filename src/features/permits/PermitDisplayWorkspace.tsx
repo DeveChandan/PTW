@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
+import { resolveLinkedIsolations } from '../../core/ptw/prerequisites';
 import { sitePermitApi, type PlantPermitSummary } from '../../core/api/modules/sitePermit.api';
 import { permitApproverApi, getNextApprovalStep, getActiveCycleApprovals } from '../../core/api/modules/permitApprover.api';
 import { getRequiredApproversForPermit, getTimeBand } from '../../core/ptw/approvalMatrix';
@@ -10,6 +11,8 @@ import { SectionCard } from '../../shared/components/SectionCard';
 import { toast } from '../../shared/context/ToastContext';
 import { PermitAnnexPrintView } from './PermitAnnexPrintView';
 import { PermitPrintModal } from './PermitPrintModal';
+import { ShiftRenewalModal } from './ShiftRenewalModal';
+import { CertificateActions } from '../isolation/CertificateActions';
 import {
   JHA_TEMPLATES,
   detectBestJhaTemplate,
@@ -119,6 +122,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [updatingPrereq, setUpdatingPrereq] = useState<boolean>(false);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [showRenewalModal, setShowRenewalModal] = useState<boolean>(false);
   const [printWithJha, setPrintWithJha] = useState<boolean>(false);
   const [selectedJhaTemplateId, setSelectedJhaTemplateId] = useState<string>('HOT_GROUND');
 
@@ -2013,6 +2017,18 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   </span>
                 )}
 
+                {!['CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
+                  <button
+                    type="button"
+                    disabled={loadingDetail || updatingPrereq}
+                    onClick={() => setShowRenewalModal(true)}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">update</span>
+                    <span>Renew Shift</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handlePrint}
@@ -3480,6 +3496,32 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                 </div>
               </div>
 
+              {(() => {
+                const isoCerts = resolveLinkedIsolations(selectedPermit);
+                if (isoCerts.length === 0) return null;
+                return (
+                  <div className="mb-4 space-y-3">
+                    {isoCerts.map((cert) => (
+                      <div key={cert.IsolationNo} className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="font-mono font-bold text-slate-900">
+                            Certificate: {cert.IsolationNo}
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-500">
+                            Requested By: {cert.RequestedBy || '—'} · Lock Points: {cert._Item?.length || 0}
+                          </span>
+                        </div>
+                        <CertificateActions
+                          certificate={cert}
+                          user={user}
+                          onUpdated={() => void loadPermitDetail(selectedPermit.Permit_No)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {!selectedPermit._Isolation || selectedPermit._Isolation.length === 0 ? (
                 <p className="p-8 text-center text-xs text-slate-400">
                   {(selectedPermit.IsolationRequired === 'Y' || selectedPermit.IsolationRequired === 'X')
@@ -4673,21 +4715,47 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                 subtitle="Formal shift handover and validity extension records."
                 icon="update"
                 badge={
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    {selectedPermit._ShiftRenewal?.length || 0} Records
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {selectedPermit._ShiftRenewal?.length || 0} Records
+                    </span>
+                    {!['CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
+                      <button
+                        type="button"
+                        disabled={loadingDetail || updatingPrereq}
+                        onClick={() => setShowRenewalModal(true)}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex items-center gap-1 disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">add</span>
+                        <span>Renew Shift</span>
+                      </button>
+                    )}
+                  </div>
                 }
               >
                 {!selectedPermit._ShiftRenewal || selectedPermit._ShiftRenewal.length === 0 ? (
-                  <p className="p-6 text-center text-xs text-slate-400">No shift renewals recorded.</p>
+                  <div className="p-6 text-center text-xs text-slate-400 space-y-2">
+                    <p>No shift renewals recorded.</p>
+                    {!['CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
+                      <button
+                        type="button"
+                        disabled={loadingDetail || updatingPrereq}
+                        onClick={() => setShowRenewalModal(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold hover:bg-indigo-100 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">update</span>
+                        <span>Record Shift Renewal</span>
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-mono text-[10px]">
-                          <th className="p-2.5">Prev Shift</th>
-                          <th className="p-2.5">New Shift</th>
-                          <th className="p-2.5">Extended End (IST)</th>
+                          <th className="p-2.5">Renewal #</th>
+                          <th className="p-2.5">Shift Transition</th>
+                          <th className="p-2.5">Previous → New Validity (IST)</th>
                           <th className="p-2.5">Requested By</th>
                           <th className="p-2.5">Approved By</th>
                           <th className="p-2.5">Status</th>
@@ -4696,12 +4764,20 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {selectedPermit._ShiftRenewal.map((r, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
-                            <td className="p-2.5 font-mono">{r.PreviousShift}</td>
-                            <td className="p-2.5 font-mono font-bold text-slate-800">{r.NewShift}</td>
-                            <td className="p-2.5 font-mono text-slate-700">{r.NewValidToD} {r.NewValidToT}</td>
-                            <td className="p-2.5 font-mono">{r.RequestedBy}</td>
-                            <td className="p-2.5 font-mono">{r.ApprovedBy}</td>
+                          <tr key={r.RenewalNo || i} className="hover:bg-slate-50">
+                            <td className="p-2.5 font-mono text-slate-500">{r.RenewalNo || i + 1}</td>
+                            <td className="p-2.5 font-mono">
+                              <span className="text-slate-500">{r.PreviousShift || '—'}</span>
+                              <span className="mx-1 text-slate-400">→</span>
+                              <span className="font-bold text-slate-900">{r.NewShift}</span>
+                            </td>
+                            <td className="p-2.5 font-mono text-slate-700">
+                              <span className="text-slate-400">{r.PreviousValidToD || '—'} {r.PreviousValidToT || ''}</span>
+                              <span className="mx-1 text-slate-400">→</span>
+                              <span className="font-semibold text-indigo-800">{r.NewValidToD} {r.NewValidToT}</span>
+                            </td>
+                            <td className="p-2.5 font-mono">{r.RequestedBy || '—'}</td>
+                            <td className="p-2.5 font-mono">{r.ApprovedBy || '—'}</td>
                             <td className="p-2.5 font-bold text-emerald-700">{r.Status}</td>
                             <td className="p-2.5 text-slate-600">{r.Reason || '—'}</td>
                           </tr>
@@ -4801,6 +4877,15 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
             permit={selectedPermit}
             defaultIncludeJha={printWithJha}
             defaultJhaTemplateId={selectedJhaTemplateId}
+          />
+
+          <ShiftRenewalModal
+            isOpen={showRenewalModal}
+            permit={selectedPermit}
+            onClose={() => setShowRenewalModal(false)}
+            onRenewed={async () => {
+              await loadPermitDetail(selectedPermit.Permit_No);
+            }}
           />
 
           {!showPrintModal && (

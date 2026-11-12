@@ -7,6 +7,7 @@ import { ProcedureGuidance } from './SiteProcedureStep';
 import { PERMIT_CATEGORIES, PROCEDURE } from '../../core/ptw/siteProcedure';
 import { SectionCard } from '../../shared/components/SectionCard';
 import { PermitDisplayWorkspace } from './PermitDisplayWorkspace';
+import { ShiftRenewalModal } from './ShiftRenewalModal';
 
 type Collection =
   | '_Worker'
@@ -231,6 +232,7 @@ export function PermitProcedureWorkspace({
   const [permit, setPermit] = useState<PermitDeepInsertResponse | null>(null);
   const [active, setActive] = useState<Collection>(firstSection[module] || '_Safety');
   const [updating, setUpdating] = useState(false);
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
@@ -531,7 +533,7 @@ export function PermitProcedureWorkspace({
             }
           >
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
                 <button
                   type="button"
                   disabled={updating}
@@ -541,6 +543,17 @@ export function PermitProcedureWorkspace({
                   <span className="material-symbols-outlined text-[15px]">refresh</span>
                   <span>Reload SAP Evidence</span>
                 </button>
+                {!['CLOS', 'CANC', 'REJT', 'REJC'].includes(permit.Status) && (
+                  <button
+                    type="button"
+                    disabled={updating}
+                    onClick={() => setShowRenewalModal(true)}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">update</span>
+                    <span>Renew Shift</span>
+                  </button>
+                )}
               </div>
 
               {/* Master Data Grid */}
@@ -631,6 +644,22 @@ export function PermitProcedureWorkspace({
                 Those signed records must be verified separately.
               </p>
             )}
+            {active === '_ShiftRenewal' && !['CLOS', 'CANC', 'REJT', 'REJC'].includes(permit.Status) && (
+              <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Extend work validity across shift handover or record extra hours for pending work.
+                </span>
+                <button
+                  type="button"
+                  disabled={updating}
+                  onClick={() => setShowRenewalModal(true)}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined text-[15px]">update</span>
+                  <span>+ Renew Shift</span>
+                </button>
+              </div>
+            )}
 
             {rows === undefined ? (
               <p className="p-6 text-center text-xs text-amber-800 font-mono">
@@ -671,6 +700,15 @@ export function PermitProcedureWorkspace({
               </div>
             )}
           </SectionCard>
+
+          <ShiftRenewalModal
+            isOpen={showRenewalModal}
+            permit={permit}
+            onClose={() => setShowRenewalModal(false)}
+            onRenewed={async () => {
+              await load(permit.Permit_No);
+            }}
+          />
         </div>
       )}
 

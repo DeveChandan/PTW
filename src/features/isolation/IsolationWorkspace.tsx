@@ -118,6 +118,22 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
     }
   };
 
+  const handleOpenDetail = async (iso: SapIsolationHeader) => {
+    setSelectedIso(iso);
+    setViewMode('detail');
+    try {
+      const current = await isolationApi.read(iso.IsolationNo);
+      if (current) {
+        setSelectedIso(current);
+        setIsolations((rows) =>
+          rows.map((row) => (row.IsolationNo === current.IsolationNo ? current : row))
+        );
+      }
+    } catch {
+      // Detail view keeps list snapshot and CertificateActions reload lets the user retry
+    }
+  };
+
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingIso || submissionLock.current || saveUncertain) return;
@@ -916,10 +932,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                         <td className="p-3.5 font-mono font-bold text-[#006398]">
                           <button
                             type="button"
-                            onClick={() => {
-                              setSelectedIso(iso);
-                              setViewMode('detail');
-                            }}
+                            onClick={() => void handleOpenDetail(iso)}
                             className="hover:underline flex items-center gap-2 group-hover:text-[#004e78]"
                           >
                             <span className="w-7 h-7 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shrink-0">
@@ -1013,10 +1026,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                setSelectedIso(iso);
-                                setViewMode('detail');
-                              }}
+                              onClick={() => void handleOpenDetail(iso)}
                               className="inline-flex items-center gap-1 rounded-xl bg-[#006398] hover:bg-[#004e78] text-white px-3 py-1.5 text-xs font-mono font-bold shadow-2xs transition-colors cursor-pointer"
                             >
                               <span>View Details</span>
@@ -1243,6 +1253,19 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
               )}
             </div>
           </SectionCard>
+
+          {/* SAP Certificate Actions (Complete / Approve / Restore Isolation) */}
+          <CertificateActions
+            key={selectedIso.IsolationNo}
+            certificate={selectedIso}
+            user={user}
+            onUpdated={(updated) => {
+              setSelectedIso(updated);
+              setIsolations((rows) =>
+                rows.map((row) => (row.IsolationNo === updated.IsolationNo ? updated : row))
+              );
+            }}
+          />
 
           {/* Child Items (_Item) Table */}
           <SectionCard
@@ -1748,7 +1771,6 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
         </form>
       )}
 
-      {selectedIso && viewMode === 'detail' && <CertificateActions key={selectedIso.IsolationNo} certificate={selectedIso} user={user} onUpdated={updated => { setSelectedIso(updated); setIsolations(rows => rows.map(row => row.IsolationNo === updated.IsolationNo ? updated : row)); }} />}
       {saveUncertain && <p role="alert" className="rounded border border-amber-300 bg-amber-50 p-4 text-sm">SAP save outcome is unconfirmed. Check existing certificates and audit in SAP before another save.</p>}
       {/* MODE / MODAL: EDIT CERTIFICATE & LINK PERMIT */}
       {showEditModal && editingIso && (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
+import { resolveLinkedIsolations } from '../../core/ptw/prerequisites';
 import { sitePermitApi, type PlantPermitSummary } from '../../core/api/modules/sitePermit.api';
 import { permitApproverApi } from '../../core/api/modules/permitApprover.api';
 import { PERMIT_CATEGORIES } from '../../core/ptw/siteProcedure';
@@ -8,6 +9,7 @@ import { toast } from '../../shared/context/ToastContext';
 import { getMaxHazardRisk } from '../permits/RiskMatrix5x5Section';
 import { getTimeBand } from '../../core/ptw/approvalMatrix';
 import { useUserPtwRoles } from '../../shared/hooks/useUserPtwRoles';
+import { CertificateActions } from '../isolation/CertificateActions';
 
 interface PermitAreaOperatorWorkspaceProps {
   user: SapUser | null;
@@ -1701,29 +1703,42 @@ export const PermitAreaOperatorWorkspace: React.FC<PermitAreaOperatorWorkspacePr
                 {/* Tab 4: Isolation & LOTO */}
                 {dossierTab === 'isolation' && (
                   <div className="space-y-4 pt-1 text-xs">
-                    {!selectedPermit._Isolation || selectedPermit._Isolation.length === 0 ? (
-                      <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200/80 text-slate-400 space-y-1">
-                        <span className="material-symbols-outlined text-[32px] text-slate-300">lock_open</span>
-                        <p className="font-bold text-slate-600">No physical isolation points registered</p>
-                        <p className="text-[11px]">This permit may not require positive lockout/tagout.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {selectedPermit._Isolation.map((iso, idx) => (
-                          <div key={idx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
-                            <div>
-                              <span className="font-bold text-slate-900 block">Certificate: {iso.IsolationNo}</span>
-                              <span className="text-[11px] text-slate-500 font-mono">
-                                Requested By: {iso.RequestedBy || '—'} · Points: {iso._Item?.length || 0}
-                              </span>
-                            </div>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white border border-slate-300">
-                              {iso.Status || 'CRTD'}
-                            </span>
+                    {(() => {
+                      const isoCerts = resolveLinkedIsolations(selectedPermit);
+                      if (isoCerts.length === 0) {
+                        return (
+                          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200/80 text-slate-400 space-y-1">
+                            <span className="material-symbols-outlined text-[32px] text-slate-300">lock_open</span>
+                            <p className="font-bold text-slate-600">No physical isolation points registered</p>
+                            <p className="text-[11px]">This permit may not require positive lockout/tagout.</p>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        );
+                      }
+                      return (
+                        <div className="space-y-2.5">
+                          {isoCerts.map((iso, idx) => (
+                            <div key={iso.IsolationNo || idx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-bold text-slate-900 block">Certificate: {iso.IsolationNo}</span>
+                                  <span className="text-[11px] text-slate-500 font-mono">
+                                    Requested By: {iso.RequestedBy || '—'} · Points: {iso._Item?.length || 0}
+                                  </span>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white border border-slate-300">
+                                  {iso.Status || 'CRTD'}
+                                </span>
+                              </div>
+                              <CertificateActions
+                                certificate={iso}
+                                user={user}
+                                onUpdated={() => void loadPermitDetail(selectedPermit.Permit_No)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
