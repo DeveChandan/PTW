@@ -22,3 +22,6 @@ export { isolationApi, default as isolationApiDefault } from './modules/isolatio
 export { adminApi, default as adminApiDefault } from './modules/admin.api';
 export { configApi, default as configApiDefault, FALLBACK_CONFIG_DATA } from './modules/config.api';
 export { checklistApi, default as checklistApiDefault, toSapChecklistPermitType, toSapPermitType, FALLBACK_CHECKLISTS } from './modules/checklist.api';
+export { sitePermitApi, type PermitListOptions } from './modules/sitePermit.api';
+export { permitClosureApi, default as permitClosureApiDefault } from './modules/permitClosure.api';
+export { attachmentApi, default as attachmentApiDefault } from './modules/attachment.api';

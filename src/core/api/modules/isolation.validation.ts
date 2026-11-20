@@ -4,10 +4,15 @@ import schema from '../permitCreateSchema.json';
 export function prepareIsolationCreate(payload: Partial<SapIsolationHeader>): Record<string, unknown> {
   if (typeof payload.PermitNo !== 'string' || payload.PermitNo.length > 10) throw new Error('Permit number must be at most 10 characters.');
   if (!payload._Item?.length) throw new Error('Add at least one isolation point.');
+  const isTemplate = Boolean(
+    payload.IsTemplate === 'X' ||
+    (payload as any).isTemplate === true
+  );
   const body: Record<string, unknown> = {
     PermitNo: payload.PermitNo.trim(),
     Remarks: payload.Remarks?.trim() || '',
-    description: payload.description?.trim() || ''
+    description: payload.description?.trim() || '',
+    IsTemplate: isTemplate ? 'X' : ' '
   };
   if (String(body.Remarks).length > 255) throw new Error('Remarks must be at most 255 characters.');
   if (String(body.description).length > 255) throw new Error('Description must be at most 255 characters.');

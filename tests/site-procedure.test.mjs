@@ -227,12 +227,13 @@ test('combined activities cannot bypass gas interval or isolation planning check
   assert.equal(preparePermitCreate({ ...payload(), _Isolation: [] }).Status, 'INTD');
 });
 
-test('issuer separation, JSA reference, mandatory scope and NA reasons are checked', () => {
+test('issuer separation, optional JSA reference, mandatory scope and NA reasons are checked', () => {
   const plan = completePlan(); plan.fields.ACCP = 'issuer';
   assert.throws(() => preparePermitCreate(payload('HOT', plan)), /different people/);
   plan.fields.ACCP = 'OTHER'; plan.fields.JSA1 = '';
-  assert.throws(() => preparePermitCreate(payload('HOT', plan)), /JSA document/);
-  plan.fields.JSA1 = 'J1'; plan.checks.F004 = { response: 'NA', remarks: '' };
+  // JSA document reference (JSA1) is now optional
+  assert.doesNotThrow(() => preparePermitCreate(payload('HOT', plan)));
+  plan.checks.F004 = { response: 'NA', remarks: '' };
   assert.throws(() => preparePermitCreate(payload('HOT', plan)), /not applicable/);
   plan.checks.F004.remarks = 'No process equipment opened';
   assert.doesNotThrow(() => preparePermitCreate(payload('HOT', plan)));
@@ -309,6 +310,102 @@ test('SAP record read uses metadata field names and escapes OData literals', asy
     await assert.rejects(sitePermitApi.list('', ''), /permit list/);
     await assert.rejects(sitePermitApi.read('P1'), /requested permit/);
   } finally { odataClient.get = original; }
+});
+
+test('sitePermitApi.list generates backend Erdat date filter, $select projection, and $orderby matching SAP OData V4 specification', async () => {
+  const original = odataClient.get;
+  const calls = [];
+  try {
+    odataClient.get = async (url) => {
+      calls.push(url);
+      return { data: { value: [], '@odata.count': 0 } };
+    };
+
+    // 1. Using options object
+    await sitePermitApi.list({
+      dateFrom: '2026-11-01',
+      dateTo: '2026-11-30',
+      select: ['Permit_No', 'Status', 'PermitType', 'Werks', 'Erdat'],
+      orderBy: 'Erdat desc,Permit_No desc',
+      top: 50,
+      expand: []
+    });
+
+    const call1 = calls[0];
+    const url1 = new URL(call1, 'http://local/');
+    assert.equal(url1.searchParams.get('$filter'), 'Erdat ge 2026-11-01 and Erdat le 2026-11-30');
+    assert.equal(url1.searchParams.get('$select'), 'Permit_No,Status,PermitType,Werks,Erdat');
+    assert.equal(url1.searchParams.get('$orderby'), 'Erdat desc,Permit_No desc');
+    assert.equal(url1.searchParams.get('$top'), '50');
+    assert.equal(url1.searchParams.get('$count'), 'true');
+    assert.ok(!url1.searchParams.has('$expand'));
+
+    // 2. Using positional parameters
+    await sitePermitApi.list(
+      '1002',
+      '',
+      0,
+      undefined,
+      'HOT',
+      'ISSU',
+      25,
+      ['_WorkType'],
+      ['Permit_No', 'Status'],
+      '2026-11-15',
+      '2026-11-20'
+    );
+
+    const call2 = calls[1];
+    const url2 = new URL(call2, 'http://local/');
+    assert.match(url2.searchParams.get('$filter'), /Werks eq '1002'/);
+    assert.match(url2.searchParams.get('$filter'), /PermitType eq 'HOT'/);
+    assert.match(url2.searchParams.get('$filter'), /Status eq 'ISSU' or Status eq 'ACTV'/);
+    assert.match(url2.searchParams.get('$filter'), /Erdat ge 2026-11-15 and Erdat le 2026-11-20/);
+    assert.equal(url2.searchParams.get('$select'), 'Permit_No,Status');
+    assert.equal(url2.searchParams.get('$top'), '25');
+
+    // 3. Single date filter
+    await sitePermitApi.list({
+      plant: '1000',
+      dateFrom: '2026-11-17',
+      dateTo: '2026-11-17'
+    });
+    const call3 = calls[2];
+    const url3 = new URL(call3, 'http://local/');
+    assert.equal(url3.searchParams.get('$filter'), "Werks eq '1000' and Erdat eq 2026-11-17");
+
+    // 4. getPlantSummary with date range
+    calls.length = 0;
+    odataClient.get = async (url) => {
+      calls.push(url);
+      return {
+        data: {
+          value: [
+            { Permit_No: 'P1', PermitType: 'HOT', Status: 'ISSU' },
+            { Permit_No: 'P2', PermitType: 'COLD', Status: 'CRTD' },
+            { Permit_No: 'P3', PermitType: 'CONF', Status: 'INTD' }
+          ]
+        }
+      };
+    };
+
+    const summary = await sitePermitApi.getPlantSummary('1002', undefined, true, '2026-11-10', '2026-11-17');
+    assert.equal(summary.total, 3);
+    assert.equal(summary.active, 1);
+    assert.equal(summary.draft, 1);
+    assert.equal(summary.intended, 1);
+    assert.equal(summary.categoryCounts.HOT, 1);
+    assert.equal(summary.categoryCounts.COLD, 1);
+    assert.equal(summary.categoryCounts.CONF, 1);
+    assert.equal(summary.dateFrom, '2026-11-10');
+    assert.equal(summary.dateTo, '2026-11-17');
+
+    const summaryUrl = new URL(calls[0], 'http://local/');
+    assert.match(summaryUrl.searchParams.get('$filter'), /Werks eq '1002'/);
+    assert.match(summaryUrl.searchParams.get('$filter'), /Erdat ge 2026-11-10 and Erdat le 2026-11-17/);
+  } finally {
+    odataClient.get = original;
+  }
 });
 
 test('nature of work and tools/equipment are serialized into SAP child tables _NATW and _Equipment with unique ItemNo keys', () => {

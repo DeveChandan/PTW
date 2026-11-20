@@ -62,7 +62,6 @@ export function preparePermitCreate(
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) throw new Error('Permit end date/time must be after its start.');
   if (end.getTime() <= Date.now()) throw new Error('The permit validity period has already ended.');
   if (payload.PersonsQty !== (payload._Worker?.length ?? 0)) throw new Error('Make the crew quantity match the worker list.');
-  if (!payload._HazardControl?.length) throw new Error('Add the work hazards and required controls.');
   const isGas = payload.GasTestRequired === 'Y' || payload.GasTestRequired === 'X';
   const isIso = payload.IsolationRequired === 'Y' || payload.IsolationRequired === 'X';
   const isLoto = payload.LotoRequired === 'Y' || payload.LotoRequired === 'X';
@@ -141,12 +140,29 @@ export function preparePermitCreate(
     gasRequirementRow(isGas ? 'Y' : 'N')
   ];
 
+  const isBlank = Boolean(
+    options?.allowBlankReference ||
+    payload.IsBlank === 'X' ||
+    (!payload.Aufnr?.trim() && !payload.Qmnum?.trim()) ||
+    payload.Aufnr?.trim().toUpperCase() === 'BLANK PERMIT'
+  );
+
+  const isTemplate = Boolean(
+    payload.IsTemplate === 'X' ||
+    (payload as any).isTemplate === true
+  );
+
+  const moText = (payload.Ktext || (payload as any).KTEXT || '').trim().slice(0, 40);
+
   payload = { ...payload, ExecDept: payload.ExecDept.trim(),
+    Ktext: moText,
     PermitType: sapType,
     GasTestFreqHr: isGas ? payload.GasTestFreqHr : '',
     GasTestRequired: isGas ? 'X' : ' ',
     IsolationRequired: isIso ? 'X' : ' ',
     IsolationStatus: isIso ? 'CRTD' : '',
+    IsBlank: isBlank ? 'X' : ' ',
+    IsTemplate: isTemplate ? 'X' : ' ',
     ...(payload.LotoRequired !== undefined ? { LotoRequired: isLoto ? 'X' : ' ' } : {}),
     _Isolation: isIso ? payload._Isolation : [],
     _Safety: safetyRows,
@@ -155,8 +171,14 @@ export function preparePermitCreate(
     _Equipment: effectiveEquipment,
     _NATW: effectiveNatw
   };
+  delete (payload as any).KTEXT;
+
   const body = serialize('PermitInfoType', payload as unknown as Record<string, unknown>);
   body.PermitType = sapType;
+  body.IsBlank = isBlank ? 'X' : ' ';
+  body.IsTemplate = isTemplate ? 'X' : ' ';
+  body.Ktext = moText;
+  delete (body as any).KTEXT;
 
   // Pure Cold Work Check: Primary category is Cold Work and no other additional categories exist
   const isOnlyColdWork = (sapType === 'COLD') && (

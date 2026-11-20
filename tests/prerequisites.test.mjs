@@ -75,6 +75,9 @@ test('certificate creation serializes nested items and omits computed keys and s
   assert.equal(body._Item[0].IsIsolated,'');assert.equal(body._Item[0].ZeroEnergyConf,'');assert.equal(body._Item[0].ZeroEnergyBy,'');
   const bodyWithDesc = prepareIsolationCreate({PermitNo:'P1',description:'Main pump isolation',_Item:[{ReferenceType:'EQUI',ReferenceId:'E1',IsolationPoint:'P1',IsolType:'MECH',IsolMethod:'VALVE',IsolatedState:'CLOSED',LockTagNo:'L1'}]});
   assert.equal(bodyWithDesc.description, 'Main pump isolation');
+  assert.equal(bodyWithDesc.IsTemplate, ' ');
+  const bodyWithTemplate = prepareIsolationCreate({PermitNo:'P1',IsTemplate:'X',_Item:[{ReferenceType:'EQUI',ReferenceId:'E1',IsolationPoint:'P1',IsolType:'MECH',IsolMethod:'VALVE',IsolatedState:'CLOSED',LockTagNo:'L1'}]});
+  assert.equal(bodyWithTemplate.IsTemplate, 'X');
   assert.throws(()=>prepareIsolationCreate({PermitNo:'P1',_Item:[]}),/point/);
 });
 test('declared bound actions send empty bodies, correct binding and ETag; uncertain writes never retry', async () => {
@@ -210,6 +213,27 @@ test('isolation bound action falls back on 404 to named IsolationNo key syntax',
     const result = await backendWorkflowApi.isolation({ IsolationNo: 'ISO0000001', '@odata.etag': 'W/"1"' }, 'approveIsolation');
     assert.equal(calls, 2);
     assert.equal(result.IsolationNo, 'ISO0000001');
+    assert.equal(result.Status, 'ISOL');
+  } finally {
+    odataClient.post = original;
+  }
+});
+
+test('isolation bound action executes without If-Match when ETag is absent or empty', async () => {
+  const original = odataClient.post;
+  try {
+    let calls = 0;
+    odataClient.post = async (url, body, config) => {
+      calls++;
+      assert.deepEqual(body, {});
+      assert.equal(config.headers['If-Match'], undefined);
+      assert.equal(url, "Isolation('ISO0000038')/com.sap.gateway.srvd_a2x.zptw_services.v0001.approveIsolation");
+      return { data: { IsolationNo: 'ISO0000038', Status: 'ISOL' } };
+    };
+
+    const result = await backendWorkflowApi.isolation({ IsolationNo: 'ISO0000038' }, 'approveIsolation');
+    assert.equal(calls, 1);
+    assert.equal(result.IsolationNo, 'ISO0000038');
     assert.equal(result.Status, 'ISOL');
   } finally {
     odataClient.post = original;

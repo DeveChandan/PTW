@@ -144,7 +144,7 @@ export function getPermitClearanceLevels(
       gasDetail = 'Atmospheric gas testing is not required for this activity';
     } else {
       // In SAP workflow, permit cannot transition to APPR/ACCP/ACTV without gas test pass
-      if (status === 'APPR' || status === 'ACCP' || status === 'ISSU' || status === 'ISSD' || status === 'ACTV' || status === 'CLSD') {
+      if (status === 'APPR' || status === 'ACCP' || status === 'ISSU' || status === 'ISSD' || status === 'ACTV' || status === 'ACCL' || status === 'AROP' || status === 'CLSD' || status === 'CLOS') {
         isGasDone = true;
         gasDetail = 'Gas tests verified and cleared in prerequisite stage';
       } else {
@@ -220,7 +220,10 @@ export function getPermitClearanceLevels(
     status === 'ISSU' ||
     status === 'ISSD' ||
     status === 'ACTV' ||
-    status === 'CLSD';
+    status === 'ACCL' ||
+    status === 'AROP' ||
+    status === 'CLSD' ||
+    status === 'CLOS';
 
   let approverItem: ClearanceLevelItem;
   if (isRejected) {
@@ -295,7 +298,10 @@ export function getPermitClearanceLevels(
     status === 'ISSU' ||
     status === 'ISSD' ||
     status === 'ACTV' ||
-    status === 'CLSD';
+    status === 'ACCL' ||
+    status === 'AROP' ||
+    status === 'CLSD' ||
+    status === 'CLOS';
 
   let accepterItem: ClearanceLevelItem;
   if (isRejected) {
@@ -375,7 +381,12 @@ export function getPermitClearanceLevels(
   // -------------------------------------------------------------------------
   // 4. Area Operator Level Evaluation (Clearance & Handover)
   // -------------------------------------------------------------------------
-  const isAreaCleared = status === 'ACTV' || status === 'CLSD';
+  const isAreaCleared =
+    status === 'ACTV' ||
+    status === 'ACCL' ||
+    status === 'AROP' ||
+    status === 'CLSD' ||
+    status === 'CLOS';
   const isAreaPending = status === 'ACCP' || status === 'ISSU' || status === 'ISSD';
 
   let areaOperatorItem: ClearanceLevelItem;
@@ -510,11 +521,21 @@ export function getPermitClearanceLevels(
     overallLevelBadgeClass = 'bg-rose-100 text-rose-800 border-rose-300';
     const stageName = rejectionLevel === 'accepter' ? 'Acceptor' : rejectionLevel === 'area_operator' ? 'Area Operator' : rejectionLevel === 'approver' ? 'Approver' : 'Permit';
     nextActionText = `${stageName} rejected. Remarks: ${rejectionRemarks} Review and revise before resubmitting.`;
-  } else if (status === 'CLSD') {
+  } else if (status === 'CLSD' || status === 'CLOS') {
     overallCurrentLevel = 'CLOSED';
-    overallLevelLabel = 'Work Completed';
+    overallLevelLabel = 'Permit Closed (CLSD)';
     overallLevelBadgeClass = 'bg-slate-100 text-slate-700 border-slate-300';
-    nextActionText = 'Work finished, housekeeping done, and permit closed';
+    nextActionText = 'Work finished, site restored, and permit archived in SAP';
+  } else if (status === 'AROP') {
+    overallCurrentLevel = 'CLOSED';
+    overallLevelLabel = 'Area Cleared (AROP)';
+    overallLevelBadgeClass = 'bg-cyan-100 text-cyan-800 border-cyan-300 font-bold';
+    nextActionText = 'Area clearance confirmed; ready for final Issuer closure (CLSD)';
+  } else if (status === 'ACCL') {
+    overallCurrentLevel = 'CLOSED';
+    overallLevelLabel = 'Acceptor Handover (ACCL)';
+    overallLevelBadgeClass = 'bg-teal-100 text-teal-800 border-teal-300 font-bold';
+    nextActionText = 'Acceptor handover confirmed; awaiting Area Operator clearance';
   } else if (status === 'ACTV') {
     overallCurrentLevel = 'ACTIVE_EXECUTION';
     overallLevelLabel = 'Active in Field';

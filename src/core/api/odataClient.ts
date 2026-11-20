@@ -96,6 +96,11 @@ class SapODataClient {
           } else {
             throw Object.assign(new Error('SAP did not return a CSRF token. Sign in again before saving.'), { beforeSend: true });
           }
+
+          // SAP OData V4 requires conditional headers (If-Match: *) on PUT updates (e.g. CMIS stream uploads)
+          if (method === 'PUT' && !config.headers.has('If-Match')) {
+            config.headers.set('If-Match', '*');
+          }
         } else if (method === 'GET' && !config.headers.has('X-CSRF-Token')) {
           config.headers.set('X-CSRF-Token', 'Fetch');
         }
@@ -259,6 +264,16 @@ class SapODataClient {
 
   public post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.instance.post<T>(url, data, config);
+  }
+
+  public put<T = any>(url: string, data?: any, etag?: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+    const headers: Record<string, any> = { ...config?.headers };
+    headers['If-Match'] = etag || headers['If-Match'] || '*';
+    return this.instance.put<T>(url, data, { ...config, headers });
+  }
+
+  public getBaseUrl(): string {
+    return this.instance.defaults.baseURL || ODATA_BASE_URL;
   }
 
   public patch<T = any>(url: string, data?: any, etag?: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {

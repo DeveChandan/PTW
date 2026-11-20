@@ -56,6 +56,13 @@
       "scale": null,
       "nullable": true
     },
+    "Ktext": {
+      "type": "Edm.String",
+      "maxLength": "40",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
     "PersonResp": {
       "type": "Edm.String",
       "maxLength": "12",
@@ -500,6 +507,20 @@
     "RiggingPlanRescuePlan": {
       "type": "Edm.String",
       "maxLength": "100",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "IsBlank": {
+      "type": "Edm.String",
+      "maxLength": "1",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "IsTemplate": {
+      "type": "Edm.String",
+      "maxLength": "1",
       "precision": null,
       "scale": null,
       "nullable": true
@@ -979,6 +1000,13 @@
     "description": {
       "type": "Edm.String",
       "maxLength": "255",
+      "precision": null,
+      "scale": null,
+      "nullable": true
+    },
+    "IsTemplate": {
+      "type": "Edm.String",
+      "maxLength": "1",
       "precision": null,
       "scale": null,
       "nullable": true

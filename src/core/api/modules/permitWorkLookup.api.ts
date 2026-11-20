@@ -108,6 +108,7 @@ export function toPermitReferenceFields(row: WorkReference) {
     Qmart: notification ? row.OrderNotifType : '',
     Qmtxt: notification ? row.JobDescription : '',
     Qmdat: notification ? row.WorkDate : null,
+    Ktext: notification ? '' : (row.JobDescription || ''),
     JobDesc: row.JobDescription,
     Equnr: row.EquipmentTag,
     Tplnr: row.FunctionalLocation,

@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import type { GasTestRecord, PermitInfoRecord } from '../../core/types/ptw.types';
 import { gasTesterApi, AtmosphereAssessment } from '../../core/api/modules/gasTester.api';
+import { attachmentApi, formatGasTestObjectId } from '../../core/api/modules/attachment.api';
+import { AttachmentManager } from '../../shared/components/AttachmentManager';
 import { toast } from '../../shared/context/ToastContext';
 
 interface GasTesterWorkspaceProps {
@@ -82,21 +84,21 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
   const [formPermitNo, setFormPermitNo] = useState<string>('');
   const [formTestSeq, setFormTestSeq] = useState<string>('1');
   const [formTestType, setFormTestType] = useState<string>('INITIAL');
-  const [formSampleLevel, setFormSampleLevel] = useState<string>('MID');
+  const [formSampleLevel, setFormSampleLevel] = useState<string>('AUTO');
   const [formLocation, setFormLocation] = useState<string>('');
-  const [formMeterType, setFormMeterType] = useState<string>('GAS_DETECTOR');
+  const [formMeterType, setFormMeterType] = useState<string>('MULTI_GAS');
   const [formMeterId, setFormMeterId] = useState<string>('MTR-GFL-014');
   const [formCalibDate, setFormCalibDate] = useState<string>('');
-  const [formBumpTestOk, setFormBumpTestOk] = useState<boolean>(true);
   // Free text input states for gas values (allows free typing without number spinner arrows)
   const [formO2Str, setFormO2Str] = useState<string>('20.9');
   const [formLelStr, setFormLelStr] = useState<string>('0.0');
-  const [formCoStr, setFormCoStr] = useState<string>('0.0');
+  const [formCoStr, setFormCoStr] = useState<string>('400'); // Fresh air CO2 ambient baseline (~400 ppm)
+  const [stagedGasAttachments, setStagedGasAttachments] = useState<File[]>([]);
   const [formH2sStr, setFormH2sStr] = useState<string>('0.0');
   const [formOtherGas, setFormOtherGas] = useState<string>('');
   const [formOtherValStr, setFormOtherValStr] = useState<string>('');
   const [formOtherUnit, setFormOtherUnit] = useState<string>('PPM');
-  const [formCert, setFormCert] = useState<string>('AGT-GFL-2026-08');
+  const [formCert, setFormCert] = useState<string>('');
   const [formSigned, setFormSigned] = useState<boolean>(true);
   const [formRemarks, setFormRemarks] = useState<string>('INITIAL GAS TEST');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -207,10 +209,11 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
   const handleRetestClick = (record: GasTestRecord) => {
     handlePermitNoChange(record.PermitNo || '');
     setFormLocation(record.TestLocation || '');
-    setFormMeterType(record.MeterType || 'GAS_DETECTOR');
+    setFormMeterType(record.MeterType || 'MULTI_GAS');
     setFormMeterId(record.MeterId || 'MTR-GFL-014');
     setFormCalibDate(record.CalibDate || '');
-    setFormBumpTestOk(record.BumpTestOk === 'Y');
+    setFormCert(record.Cert || '');
+    setFormSampleLevel(record.SampleLevel || 'AUTO');
     setFormO2Str(record.O2Pct != null ? String(record.O2Pct) : '20.9');
     setFormLelStr(record.LelPct != null ? String(record.LelPct) : '0.0');
     setFormCoStr(record.CoVal != null ? String(record.CoVal) : '0.0');
@@ -260,6 +263,18 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
       isHotWorkMode
     );
   }, [formO2Str, formLelStr, formCoStr, formH2sStr, formOtherGas, formOtherValStr, formOtherUnit, isHotWorkMode]);
+
+  // Check if entered permit explicitly has gas test not required
+  const isPermitGasNotRequired = useMemo(() => {
+    const pNo = formPermitNo.trim().toUpperCase();
+    if (!pNo) return false;
+    const found = pendingPermits.find(p => (p.Permit_No || '').toUpperCase() === pNo);
+    if (found) {
+      const req = (found.GasTestRequired || '').toUpperCase();
+      return req === 'N' || req === ' ';
+    }
+    return false;
+  }, [formPermitNo, pendingPermits]);
 
   // Filtered tests
   const filteredTests = useMemo(() => {
@@ -610,12 +625,17 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
   // Form submission handler
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formSigned) {
-      showNotification('warning', 'Authorized Gas Tester signature confirmation is mandatory.');
+    const trimmedPermit = formPermitNo.trim().toUpperCase();
+    if (!trimmedPermit) {
+      showNotification('warning', 'Valid Permit Number is mandatory. Recording a gas test without a Permit Number is not allowed.');
       return;
     }
-    if (!formBumpTestOk) {
-      showNotification('warning', 'Bump test must be verified before submitting gas clearance.');
+    if (isPermitGasNotRequired) {
+      showNotification('warning', `Permit ${trimmedPermit} is configured with "Gas Test Not Required" (GasTestRequired = 'N'). Recording a gas test is not permitted for this permit.`);
+      return;
+    }
+    if (!formSigned) {
+      showNotification('warning', 'Authorized Gas Tester signature confirmation is mandatory.');
       return;
     }
 
@@ -627,20 +647,25 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
       const testDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const testTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
+      // Automatically determine calibrated level if not overridden
+      const finalSampleLevel = (formSampleLevel && formSampleLevel !== 'AUTO')
+        ? formSampleLevel
+        : (liveFormAssessment.calibratedLevel?.level || 'MID');
+
       const newRecord: Partial<GasTestRecord> = {
         PermitNo: formPermitNo.trim().toUpperCase(),
         TestSeq: formTestSeq.trim() || '1',
-        TestType: formTestType,
+        TestType: formTestType || 'INITIAL',
         TestDate: testDate,
         TestTime: testTime,
         TestLocation: formLocation.trim(),
-        SampleLevel: formSampleLevel || 'MID',
+        SampleLevel: finalSampleLevel,
         TestedBy: user?.id || '',
-        Cert: formCert.trim(),
-        MeterType: formMeterType.trim() || 'GAS_DETECTOR',
+        Cert: formCert ? formCert.trim() : '',
+        MeterType: formMeterType.trim() || 'MULTI_GAS',
         MeterId: formMeterId.trim(),
         CalibDate: formCalibDate && /^\d{4}-\d{2}-\d{2}$/.test(formCalibDate) ? formCalibDate : null,
-        BumpTestOk: formBumpTestOk ? 'Y' : 'N',
+        BumpTestOk: 'Y',
         LelPct: parseGasNum(formLelStr, 0),
         O2Pct: parseGasNum(formO2Str, 20.9),
         CoVal: parseGasNum(formCoStr, 0),
@@ -654,6 +679,26 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
 
       const result = await gasTesterApi.create(newRecord);
       setGasTests(prev => [result, ...prev.filter(t => !(t.PermitNo === result.PermitNo && t.TestSeq === result.TestSeq))]);
+
+      // Upload and link staged attachments to SAP DMS for this Gas Test
+      if (stagedGasAttachments.length > 0 && result.PermitNo) {
+        try {
+          const gasTestObjectId = formatGasTestObjectId(result.PermitNo, result.TestSeq);
+          await attachmentApi.uploadAndLinkMultipleFiles(
+            stagedGasAttachments,
+            'GASTEST',
+            gasTestObjectId
+          );
+          setStagedGasAttachments([]);
+          toast.success(
+            `Uploaded ${stagedGasAttachments.length} document(s) to SAP DMS for Gas Test #${result.TestSeq}`,
+            { title: 'DMS Attachments Linked' }
+          );
+        } catch (attErr: any) {
+          console.error('[GasTesterWorkspace] Failed to upload attachments:', attErr);
+          toast.error(`Gas Test saved, but DMS upload had an error: ${attErr?.message || attErr}`);
+        }
+      }
 
       setShowCreateModal(false);
       showNotification(
@@ -1113,7 +1158,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
             </span>
             <input
               type="text"
-              placeholder="Instant filter by Permit #, Location, Detector ID, or Tester..."
+              placeholder="Instant filter by Permit #, Location, Meter ID, or Tester..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#006398]/30 focus:border-[#006398] transition"
@@ -1647,7 +1692,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                           </div>
 
                           <div className={`px-2 py-1 rounded-lg border flex items-center justify-between font-mono ${latestAssessment.co.badgeClass}`}>
-                            <span className="text-[10px] text-slate-500 font-sans font-semibold">CO:</span>
+                            <span className="text-[10px] text-slate-500 font-sans font-semibold">CO₂:</span>
                             <span className="font-bold">{Number(latest.CoVal).toFixed(0)} ppm</span>
                           </div>
 
@@ -1688,7 +1733,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                               <th className="py-2.5 px-3">Date &amp; Time (IST)</th>
                               <th className="py-2.5 px-3 text-center">Oxygen (O₂)</th>
                               <th className="py-2.5 px-3 text-center">Combustible (% LEL)</th>
-                              <th className="py-2.5 px-3 text-center">CO (ppm)</th>
+                              <th className="py-2.5 px-3 text-center">CO₂ (ppm)</th>
                               <th className="py-2.5 px-3 text-center">H₂S (ppm)</th>
                               <th className="py-2.5 px-3 text-center">Status</th>
                               <th className="py-2.5 px-3">Detector &amp; Bump</th>
@@ -1818,7 +1863,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                   <th className="py-2.5 px-3">Date &amp; Time (IST)</th>
                   <th className="py-2.5 px-3 text-center">Oxygen (O₂)</th>
                   <th className="py-2.5 px-3 text-center">Combustible (% LEL)</th>
-                  <th className="py-2.5 px-3 text-center">CO (ppm)</th>
+                  <th className="py-2.5 px-3 text-center">CO₂ (ppm)</th>
                   <th className="py-2.5 px-3 text-center">H₂S (ppm)</th>
                   <th className="py-2.5 px-3 text-center">Overall Clearance</th>
                   <th className="py-2.5 px-3">Detector &amp; Bump</th>
@@ -2054,95 +2099,66 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                   </label>
                 </div>
 
-                {/* Row 1: Permit #, Seq, Type */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Permit Number <span className="text-slate-400 font-normal">(or blank)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formPermitNo}
-                      onChange={e => handlePermitNoChange(e.target.value)}
-                      placeholder="e.g. PTW0000018"
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 font-mono font-bold uppercase focus:ring-1 focus:ring-[#006398]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Test Sequence <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formTestSeq}
-                      onChange={e => setFormTestSeq(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 font-mono focus:ring-1 focus:ring-[#006398]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Test Type <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      value={formTestType}
-                      onChange={e => setFormTestType(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 font-semibold focus:ring-1 focus:ring-[#006398]"
-                    >
-                      <option value="INITIAL">Initial Gas Test (INITIAL)</option>
-                      <option value="PERIODIC">Periodic Retest (PERIODIC)</option>
-                      <option value="CONTINUOUS">Continuous Monitoring (CONTINUOUS)</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Row 2: Location & Stratified Level */}
+                {/* Row 1: Permit Number & Sampling Location (Test Seq & Test Type auto-assigned) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Sampling Location <span className="text-rose-500">*</span>
+                    <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>Permit Number <span className="text-rose-500">*</span></span>
+                      {formPermitNo.trim() && (
+                        <span className="text-[10px] font-mono text-[#006398] font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          Auto Seq #{formTestSeq} · {formTestType}
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Vessel V-101 Interior / Bottom Sump"
+                      list="pending-gas-permits-list"
+                      value={formPermitNo}
+                      onChange={e => handlePermitNoChange(e.target.value)}
+                      placeholder="e.g. PTW0000099"
+                      className={`w-full px-2.5 py-1.5 rounded-xl border font-mono font-bold uppercase focus:ring-1 focus:ring-[#006398] ${
+                        isPermitGasNotRequired
+                          ? 'border-rose-400 bg-rose-50/50 text-rose-900'
+                          : 'border-slate-200'
+                      }`}
+                    />
+                    <datalist id="pending-gas-permits-list">
+                      {pendingPermits.map(p => (
+                        <option key={p.Permit_No} value={p.Permit_No}>
+                          {p.Permit_No} - {p.AreaLoc || p.JobDesc || p.PermitType} (Gas Test Required)
+                        </option>
+                      ))}
+                    </datalist>
+                    {isPermitGasNotRequired ? (
+                      <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">block</span>
+                        <span>Gas test is not required for permit {formPermitNo.trim().toUpperCase()} (GasTestRequired: 'N'). Recording is not allowed.</span>
+                      </p>
+                    ) : !formPermitNo.trim() ? (
+                      <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1 font-medium">
+                        <span className="material-symbols-outlined text-[13px]">info</span>
+                        <span>Permit number is mandatory. Gas test cannot be recorded without a permit.</span>
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Gas Test Location <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. POL / Vessel V-101 Interior / Bottom Sump"
                       value={formLocation}
                       onChange={e => setFormLocation(e.target.value)}
                       className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 focus:ring-1 focus:ring-[#006398]"
                     />
                   </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Stratified Sampling Level <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { id: 'TOP', label: '▲ TOP', sub: 'Light gases' },
-                        { id: 'MID', label: '◆ MID', sub: 'Breathing' },
-                        { id: 'BOT', label: '▼ BOT', sub: 'Heavy gases' }
-                      ].map(lvl => (
-                        <button
-                          key={lvl.id}
-                          type="button"
-                          onClick={() => setFormSampleLevel(lvl.id)}
-                          className={`p-1.5 rounded-xl border text-center transition ${
-                            formSampleLevel === lvl.id
-                              ? 'bg-[#006398] text-white border-[#006398] font-bold shadow-2xs'
-                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                          }`}
-                        >
-                          <div className="text-xs">{lvl.label}</div>
-                          <div className="text-[9px] opacity-80">{lvl.sub}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
 
-                {/* Gas Sensor Measurements (2-Column Dense Grid with Free Text Input) */}
+                {/* Gas Sensor Measurements (Dense Grid with Auto-Calibrated Stratified Sampling Level) */}
                 <div className="border border-slate-200 rounded-2xl p-3.5 bg-slate-50/60 space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
@@ -2150,6 +2166,37 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                       Gas Concentration Measurements &amp; Safety Limits
                     </h4>
                     <span className="text-[10px] font-mono text-slate-500">Live Indicator Evaluation</span>
+                  </div>
+
+                  {/* Auto-Calibrated Sampling Level from Gas Concentrations & Physical Vapor Densities */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-[#006398]">layers</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 text-xs">Auto-Calibrated Sampling Level:</span>
+                          <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded-md bg-[#006398] text-white">
+                            {liveFormAssessment.calibratedLevel?.badge || '◆ MID (Breathing Zone)'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-600 mt-0.5">
+                          {liveFormAssessment.calibratedLevel?.reason}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <select
+                        value={formSampleLevel}
+                        onChange={e => setFormSampleLevel(e.target.value)}
+                        className="text-[10px] font-mono font-bold bg-white px-2 py-1 rounded-lg border border-slate-300 text-slate-700 outline-none cursor-pointer"
+                        title="Sampling Level: Auto-calibrated from gas concentration and vapor density"
+                      >
+                        <option value="AUTO">Auto ({liveFormAssessment.calibratedLevel?.level || 'MID'})</option>
+                        <option value="TOP">▲ TOP (Light Gases)</option>
+                        <option value="MID">◆ MID (Breathing)</option>
+                        <option value="BOT">▼ BOT (Heavy Gases)</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -2197,17 +2244,17 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                       </div>
                     </div>
 
-                    {/* CO */}
+                    {/* CO2 (Carbon Dioxide for GFL Operations) */}
                     <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800">Carbon Monoxide (CO) ppm</span>
-                        <span className="text-[10px] text-slate-400 font-mono">&lt; 25.0 ppm</span>
+                        <span className="font-bold text-slate-800">Carbon Dioxide (CO₂) ppm</span>
+                        <span className="text-[10px] text-slate-400 font-mono">&lt; 5,000 ppm</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
                           inputMode="decimal"
-                          placeholder="0.0"
+                          placeholder="400"
                           required
                           value={formCoStr}
                           onChange={e => setFormCoStr(e.target.value)}
@@ -2302,17 +2349,38 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                   </div>
                 </div>
 
-                {/* Detector & Bump Test Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 border border-slate-200 rounded-2xl p-3 bg-white">
+                {/* Detector & Gas Meter Calibration Row (AGT Certificate & Bump Test fields removed per requirements) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border border-slate-200 rounded-2xl p-3 bg-white">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Detector ID</label>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Meter ID <span className="text-rose-500">*</span>
+                    </label>
                     <input
                       type="text"
                       required
+                      placeholder="e.g. MTR-GFL-014"
                       value={formMeterId}
                       onChange={e => setFormMeterId(e.target.value)}
                       className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 font-mono font-bold"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Gas Meter Type <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={formMeterType}
+                      onChange={e => setFormMeterType(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 font-semibold focus:ring-1 focus:ring-[#006398] bg-white cursor-pointer"
+                    >
+                      <option value="MULTI_GAS">Multi-Gas Detector (O₂/LEL/CO₂/H₂S)</option>
+                      <option value="PORTABLE">Portable Atmospheric Sniffer</option>
+                      <option value="PID">Photoionization Detector (PID)</option>
+                      <option value="INFRARED">Infrared (IR) Gas Analyzer</option>
+                      <option value="DRAGER">Dräger Multi-Gas Monitor</option>
+                      <option value="GAS_DETECTOR">Standard Gas Detector</option>
+                    </select>
                   </div>
 
                   <div>
@@ -2323,28 +2391,6 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                       onChange={e => setFormCalibDate(e.target.value)}
                       className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 font-mono text-xs"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">AGT Certificate #</label>
-                    <input
-                      type="text"
-                      value={formCert}
-                      onChange={e => setFormCert(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 font-mono"
-                    />
-                  </div>
-
-                  <div className="flex flex-col justify-center">
-                    <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 pt-3">
-                      <input
-                        type="checkbox"
-                        checked={formBumpTestOk}
-                        onChange={e => setFormBumpTestOk(e.target.checked)}
-                        className="h-4 w-4 rounded text-[#006398] focus:ring-[#006398]"
-                      />
-                      <span>Bump Test Passed</span>
-                    </label>
                   </div>
                 </div>
 
@@ -2372,6 +2418,15 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                   </div>
                 </div>
 
+                {/* SAP DMS Attachments for Gas Test */}
+                <AttachmentManager
+                  objectType="GASTEST"
+                  stagedFiles={stagedGasAttachments}
+                  onStagedFilesChange={setStagedGasAttachments}
+                  title="Gas Test Attachments & Calibration Certs (SAP DMS)"
+                  description="Attach detector display photos, bump test reports, or calibration certificates (max 10 MiB). Staged files are uploaded to SAP DMS upon submission."
+                />
+
                 {/* Form Actions */}
                 <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200">
                   <button
@@ -2384,7 +2439,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
 
                   <button
                     type="submit"
-                    disabled={isSubmitting || !formBumpTestOk || !formSigned}
+                    disabled={isSubmitting || !formPermitNo.trim() || isPermitGasNotRequired || !formSigned}
                     className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#006398] hover:bg-[#004e78] text-white font-bold text-xs shadow-xs disabled:opacity-50 transition"
                   >
                     {isSubmitting ? (
@@ -2459,7 +2514,7 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                   <span className="font-mono font-bold text-slate-900 text-sm">{selectedRecord.LelPct}%</span>
                 </div>
                 <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
-                  <span className="text-slate-500 block text-[10px]">Carbon Monoxide (CO)</span>
+                  <span className="text-slate-500 block text-[10px]">Carbon Dioxide (CO₂)</span>
                   <span className="font-mono font-bold text-slate-900 text-sm">{selectedRecord.CoVal} ppm</span>
                 </div>
                 <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
@@ -2477,8 +2532,8 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-slate-400 text-[10px]">Detector ID</dt>
-                  <dd className="text-slate-800 font-bold">{selectedRecord.MeterId || '—'}</dd>
+                  <dt className="text-slate-400 text-[10px]">Meter ID / Meter Type</dt>
+                  <dd className="text-slate-800 font-bold">{selectedRecord.MeterId || '—'} ({selectedRecord.MeterType || 'MULTI_GAS'})</dd>
                 </div>
                 <div>
                   <dt className="text-slate-400 text-[10px]">Tester / Cert</dt>
@@ -2500,6 +2555,16 @@ export const GasTesterWorkspace: React.FC<GasTesterWorkspaceProps> = ({ user, on
                   <p className="text-slate-600 text-xs">{selectedRecord.Remarks}</p>
                 </div>
               )}
+
+              {/* Linked DMS Documents for this Gas Test */}
+              <div className="pt-2">
+                <AttachmentManager
+                  objectType="GASTEST"
+                  objectId={formatGasTestObjectId(selectedRecord.PermitNo, selectedRecord.TestSeq)}
+                  title={`Gas Test DMS Attachments (${formatGasTestObjectId(selectedRecord.PermitNo, selectedRecord.TestSeq)})`}
+                  description="View, upload, and download calibration records, bump test logs, and detector screen photos linked in SAP DMS."
+                />
+              </div>
 
               <div className="pt-2 flex justify-end">
                 <button

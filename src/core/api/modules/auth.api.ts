@@ -17,7 +17,17 @@ export interface SapStartupInfo {
 /**
  * Module API: SAP Authentication, Identity & User Roles
  */
+const userRoleCache = new Map<string, { timestamp: number; data: Array<{ SAP_USER: string; PTW_ROLE: string; ACTIVE: string }> }>();
+const USER_ROLE_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export const authApi = {
+  clearUserRolesCache(userId?: string): void {
+    if (userId) {
+      userRoleCache.delete(userId.trim().toUpperCase());
+    } else {
+      userRoleCache.clear();
+    }
+  },
   /**
    * Attempts to discover the currently logged-in user from SAP NetWeaver's
    * startup service (/sap/bc/ui2/start_up)
@@ -105,12 +115,24 @@ export const authApi = {
    * Fetches assigned user roles directly from the SAP UserRole entity set
    * Service endpoint: /sap/opu/odata4/sap/zptw_mamagement_srv/srvd_a2x/sap/zptw_services/0001/UserRole
    */
-  async fetchUserRoles(userId: string, client: string = getDefaultSapClient(), signal?: AbortSignal): Promise<Array<{
+  async fetchUserRoles(
+    userId: string,
+    client: string = getDefaultSapClient(),
+    signal?: AbortSignal,
+    forceRefresh = false
+  ): Promise<Array<{
     SAP_USER: string;
     PTW_ROLE: string;
     ACTIVE: string;
   }>> {
     const cleanId = userId.trim().toUpperCase();
+    if (!forceRefresh) {
+      const cached = userRoleCache.get(cleanId);
+      if (cached && Date.now() - cached.timestamp < USER_ROLE_CACHE_TTL_MS) {
+        return cached.data;
+      }
+    }
+
     const response = await odataClient.get<ODataCollectionResponse<{
       SAP_USER: string; PTW_ROLE: string; ACTIVE: string;
     }>>(ODATA_ENTITIES.USER_ROLE, {
@@ -122,7 +144,9 @@ export const authApi = {
       timeout: 6000,
     });
     if (!Array.isArray(response.data?.value)) throw new Error('SAP returned an invalid UserRole response.');
-    return response.data.value.filter(r => r.SAP_USER?.trim().toUpperCase() === cleanId);
+    const result = response.data.value.filter(r => r.SAP_USER?.trim().toUpperCase() === cleanId);
+    userRoleCache.set(cleanId, { timestamp: Date.now(), data: result });
+    return result;
   },
 
   /**

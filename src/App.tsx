@@ -16,6 +16,7 @@ import { PermitAreaOperatorWorkspace } from './features/approvals/PermitAreaOper
 import { ReportModule } from './features/dashboard/ReportModule';
 import { SafetyMapWorkspace } from './features/map/SafetyMapWorkspace';
 import { AdminWorkspace } from './features/admin/AdminWorkspace';
+import { PermitClosureWorkspace } from './features/closure/PermitClosureWorkspace';
 import { OfflineNotificationBanner } from './shared/components/OfflineNotificationBanner';
 import { SapReauthModal } from './shared/components/SapReauthModal';
 import { AppLoadingScreen } from './shared/components/AppLoadingScreen';
@@ -229,6 +230,14 @@ export const App: React.FC = () => {
         ) : selectedModule === 'safety-map' ? (
           <SafetyMapWorkspace
             onBack={() => setSelectedModule(null)}
+          />
+        ) : selectedModule === 'permit-closure' ? (
+          <PermitClosureWorkspace
+            user={user}
+            onBack={() => setSelectedModule(null)}
+            onOpenPermit={(_permitNo) => {
+              setSelectedModule('permit-details');
+            }}
           />
         ) : selectedModule === 'admin' ? (
           <AdminWorkspace

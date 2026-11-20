@@ -17,6 +17,7 @@ export const ODATA_ENTITIES = {
   HAZARD_CONTROL: 'HazardControl',
   GAS_TEST: 'GasTest',
   ISOLATION: 'Isolation',
+  ITEM: 'Item',
   ATTACHMENT: 'Attachment',
   APPROVAL: 'Approval',
   SHIFT_RENEWAL: 'ShiftRenewal',
@@ -71,6 +72,15 @@ export const ODATA_ACTIONS = {
   REJECT_ACCEPTOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAcceptor',
   COMPLETE_AREA_OPERATOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.completeAreaOperator',
   REJECT_AREA_OPERATOR: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.rejectAreaOperator',
+  // Permit Closure Actions (SAP RAP OData V4)
+  CONFIRM_WORK_COMPLETION: 'com.sap.gateway.srvd_a2x.zptw_services.v0001.confirmWorkCompletion',
+  COMPLETE_ACCEPTOR_CLOSURE: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.completeAcceptorClosure',
+  COMPLETE_AREA_OPERATOR_CLOSURE: 'Approval/com.sap.gateway.srvd_a2x.zptw_services.v0001.completeAreaOperatorClosure',
+  COMPLETE_ISSUER_CLOSURE: 'com.sap.gateway.srvd_a2x.zptw_services.v0001.completeIssuerClosure',
+  // Isolation & Normalization Actions
+  APPROVE_ISOLATION: 'com.sap.gateway.srvd_a2x.zptw_services.v0001.approveIsolation',
+  NORMALIZE_ISOLATION: 'com.sap.gateway.srvd_a2x.zptw_services.v0001.normalizeIsolation',
+  NORMALIZE_ITEM: 'com.sap.gateway.srvd_a2x.zptw_services.v0001.normalizeItem',
 } as const;
 
 /**

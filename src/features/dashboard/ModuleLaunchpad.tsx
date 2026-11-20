@@ -20,6 +20,7 @@ const MODULE_DOMAINS: Record<ModuleId, { domain: 'PERMITS' | 'ISOLATION' | 'CLEA
   'permit-approver': { domain: 'CLEARANCES', badge: 'Level 1-3 Review' },
   'permit-issuer': { domain: 'CLEARANCES', badge: 'Section K Acceptance' },
   'permit-area-owner': { domain: 'CLEARANCES', badge: 'Area Authority' },
+  'permit-closure': { domain: 'CLEARANCES', badge: 'Handover & CLSD' },
   report: { domain: 'SYSTEM', badge: 'Analytics & Audit' },
   'safety-map': { domain: 'SYSTEM', badge: 'Plot Plan Layout' },
   admin: { domain: 'SYSTEM', badge: 'Master Data & Roles' }
@@ -184,6 +185,18 @@ const MODULE_THEMES: Record<
     accentGradient: 'from-sky-500 via-[#006398] to-[#004f7a]',
     kpiValue: '26 Districts',
     kpiLabel: 'Demarcation Layout'
+  },
+  'permit-closure': {
+    cardBg: 'bg-gradient-to-br from-white via-[#f2fbf8] to-emerald-50/70',
+    cardBorder: 'border-emerald-200/90 hover:border-emerald-400',
+    cardShadow: 'shadow-[0_1px_3px_0_rgba(15,23,42,0.04),0_8px_20px_-4px_rgba(5,150,105,0.1),inset_0_1px_0_0_rgba(255,255,255,1)] hover:shadow-[0_16px_32px_-6px_rgba(5,150,105,0.18),0_4px_12px_rgba(15,23,42,0.04),inset_0_1px_0_0_rgba(255,255,255,1)]',
+    iconBg: 'bg-gradient-to-br from-emerald-50 to-white text-emerald-700 border-emerald-200/90 shadow-[0_2px_6px_rgba(5,150,105,0.15),inset_0_1px_0_rgba(255,255,255,0.9)]',
+    text: 'text-emerald-800',
+    border: 'border-emerald-200',
+    accent: 'bg-emerald-600',
+    accentGradient: 'from-emerald-400 via-emerald-600 to-emerald-700',
+    kpiValue: 'CLSD · Final',
+    kpiLabel: '4-Stage Closure Workflow'
   },
   admin: {
     cardBg: 'bg-gradient-to-br from-white via-[#fff8f8] to-rose-50/70',

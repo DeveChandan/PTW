@@ -254,13 +254,38 @@ test('parseCombinedExecutionTarget preserves plant names containing hyphens such
   });
 });
 
-test('resolveIsolationPointReference uses Work Center (Arbpl) when FLOC is selected and respects SAP 30-char ReferenceId cap', () => {
-  // Selecting FLOC takes Work Center (Arbpl) even when Equipment or a 36-char Tplnr is present
+test('resolveIsolationPointReference uses Work Center (Arbpl / WorkCenterDesc) when FLOC is selected and respects SAP 30-char ReferenceId cap', () => {
+  // When Work Center Description is available, FLOC selects the description (e.g. MECHANICAL 8/9 REACTOR)
+  assert.deepEqual(
+    resolveIsolationPointReference({
+      referenceType: 'FLOC',
+      equnr: '',
+      arbpl: 'DMEC-89R',
+      workCenterDesc: 'MECHANICAL 8/9 REACTOR',
+      tplnr: '1002-015-DOSINGG-XXXXXXX-GB519H'
+    }),
+    { referenceType: 'FLOC', referenceId: 'MECHANICAL 8/9 REACTOR' }
+  );
+
+  // When Work Center Description exceeds 30 chars, it is safely sliced to 30 characters
+  assert.deepEqual(
+    resolveIsolationPointReference({
+      referenceType: 'FLOC',
+      equnr: '',
+      arbpl: 'DMEC-89R',
+      workCenterDesc: 'VERY LONG WORK CENTER DESCRIPTION EXCEEDING THIRTY CHARACTERS',
+      tplnr: '1002-015-DOSINGG-XXXXXXX-GB519H'
+    }),
+    { referenceType: 'FLOC', referenceId: 'VERY LONG WORK CENTER DESCRIPT' }
+  );
+
+  // When Work Center Description is absent or empty, falls back to Arbpl code (DELE-CM1)
   assert.deepEqual(
     resolveIsolationPointReference({
       referenceType: 'FLOC',
       equnr: '10002931',
       arbpl: 'DELE-CM1',
+      workCenterDesc: '',
       tplnr: '1002-005-XXXXXX-XXXXXX-ECTPIPERACK34'
     }),
     { referenceType: 'FLOC', referenceId: 'DELE-CM1' }

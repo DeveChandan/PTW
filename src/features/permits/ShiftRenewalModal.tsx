@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { PermitDeepInsertResponse, PermitInfoRecord, ShiftRenewalRecord } from '../../core/types/ptw.types';
 import type { SapConfigRecord } from '../../core/types/config.types';
 import { configApi, FALLBACK_CONFIG_DATA } from '../../core/api';
@@ -190,12 +191,12 @@ export const ShiftRenewalModal: React.FC<ShiftRenewalModalProps> = ({
 
   const currentShiftInList = shiftOptions.some((s) => s.Config_Code === newShift);
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="shift-renewal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md animate-in fade-in duration-150"
     >
       <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
@@ -393,6 +394,8 @@ export const ShiftRenewalModal: React.FC<ShiftRenewalModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default ShiftRenewalModal;

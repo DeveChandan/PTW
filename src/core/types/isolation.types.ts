@@ -9,18 +9,65 @@ export interface SapIsolationItem {
   IsolatedState: string; // 'CLOSED' | 'OPEN' | 'RACKED_OUT' | 'BLINDED' | 'TAGGED'
   DeIsolatedState?: string;
   LockTagNo: string; // Lock / Tag Number e.g. 'LT-0001'
-  IsIsolated?: string; // 'Y' | 'N' | ''
+  IsIsolated?: string; // 'X' | 'Y' | 'N' | ''
   IsolatedBy?: string;
   IsolatedAt?: string | null;
-  ZeroEnergyConf?: string; // 'Y' | 'N' | ''
+  ZeroEnergyConf?: string; // 'X' | 'Y' | 'N' | ''
   ZeroEnergyBy?: string;
   ZeroEnergyAt?: string | null;
-  IsNormalized?: string; // 'Y' | 'N' | ''
+  IsNormalized?: string; // 'X' | 'Y' | 'N' | ''
   NormalizedBy?: string;
   NormalizedAt?: string | null;
+  IsolationSeq?: number;
+  NormalizationSeq?: number;
+  NormalizationReason?: string;
   Remarks: string;
   SAP__Messages?: any[];
 }
+
+/**
+ * Normalizes SAP boolean indicator flags ('X', 'Y', '1', 'TRUE' vs '', ' ', 'N', null)
+ */
+export const isSapFlagTrue = (flag?: string | boolean | null): boolean => {
+  if (flag === true) return true;
+  if (!flag || typeof flag !== 'string') return false;
+  const s = flag.trim().toUpperCase();
+  return s === 'X' || s === 'Y' || s === 'TRUE' || s === '1';
+};
+
+/**
+ * Checks whether an isolation point is normalized / restored
+ * Supports SAP standard 'X', 'Y', NormalizedAt timestamp, or positive NormalizationSeq
+ */
+export const isPointNormalized = (item?: Partial<SapIsolationItem> | null): boolean => {
+  if (!item) return false;
+  if (isSapFlagTrue(item.IsNormalized)) return true;
+  if (Boolean(item.NormalizedAt) || Boolean(item.NormalizedBy?.trim())) return true;
+  if (typeof item.NormalizationSeq === 'number' && item.NormalizationSeq > 0) return true;
+  return false;
+};
+
+/**
+ * Checks whether an isolation point has physical isolation confirmed
+ * Supports SAP standard 'X', 'Y', or IsolatedAt timestamp
+ */
+export const isPointIsolated = (item?: Partial<SapIsolationItem> | null): boolean => {
+  if (!item) return false;
+  if (isSapFlagTrue(item.IsIsolated)) return true;
+  if (Boolean(item.IsolatedAt) || Boolean(item.IsolatedBy?.trim())) return true;
+  return false;
+};
+
+/**
+ * Checks whether an isolation point has zero-energy confirmed
+ * Supports SAP standard 'X', 'Y', or ZeroEnergyAt timestamp
+ */
+export const isPointZeroEnergy = (item?: Partial<SapIsolationItem> | null): boolean => {
+  if (!item) return false;
+  if (isSapFlagTrue(item.ZeroEnergyConf)) return true;
+  if (Boolean(item.ZeroEnergyAt) || Boolean(item.ZeroEnergyBy?.trim())) return true;
+  return false;
+};
 
 export interface SapIsolationHeader {
   '@odata.etag'?: string;
@@ -42,6 +89,8 @@ export interface SapIsolationHeader {
   Remarks: string;
   LastChangedAt: string | null;
   description?: string;
+  IsTemplate?: 'X' | ' ' | string; // 'X' when isolation certificate is marked/saved as reusable template
+  isTemplate?: boolean;
   SAP__Messages?: any[];
   _Item: SapIsolationItem[];
 }

@@ -13,6 +13,7 @@ import {
 } from '../../core/ptw/siteProcedure';
 import { SectionCard } from '../../shared/components/SectionCard';
 import { validatePhoneNumber, sanitizePhoneNumber } from '../../core/utils/phoneValidation';
+import { PermitTypeIcon } from '../../shared/components/PermitTypeIcon';
 
 const toggle = (values: string[], value: string) =>
   values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
@@ -149,9 +150,7 @@ export function SiteProcedureStep({
                                     : 'bg-[#006398] text-white'
                                 }`}
                               >
-                                <span className="material-symbols-outlined text-[18px]">
-                                  {cat?.icon || 'fact_check'}
-                                </span>
+                                <PermitTypeIcon icon={cat?.icon} type={cat?.code || typeCode} size={18} />
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -305,8 +304,7 @@ export function SiteProcedureStep({
                             ...plan,
                             fields: {
                               ...plan.fields,
-                              OTHER_NATURE: val,
-                              NOTE: plan.fields.NOTE || val
+                              OTHER_NATURE: val
                             }
                           });
                         }}
@@ -422,10 +420,7 @@ export function SiteProcedureStep({
                             ...plan,
                             fields: {
                               ...plan.fields,
-                              OTHER_TOOLS: val,
-                              NOTE: plan.fields.OTHER_NATURE
-                                ? `${plan.fields.OTHER_NATURE}; Tools: ${val}`
-                                : (plan.fields.NOTE || val)
+                              OTHER_TOOLS: val
                             }
                           });
                         }}

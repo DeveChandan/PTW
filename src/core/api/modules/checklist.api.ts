@@ -392,6 +392,22 @@ class ChecklistApi {
       return cached.data;
     }
 
+    // Try reading from sessionStorage to prevent re-querying across multiple permits in the same session
+    if (!options?.forceRefresh) {
+      try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          const raw = window.sessionStorage.getItem(`ptw_checklist_${sapCode}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && Array.isArray(parsed.data) && now - parsed.timestamp < 30 * 60 * 1000) {
+              this.cache.set(sapCode, { timestamp: parsed.timestamp, data: parsed.data });
+              return parsed.data;
+            }
+          }
+        }
+      } catch {}
+    }
+
     try {
       const filter = `Type eq 'CHECKLIST' and PermitType eq '${sapCode}'`;
       const url = `${ODATA_ENTITIES.CHECKLIST}?$filter=${encodeURIComponent(filter)}`;
@@ -407,6 +423,11 @@ class ChecklistApi {
 
       if (response.data && Array.isArray(response.data.value) && response.data.value.length > 0) {
         this.cache.set(sapCode, { timestamp: now, data: response.data.value });
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.setItem(`ptw_checklist_${sapCode}`, JSON.stringify({ timestamp: now, data: response.data.value }));
+          }
+        } catch {}
         return response.data.value;
       }
 

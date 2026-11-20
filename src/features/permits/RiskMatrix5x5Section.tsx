@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { HazardControlRecord } from '../../core/types/ptw.types';
 import { toast } from '../../shared/context/ToastContext';
+import { JhaTemplatesModal } from './JhaTemplatesModal';
 
 export type RiskMatrixBand = 'GREEN' | 'CYAN' | 'YELLOW' | 'RED';
 
@@ -392,6 +393,9 @@ export interface RiskMatrix5x5SectionProps {
   onMatrixCellClick?: (consequence: number, likelihood: number) => void;
   userPersonResp?: string;
   permitNo?: string;
+  permitType?: string;
+  additionalTypes?: string[];
+  jobDesc?: string;
 }
 
 export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
@@ -412,10 +416,14 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
   handleAddHazard,
   onMatrixCellClick,
   userPersonResp = '',
-  permitNo = ''
+  permitNo = '',
+  permitType = 'COLD',
+  additionalTypes = [],
+  jobDesc = '',
 }) => {
   const [activeDimensionFilter, setActiveDimensionFilter] = useState<'ALL' | 'PEOPLE' | 'ASSET' | 'ENVIRONMENT' | 'REPUTATION'>('ALL');
   const [hoveredCell, setHoveredCell] = useState<{ c: number; l: number } | null>(null);
+  const [showJhaModal, setShowJhaModal] = useState<boolean>(false);
 
   // Active evaluated hazard
   const activeHazard = hazards[selectedHazardIdx] || hazards[0];
@@ -493,6 +501,87 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
     setSelectedMatrixCell({ c: defaultC, l: defaultL });
   };
 
+  // Import individual hazard and controls from JHA standard template
+  const handleImportJhaHazard = (item: {
+    hazardCode: string;
+    hazardDesc: string;
+    controlCode: string;
+    controlDesc: string;
+    score: number;
+    initialLevel: string;
+    activity: string;
+  }) => {
+    const coords = deduceMatrixCoordinates(item.score);
+    const cellDef = getRiskMatrixCell(coords.s, coords.l);
+    const newIdx = hazards.length;
+
+    const newRecord: HazardControlRecord = {
+      PermitNo: permitNo || '',
+      ItemNo: String(newIdx + 1),
+      HazardCode: item.hazardCode,
+      HazardDesc: `${item.hazardDesc} (${item.activity})`.substring(0, 80),
+      ControlCode: item.controlCode,
+      ControlDesc: item.controlDesc.substring(0, 120),
+      RiskLevel: cellDef.sapRiskLevel,
+      ControlStatus: 'OPEN',
+      ResponsibleUser: userPersonResp || '',
+      VerifiedBy: '',
+      VerifiedAt: null,
+      Remarks: `[5x5 S=${coords.s}, L=${coords.l}, Score=${cellDef.score}: ${cellDef.riskLabel.toUpperCase()}] JHA: ${item.hazardDesc}`.substring(0, 255)
+    };
+
+    setHazards(prev => [...prev, newRecord]);
+    setSelectedHazardIdx(newIdx);
+    setSelectedMatrixCell({ c: coords.s, l: coords.l });
+
+    toast.success(
+      `Added "${item.hazardDesc}" (Score ${cellDef.score}) to Permit Hazards`,
+      { title: 'JHA Hazard Imported' }
+    );
+  };
+
+  // Bulk import all evaluated hazards from JHA standard template
+  const handleImportAllJhaHazards = (items: Array<{
+    hazardCode: string;
+    hazardDesc: string;
+    controlCode: string;
+    controlDesc: string;
+    score: number;
+    initialLevel: string;
+    activity: string;
+  }>) => {
+    if (items.length === 0) return;
+
+    const newRecords: HazardControlRecord[] = items.map((item, idx) => {
+      const coords = deduceMatrixCoordinates(item.score);
+      const cellDef = getRiskMatrixCell(coords.s, coords.l);
+      return {
+        PermitNo: permitNo || '',
+        ItemNo: String(hazards.length + idx + 1),
+        HazardCode: item.hazardCode,
+        HazardDesc: `${item.hazardDesc} (${item.activity})`.substring(0, 80),
+        ControlCode: item.controlCode,
+        ControlDesc: item.controlDesc.substring(0, 120),
+        RiskLevel: cellDef.sapRiskLevel,
+        ControlStatus: 'OPEN',
+        ResponsibleUser: userPersonResp || '',
+        VerifiedBy: '',
+        VerifiedAt: null,
+        Remarks: `[5x5 S=${coords.s}, L=${coords.l}, Score=${cellDef.score}: ${cellDef.riskLabel.toUpperCase()}] JHA: ${item.hazardDesc}`.substring(0, 255)
+      };
+    });
+
+    setHazards(prev => [...prev, ...newRecords]);
+    setSelectedHazardIdx(hazards.length);
+    const firstCoords = deduceMatrixCoordinates(items[0].score);
+    setSelectedMatrixCell({ c: firstCoords.s, l: firstCoords.l });
+
+    toast.success(
+      `Imported ${newRecords.length} hazard controls from JHA standard template into Permit Step 6`,
+      { title: 'JHA Template Adopted' }
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* SECTION TOP: Active Hazard Focus & Matrix Assessment Score Banner */}
@@ -533,8 +622,8 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
                   </span>
                 </div>
               ) : (
-                <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-lg border border-rose-200">
-                  No hazards added yet. Add a hazard below to evaluate.
+                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                  Optional: Add a hazard below to evaluate in 5×5 matrix
                 </span>
               )}
             </div>
@@ -592,6 +681,19 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
               <span>{activeCellDef.riskLabel}</span>
               <span className="text-[10px] opacity-80">(SAP: {activeCellDef.sapRiskLevel})</span>
             </div>
+
+            {/* JHA Templates Action Button */}
+            <button
+              id="btn-view-jha-templates"
+              type="button"
+              onClick={() => setShowJhaModal(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer border border-teal-600 hover:shadow-sm active:scale-95 shrink-0"
+              title="Explore GFL Corporate Standard Job Hazard Analysis (JHA / JSA) Templates (Format: HSE/SAF/F/05)"
+            >
+              <span className="material-symbols-outlined text-[18px]">security</span>
+              <span>View JHA Templates</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-teal-900/60 text-[10px] font-mono font-bold">11</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1057,7 +1159,7 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
             <span className="material-symbols-outlined text-[36px] text-slate-300">warning</span>
             <p className="text-xs font-semibold text-slate-700">No hazard controls have been added yet</p>
             <p className="text-[11px] text-slate-400">
-              Use the form below or pick a preset to add mandatory work safety hazards.
+              Use the form below or pick a preset to add work safety hazards.
             </p>
           </div>
         ) : (
@@ -1231,12 +1333,22 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
 
       {/* QUICK PRESET TEMPLATES */}
       <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-2.5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px] text-amber-600">bolt</span>
             <span>Quick-Load Industry Hazard Presets:</span>
           </span>
-          <span className="text-[11px] text-slate-400">Click to load into form</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400 hidden sm:inline">Click to load into form</span>
+            <button
+              type="button"
+              onClick={() => setShowJhaModal(true)}
+              className="inline-flex items-center gap-1 px-3 py-1 bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-300 rounded-xl font-bold text-xs transition cursor-pointer shadow-2xs shrink-0"
+            >
+              <span className="material-symbols-outlined text-[15px] text-teal-700">menu_book</span>
+              <span>Browse All JHA Templates (11 Standards)</span>
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
@@ -1319,11 +1431,13 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
             <select
               value={newHazardCode}
               onChange={(e) => {
-                setNewHazardCode(e.target.value);
-                setNewControlCode(`${e.target.value}01`);
+                const val = e.target.value;
+                setNewHazardCode(val);
+                setNewControlCode(val ? `${val}01` : '');
               }}
               className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-xl font-mono text-xs"
             >
+              <option value="">-- Select Hazard Code --</option>
               <option value="FIRE">FIRE - Ignition &amp; Welding</option>
               <option value="GAS">GAS - Flammable Gas</option>
               <option value="ELEC">ELEC - High Voltage</option>
@@ -1331,12 +1445,13 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
               <option value="TOXIC">TOXIC - Chemical Vapor</option>
               <option value="MECH">MECH - Mechanical / Rotating</option>
               <option value="CONF">CONF - Confined Space Engulfment</option>
+              <option value="GEN">GEN - General Workplace Hazard</option>
             </select>
           </div>
 
           <div>
             <label className="block text-slate-600 font-semibold mb-1">
-              Control Code <span className="text-slate-400 font-mono text-[10px]">({newControlCode})</span>
+              Control Code {newControlCode && <span className="text-slate-400 font-mono text-[10px]">({newControlCode})</span>}
             </label>
             <input
               type="text"
@@ -1348,7 +1463,7 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
           </div>
 
           <div>
-            <label className="block text-slate-600 font-semibold mb-1">Hazard Description *</label>
+            <label className="block text-slate-600 font-semibold mb-1">Hazard Description</label>
             <input
               id="field-hazard-desc"
               type="text"
@@ -1360,7 +1475,7 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
           </div>
 
           <div>
-            <label className="block text-slate-600 font-semibold mb-1">Control Description *</label>
+            <label className="block text-slate-600 font-semibold mb-1">Control Description</label>
             <input
               id="field-control-desc"
               type="text"
@@ -1384,6 +1499,19 @@ export const RiskMatrix5x5Section: React.FC<RiskMatrix5x5SectionProps> = ({
           </div>
         </div>
       </div>
+
+      {/* GFL Corporate JHA Templates Modal */}
+      <JhaTemplatesModal
+        isOpen={showJhaModal}
+        onClose={() => setShowJhaModal(false)}
+        permitType={permitType}
+        additionalTypes={additionalTypes}
+        jobDesc={jobDesc}
+        permitNo={permitNo}
+        onImportHazard={handleImportJhaHazard}
+        onImportAllHazards={handleImportAllJhaHazards}
+        existingHazardsCount={hazards.length}
+      />
     </div>
   );
 };

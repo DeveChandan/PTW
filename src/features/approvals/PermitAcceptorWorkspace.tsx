@@ -16,6 +16,7 @@ interface PermitAcceptorWorkspaceProps {
 }
 
 type FilterStatus = 'PENDING_ACCEPTANCE' | 'ALL' | 'ACCEPTED' | 'REJECTED';
+type DatePreset = 'THIS_MONTH' | 'LAST_WEEK' | 'TODAY' | 'LAST_30_DAYS' | 'ALL' | 'CUSTOM';
 type DossierTab = 'clearance' | 'overview' | 'hazards' | 'gas' | 'approvals';
 type MobileView = 'queue' | 'detail';
 
@@ -94,9 +95,21 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
   const [selectedPermitNo, setSelectedPermitNo] = useState<string>(initialPermitNo || '');
   const [selectedPermit, setSelectedPermit] = useState<PermitDeepInsertResponse | null>(null);
 
-  // Pagination & Plant Summary State
+  // Creation Date & Pagination State (matching SAP OData V4 Erdat filter & $top=50&$count=true)
+  const initialMonthRange = useMemo(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const firstDay = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+    const lastDayObj = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const lastDay = `${lastDayObj.getFullYear()}-${pad(lastDayObj.getMonth() + 1)}-${pad(lastDayObj.getDate())}`;
+    return { from: firstDay, to: lastDay };
+  }, []);
+
+  const [datePreset, setDatePreset] = useState<DatePreset>('THIS_MONTH');
+  const [dateFrom, setDateFrom] = useState<string>(initialMonthRange.from);
+  const [dateTo, setDateTo] = useState<string>(initialMonthRange.to);
   const [offset, setOffset] = useState<number>(0);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [plantSummary, setPlantSummary] = useState<PlantPermitSummary | null>(null);
 
@@ -143,11 +156,16 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
     };
   };
 
-  // Load Plant-wide aggregate counts for KPI cards
-  const loadPlantSummary = async (targetPlant: string, signal?: AbortSignal) => {
+  // Load Plant-wide aggregate counts for KPI cards synchronized with date boundaries
+  const loadPlantSummary = async (
+    targetPlant: string,
+    signal?: AbortSignal,
+    fFrom = dateFrom,
+    fTo = dateTo
+  ) => {
     if (!targetPlant?.trim()) return;
     try {
-      const summary = await sitePermitApi.getPlantSummary(targetPlant, signal);
+      const summary = await sitePermitApi.getPlantSummary(targetPlant, signal, false, fFrom, fTo);
       if (!signal?.aborted) {
         setPlantSummary(summary);
       }
@@ -156,12 +174,55 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
     }
   };
 
+  // Helper to apply quick creation date presets matching SAP OData V4 Erdat filter
+  const applyDatePreset = (preset: DatePreset) => {
+    setDatePreset(preset);
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const toYMD = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    let from = '';
+    let to = '';
+
+    if (preset === 'TODAY') {
+      from = toYMD(now);
+      to = toYMD(now);
+    } else if (preset === 'LAST_WEEK') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 7);
+      from = toYMD(past);
+      to = toYMD(now);
+    } else if (preset === 'THIS_MONTH') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      from = toYMD(firstDay);
+      to = toYMD(lastDay);
+    } else if (preset === 'LAST_30_DAYS') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 30);
+      from = toYMD(past);
+      to = toYMD(now);
+    } else if (preset === 'ALL') {
+      from = '';
+      to = '';
+    }
+
+    setDateFrom(from);
+    setDateTo(to);
+    setOffset(0);
+    void loadPermits(0, filterStatus, pageSize, searchQuery, from, to, plant);
+    void loadPlantSummary(plant, undefined, from, to);
+  };
+
   // Load Permit List from SAP with pagination and server-side filtering
   const loadPermits = async (
     targetOffset = offset,
     targetStatus = filterStatus,
     targetPageSize = pageSize,
-    targetSearch = searchQuery
+    targetSearch = searchQuery,
+    targetDateFrom = dateFrom,
+    targetDateTo = dateTo,
+    targetPlant = plant
   ) => {
     setLoadingList(true);
     try {
@@ -171,20 +232,42 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      let sapStatus = 'ALL';
+      // Map filterStatus to SAP OData filter parameter (excluding non-relevant CLSD/CLOS/CANC)
+      let sapStatus = 'ACCEPTOR_QUEUE';
       if (targetStatus === 'PENDING_ACCEPTANCE') sapStatus = 'APPR';
-      else if (targetStatus === 'ACCEPTED') sapStatus = 'ACCEPTED';
+      else if (targetStatus === 'ACCEPTED') sapStatus = 'ACCEPTED_ACTIVE';
       else if (targetStatus === 'REJECTED') sapStatus = 'REJT';
+      else if (targetStatus === 'ALL') sapStatus = 'ACCEPTOR_QUEUE';
 
-      const data = await sitePermitApi.list(
-        plant,
-        targetSearch,
-        targetOffset,
-        controller.signal,
-        'ALL',
-        sapStatus,
-        targetPageSize
-      );
+      const data = await sitePermitApi.list({
+        plant: targetPlant === 'ALL' ? '' : targetPlant,
+        search: targetSearch,
+        skip: targetOffset,
+        top: targetPageSize,
+        signal: controller.signal,
+        type: 'ALL',
+        status: sapStatus,
+        dateFrom: targetDateFrom,
+        dateTo: targetDateTo,
+        select: [
+          'Permit_No',
+          'PermitType',
+          'Status',
+          'JobDesc',
+          'AreaLoc',
+          'Werks',
+          'Erdat',
+          'Erzet',
+          'ValidFromD',
+          'ValidFromT',
+          'ValidToD',
+          'ValidToT',
+          'SupvName',
+          'Aenam',
+          'PermitIssuer'
+        ],
+        expand: ['_WorkType']
+      });
       setPermits(data);
       setTotalCount(typeof data.totalCount === 'number' ? data.totalCount : data.length);
       setOffset(targetOffset);
@@ -199,7 +282,8 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
         }
       }
     } catch (err: unknown) {
-      if (err instanceof Error && err.name !== 'AbortError') {
+      const isCanceled = err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError' || (err as any).code === 'ERR_CANCELED');
+      if (!isCanceled) {
         setSapConnected(false);
         setPermits([]);
         setSelectedPermitNo('');
@@ -230,16 +314,6 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
       const detail = await sitePermitApi.read(permitNo);
       setSelectedPermit(detail);
       setSapConnected(true);
-
-      // Fetch live approvals directly from SAP to get latest approval chain
-      try {
-        const liveApprovals = await permitApproverApi.getApprovals(permitNo);
-        if (liveApprovals && liveApprovals.length > 0) {
-          setSelectedPermit((prev) => (prev ? { ...prev, _Approval: liveApprovals } : prev));
-        }
-      } catch {
-        // Continue with local approvals if live query fails
-      }
     } catch (err: unknown) {
       setSapConnected(false);
       setDetailSyncWarning(
@@ -254,8 +328,8 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
 
   useEffect(() => {
     setOffset(0);
-    void loadPermits(0, filterStatus, pageSize, searchQuery);
-    void loadPlantSummary(plant);
+    void loadPermits(0, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
+    void loadPlantSummary(plant, undefined, dateFrom, dateTo);
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -319,8 +393,8 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
 
       // Reload detail and list from SAP backend
       await loadPermitDetail(selectedPermit.Permit_No);
-      void loadPermits(offset, filterStatus, pageSize, searchQuery);
-      void loadPlantSummary(plant);
+      void loadPermits(offset, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
+      void loadPlantSummary(plant, undefined, dateFrom, dateTo);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to submit permit acceptance to SAP', {
         title: 'Acceptance Failed'
@@ -369,8 +443,8 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
 
       // Reload detail and list from SAP backend
       await loadPermitDetail(selectedPermit.Permit_No);
-      void loadPermits(offset, filterStatus, pageSize, searchQuery);
-      void loadPlantSummary(plant);
+      void loadPermits(offset, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
+      void loadPlantSummary(plant, undefined, dateFrom, dateTo);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to reject permit in SAP', {
         title: 'Acceptor Rejection Failed'
@@ -383,7 +457,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
   const handleFilterChange = (newStatus: FilterStatus) => {
     setFilterStatus(newStatus);
     setOffset(0);
-    void loadPermits(0, newStatus, pageSize, searchQuery);
+    void loadPermits(0, newStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
   };
 
   // Current page permits (already filtered and paginated server-side by SAP OData)
@@ -409,6 +483,15 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
 
   const totalPlantCount = useMemo(() => {
     if (plantSummary?.total !== undefined) return plantSummary.total;
+    return totalCount > 0 ? totalCount : permits.length;
+  }, [plantSummary, totalCount, permits]);
+
+  const queueTotalCount = useMemo(() => {
+    if (plantSummary?.statusCounts) {
+      const sc = plantSummary.statusCounts;
+      // Acceptor queue: APPR + ACCP + ISSU + REJT (all permits relevant to Acceptor, excluding CLSD/CLOS/CANC)
+      return (sc.APPR || 0) + (sc.ACCP || 0) + (sc.ISSU || 0) + (sc.REJT || 0);
+    }
     return totalCount > 0 ? totalCount : permits.length;
   }, [plantSummary, totalCount, permits]);
 
@@ -604,6 +687,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                 onChange={(e) => setPlant(e.target.value)}
                 className="bg-transparent font-bold text-slate-900 outline-none cursor-pointer"
               >
+                <option value="ALL">All Plants</option>
                 <option value="1002">1002 - Dahej Site</option>
                 <option value="1001">1001 - Head Office</option>
                 <option value="1003">1003 - Ranjitnagar</option>
@@ -613,8 +697,11 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
             <button
               type="button"
               disabled={loadingList}
-              onClick={() => void loadPermits()}
-              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 transition active:scale-95 disabled:opacity-50 flex items-center justify-center"
+              onClick={() => {
+                void loadPermits(offset, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
+                void loadPlantSummary(plant, undefined, dateFrom, dateTo);
+              }}
+              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 transition active:scale-95 disabled:opacity-50 flex items-center justify-center cursor-pointer"
               title="Refresh SAP Queue"
             >
               <span className={`material-symbols-outlined text-[18px] ${loadingList ? 'animate-spin' : ''}`}>
@@ -739,7 +826,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     setOffset(0);
-                    void loadPermits(0, filterStatus, pageSize, searchQuery);
+                    void loadPermits(0, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
                   }
                 }}
                 className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:bg-white focus:border-teal-600 focus:outline-none transition-colors"
@@ -750,13 +837,85 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                   onClick={() => {
                     setSearchQuery('');
                     setOffset(0);
-                    void loadPermits(0, filterStatus, pageSize, '');
+                    void loadPermits(0, filterStatus, pageSize, '', dateFrom, dateTo, plant);
                   }}
-                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">close</span>
                 </button>
               )}
+            </div>
+
+            {/* Creation Date Filter (Erdat) matching SAP OData V4 Erdat ge ... and Erdat le ... */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[15px] text-teal-700">calendar_month</span>
+                  <span>Created:</span>
+                </span>
+                {datePreset !== 'ALL' && (
+                  <span className="text-[10px] text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full font-mono font-bold border border-teal-200">
+                    {dateFrom && dateTo ? `${dateFrom} → ${dateTo}` : datePreset}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                {[
+                  { id: 'ALL', label: 'All Dates' },
+                  { id: 'LAST_WEEK', label: 'Last 1 Week' },
+                  { id: 'TODAY', label: 'Today' },
+                  { id: 'THIS_MONTH', label: 'This Month' },
+                  { id: 'LAST_30_DAYS', label: 'Last 30 Days' }
+                ].map((p) => {
+                  const isSelected = datePreset === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => applyDatePreset(p.id as any)}
+                      className={`px-2 py-0.5 rounded-lg font-semibold transition cursor-pointer border ${
+                        isSelected
+                          ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date Pickers */}
+              <div className="flex items-center gap-1 text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400">From:</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDatePreset('CUSTOM');
+                    setDateFrom(val);
+                    setOffset(0);
+                    void loadPermits(0, filterStatus, pageSize, searchQuery, val, dateTo, plant);
+                    void loadPlantSummary(plant, undefined, val, dateTo);
+                  }}
+                  className="text-slate-700 bg-transparent font-mono outline-hidden cursor-pointer"
+                />
+                <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">To:</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDatePreset('CUSTOM');
+                    setDateTo(val);
+                    setOffset(0);
+                    void loadPermits(0, filterStatus, pageSize, searchQuery, dateFrom, val, plant);
+                    void loadPlantSummary(plant, undefined, dateFrom, val);
+                  }}
+                  className="text-slate-700 bg-transparent font-mono outline-hidden cursor-pointer"
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-semibold text-slate-600">
@@ -764,7 +923,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                 [
                   ['PENDING_ACCEPTANCE', `Awaiting (${pendingCount})`],
                   ['ACCEPTED', `Accepted (${acceptedCount})`],
-                  ['ALL', `All (${totalPlantCount})`]
+                  ['ALL', `Active Queue (${queueTotalCount})`]
                 ] as const
               ).map(([key, label]) => (
                 <button
@@ -879,13 +1038,15 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                     onChange={(e) => {
                       const newSize = Number(e.target.value);
                       setPageSize(newSize);
-                      void loadPermits(0, filterStatus, newSize, searchQuery);
+                      setOffset(0);
+                      void loadPermits(0, filterStatus, newSize, searchQuery, dateFrom, dateTo, plant);
                     }}
                     className="bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-0.5 text-[11px] font-mono font-bold text-slate-700 focus:outline-none focus:border-teal-600 cursor-pointer"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
+                    <option value={100}>100</option>
                   </select>
                 </div>
               </div>
@@ -895,7 +1056,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                   <button
                     type="button"
                     disabled={offset === 0 || loadingList}
-                    onClick={() => void loadPermits(0, filterStatus, pageSize, searchQuery)}
+                    onClick={() => void loadPermits(0, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant)}
                     title="First Page"
                     className="p-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition cursor-pointer disabled:cursor-not-allowed"
                   >
@@ -905,7 +1066,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                   <button
                     type="button"
                     disabled={offset === 0 || loadingList}
-                    onClick={() => void loadPermits(Math.max(0, offset - pageSize), filterStatus, pageSize, searchQuery)}
+                    onClick={() => void loadPermits(Math.max(0, offset - pageSize), filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant)}
                     title="Previous Page"
                     className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white font-medium transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-0.5"
                   >
@@ -922,7 +1083,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                   <button
                     type="button"
                     disabled={offset + pageSize >= totalCount || loadingList || permits.length === 0}
-                    onClick={() => void loadPermits(offset + pageSize, filterStatus, pageSize, searchQuery)}
+                    onClick={() => void loadPermits(offset + pageSize, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant)}
                     title="Next Page"
                     className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white font-medium transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-0.5"
                   >
@@ -935,7 +1096,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                     disabled={offset + pageSize >= totalCount || loadingList || permits.length === 0}
                     onClick={() => {
                       const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-                      void loadPermits((totalPages - 1) * pageSize, filterStatus, pageSize, searchQuery);
+                      void loadPermits((totalPages - 1) * pageSize, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
                     }}
                     title="Last Page"
                     className="p-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition cursor-pointer disabled:cursor-not-allowed"
@@ -1606,7 +1767,7 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                                 <span className="font-bold text-slate-900">{g.LelPct}%</span>
                               </div>
                               <div className="p-2 rounded-xl bg-white border border-slate-200">
-                                <span className="text-[9px] text-slate-400 block">CO (&lt;25ppm)</span>
+                                <span className="text-[9px] text-slate-400 block">CO2 (&lt;5000ppm)</span>
                                 <span className="font-bold text-slate-900">{g.CoVal} ppm</span>
                               </div>
                               <div className="p-2 rounded-xl bg-white border border-slate-200">
@@ -1631,20 +1792,31 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
                       </div>
                     ) : (
                       <div className="space-y-2.5">
-                        {selectedPermit._Approval.map((app, idx) => (
-                          <div key={idx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
-                            <div>
-                              <span className="font-bold text-slate-900 block">{app.RoleId || app.Stage}</span>
-                              <span className="text-[11px] text-slate-500 font-mono">Signatory: {app.SignedBy || '—'}</span>
+                        {[...selectedPermit._Approval].sort((a, b) => {
+                          const timeA = `${(a.ActionDate || '').trim().slice(0, 10)} ${(a.ActionTime || '').trim()}`.trim();
+                          const timeB = `${(b.ActionDate || '').trim().slice(0, 10)} ${(b.ActionTime || '').trim()}`.trim();
+                          if (timeA && timeB && timeA !== timeB) return timeB.localeCompare(timeA);
+                          if (timeA && !timeB) return -1;
+                          if (!timeA && timeB) return 1;
+                          return (Number(b.CycleNo) || 1) - (Number(a.CycleNo) || 1);
+                        }).map((app, idx) => {
+                          const norm = (app.Action || '').toUpperCase().trim();
+                          const actionLabel = norm === 'AP' || norm === 'APPROVED' ? 'APPROVED' : norm === 'RJ' || norm === 'REJECTED' ? 'REJECTED' : norm === 'VR' || norm === 'VERIFIED' ? 'VERIFIED' : norm === 'CL' || norm === 'CLOSED' || norm === 'CLSD' ? 'CLOSED' : app.Action || 'SIGNED';
+                          return (
+                            <div key={idx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                              <div>
+                                <span className="font-bold text-slate-900 block">{app.RoleId || app.Stage}</span>
+                                <span className="text-[11px] text-slate-500 font-mono">Signatory: {app.SignedBy || '—'}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${norm === 'CL' || norm === 'CLOSED' || norm === 'CLSD' ? 'bg-teal-50 text-teal-800 border-teal-300' : 'bg-white border-slate-300'}`}>
+                                  {actionLabel}
+                                </span>
+                                <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{app.ActionDate ? `${app.ActionDate} ${app.ActionTime || ''}`.trim() : '—'}</span>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white border border-slate-300">
-                                {app.Action === 'AP' ? 'APPROVED' : app.Action === 'RJ' ? 'REJECTED' : app.Action || 'SIGNED'}
-                              </span>
-                              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{app.ActionDate || '—'}</span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

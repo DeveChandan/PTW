@@ -9,6 +9,7 @@ const result = await build({
       export {
         getValidationTarget,
         buildPlantSelectOptions,
+        getBlankPermitDefaultPrerequisites,
         DEFAULT_PLANT_CODE,
         BLANK_PERMIT_AUFNR,
         BLANK_PERMIT_COMMENT
@@ -34,6 +35,7 @@ new Function('require', 'module', 'exports', result.outputFiles[0].text)(
 const {
   getValidationTarget,
   buildPlantSelectOptions,
+  getBlankPermitDefaultPrerequisites,
   DEFAULT_PLANT_CODE,
   BLANK_PERMIT_AUFNR,
   BLANK_PERMIT_COMMENT
@@ -188,6 +190,11 @@ test('Blank Permit & Plant (Werks) dropdown defaults, options, and validation ma
   assert.equal(BLANK_PERMIT_AUFNR, 'BLANK PERMIT');
   assert.ok(BLANK_PERMIT_AUFNR.length <= 12, 'SAP PermitInfo.Aufnr maxLength is 12');
   assert.ok(BLANK_PERMIT_COMMENT.includes('Blank Permit'));
+
+  // Blank permits always default Gas Testing and Isolation Required to "No"
+  const blankPrereqs = getBlankPermitDefaultPrerequisites();
+  assert.equal(blankPrereqs.gasTestRequired, 'N');
+  assert.equal(blankPrereqs.isolationRequired, ' ');
 
   assert.deepEqual(buildPlantSelectOptions(), ['1001', '1002']);
   assert.deepEqual(buildPlantSelectOptions('1002'), ['1001', '1002']);

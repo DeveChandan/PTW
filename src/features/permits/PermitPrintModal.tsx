@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
 import { PermitAnnexPrintView } from './PermitAnnexPrintView';
 import { PermitJhaPrintView } from './PermitJhaPrintView';
@@ -111,12 +112,12 @@ export const PermitPrintModal: React.FC<PermitPrintModalProps> = ({
   const totalPages = permitPages + jhaPages;
   const additionalJhasCount = applicableJhas.filter((j) => !j.isPrimary).length;
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="print-modal-title"
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex flex-col overflow-hidden animate-in fade-in duration-200 print:bg-white print:static print:inset-auto print:z-auto print:overflow-visible print:block print:p-0 print:m-0 print:w-full print:h-auto print:min-h-0"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] bg-black/85 backdrop-blur-md flex flex-col overflow-hidden animate-in fade-in duration-200 print:bg-white print:static print:inset-auto print:z-auto print:overflow-visible print:block print:p-0 print:m-0 print:w-full print:h-auto print:min-h-0"
     >
       {/* 1. Modal Command Header Bar */}
       <div className="no-print bg-slate-900 text-white px-4 py-3 sm:px-6 flex flex-col gap-2.5 shrink-0 border-b border-slate-700/80 shadow-md">
@@ -395,4 +396,6 @@ export const PermitPrintModal: React.FC<PermitPrintModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

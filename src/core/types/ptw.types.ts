@@ -24,9 +24,12 @@ export type PermitStatusCode =
   | 'ACCP'  // Accepted by Permit Acceptor (Section K)
   | 'ISSU' | 'ISSD' // Issued / Authorized for Execution
   | 'ACTV'  // Active in Field (Area Operator Cleared)
+  | 'ACCL'  // Acceptor Closed / Handover Confirmed (Work Complete)
+  | 'AROP'  // Area Operator Cleared / Site Restoration Confirmed
+  | 'CLSD'  // Final Closed / Closed in SAP
   | 'SUSP'  // Suspended (Safety Stop)
   | 'CANC'  // Cancelled
-  | 'CLOS'; // Closed / Archival
+  | 'CLOS'; // Closed / Archival (Legacy Alias for CLSD)
 
 export type IndicatorYN = 'Y' | 'N';
 
@@ -65,6 +68,8 @@ export interface PermitInfoRecord {
   Qmart?: string; // Notification type, MaxLength 2
   Qmtxt?: string; // Notification short text, MaxLength 40
   Qmdat?: string | null; // Notification date, Edm.Date
+  Ktext?: string; // Maintenance Order short text (KTEXT), MaxLength 40
+  KTEXT?: string; // Maintenance Order short text uppercase alias
 
   PersonResp: string; // Maintenance Person Responsible, MaxLength 12
   PlannerGroup: string; // Maintenance Planner Group, MaxLength 3
@@ -145,6 +150,11 @@ export interface PermitInfoRecord {
 
   LastChangedAt: string | null; // UTC Timestamp
 
+  // Permit Closure & Handover Flags
+  WorkCompleted?: 'X' | ' ' | string; // 'X' when Acceptor confirms work completion
+  ClosedByAcceptor?: 'X' | ' ' | string; // 'X' when Acceptor completes closure (ACTV -> ACCL)
+  ClosedByAreaOpp?: 'X' | ' ' | string; // 'X' when Area Operator completes closure (ACCL -> AROP)
+
   // Special Safety Roles & Plan References
   FireWatchName?: string; // Fire Watch Person Name, MaxLength 60
   FireWatchContact?: string; // Fire Watch Contact Phone (default "0"), MaxLength 20
@@ -152,6 +162,10 @@ export interface PermitInfoRecord {
   StandByContact?: string; // Standby Person Contact Phone (default "0"), MaxLength 20
   ChemicalContent?: string; // Chemicals / Contents of line or equipment, MaxLength 100
   RiggingPlanRescuePlan?: string; // Rigging Plan / Rescue Plan Reference, MaxLength 100
+
+  // Blank & Template Indicators (SAP OData V4)
+  IsBlank?: 'X' | ' ' | string; // 'X' when created as blank permit (without reference)
+  IsTemplate?: 'X' | ' ' | string; // 'X' when permit is marked/saved as reusable template
 
   SAP__Messages?: SapMessageItem[];
 }
@@ -301,16 +315,23 @@ export interface IsolationRecord {
 }
 
 /**
- * AttachmentType
+ * AttachmentType (SAP DMS Object Types & Properties)
  */
+export type AttachmentObjectType = 'PTW' | 'PERMIT' | 'ISOLATION' | 'ISO' | 'GASTEST' | 'GAS';
+
 export interface AttachmentRecord {
-  PermitNo: string; // Key, MaxLength 10
   AttachmentId?: string; // Key, Computed in SAP, MaxLength 46
+  ObjectType?: AttachmentObjectType | string; // Key, 'PTW' | 'PERMIT' | 'ISOLATION' | 'GASTEST'
+  ObjectId?: string; // Linked business key (e.g. 'PTW-00004', 'PTW0000108', 'ISO0000051', 'PTW0000108/001')
+  PermitNo?: string; // Backward compatibility alias
   FileName: string; // File Name, MaxLength 255
   MimeType: string; // MIME type, MaxLength 128
-  DocumentRef: string; // Document Reference, MaxLength 100
+  FileSize?: number; // Size in bytes
+  DocumentRef?: string; // Document Reference, MaxLength 100
+  CrepId?: string; // DMS Content Repository ID
   UploadedBy?: string; // User Name, MaxLength 12
   UploadedAt?: string | null; // UTC Timestamp
+  FileContent?: any; // Media stream reference
   SAP__Messages?: SapMessageItem[];
 }
 
@@ -358,17 +379,21 @@ export interface ShiftRenewalRecord {
 }
 
 /**
- * AuditLogType
+ * AuditLogType (SAP CDS entity AuditLog / ZPTW_AUDIT_LOG)
+ * Service Entity: <EntityType Name="AuditLogType">
+ * Key: AuditId (MaxLength 32)
  */
 export interface AuditLogRecord {
-  PermitNo: string; // Key, MaxLength 10 (e.g. PTW0000085)
-  AuditId: string; // Key, GUID / hex identifier (e.g. 025C0C2FEE661FE1B4D6795455BDE994)
-  Action: string; // CREATE, GAS_CREATE, UPDATE, APPROVE, MaxLength 30
-  OldStatus?: string; // MaxLength 10
-  NewStatus?: string; // MaxLength 10
-  Actor: string; // User Name, MaxLength 12
-  EventAt: string | null; // UTC Timestamp (e.g. 2026-10-28T09:41:46.966958Z)
-  Comments?: string; // Comments, MaxLength 255
+  AuditId: string; // Key, GUID / hex identifier, MaxLength 32
+  Action: string; // MaxLength 30 (CREATE, WORK_COMPLETE, ACCEPTOR_CLOSE, AREA_OPERATOR_CLOSE, ISSUER_CLOSE, APPROVE, NORMALIZE)
+  PermitNo?: string; // MaxLength 10 (parent permit reference, e.g. PTW0000104; ignored in table UI per user instruction)
+  ObjectType?: string; // MaxLength 10 (PERMIT, ISOLATION, ISOL_ITEM)
+  ObjectId?: string; // MaxLength 40 (PTW0000104, ISO0000051, ISO0000051/1)
+  OldStatus?: string; // MaxLength 10 (present in DB table ZPTW_AUDIT_LOG; ignored in table UI per user instruction)
+  NewStatus?: string; // MaxLength 10 (INTD, ACTV, ACCL, AROP, CLSD, CRTD, ISOL, NORM)
+  Actor: string; // User Name, MaxLength 12 (USER_ISSU, USER_ACCP, etc.)
+  EventAt: string | null; // UTC Timestamp, Precision 7 (e.g. 2026-10-28T09:41:46.966958Z)
+  Comments?: string; // Comments / Remarks
   SAP__Messages?: SapMessageItem[];
 }
 

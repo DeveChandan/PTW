@@ -64,6 +64,40 @@ export const TOOL_CODE_MAP: Record<string, string> = {
   'Other': 'OTHER'
 };
 
+export const REVERSE_NATURE_CODE_MAP: Record<string, string> = Object.entries(NATURE_CODE_MAP).reduce(
+  (acc, [desc, code]) => {
+    acc[code.toUpperCase()] = desc;
+    return acc;
+  },
+  {} as Record<string, string>
+);
+
+export const REVERSE_TOOL_CODE_MAP: Record<string, string> = Object.entries(TOOL_CODE_MAP).reduce(
+  (acc, [desc, code]) => {
+    acc[code.toUpperCase()] = desc;
+    return acc;
+  },
+  {} as Record<string, string>
+);
+
+export function fromNatwCode(code?: string, desc?: string): string {
+  if (desc && NATURE_OF_WORK.includes(desc.trim())) return desc.trim();
+  if (code && REVERSE_NATURE_CODE_MAP[code.trim().toUpperCase()]) {
+    return REVERSE_NATURE_CODE_MAP[code.trim().toUpperCase()];
+  }
+  if (desc?.toLowerCase().startsWith('other') || code?.toUpperCase() === 'OTHER') return 'Other';
+  return desc?.trim() || '';
+}
+
+export function fromEquipCode(code?: string, desc?: string): string {
+  if (desc && TOOLS.includes(desc.trim())) return desc.trim();
+  if (code && REVERSE_TOOL_CODE_MAP[code.trim().toUpperCase()]) {
+    return REVERSE_TOOL_CODE_MAP[code.trim().toUpperCase()];
+  }
+  if (desc?.toLowerCase().startsWith('other') || code?.toUpperCase() === 'OTHER') return 'Other';
+  return desc?.trim() || '';
+}
+
 export function toNatwCode(desc: string): string {
   if (!desc) return '';
   const trimmed = desc.trim();
@@ -114,12 +148,12 @@ export const PREPARATIONS: Preparation[] = [
   { code: 'FP01', label: 'Hydraulic / pneumatic pressure released and parts supported', applies: ['HYPN', 'HYD_PNEU'], page: 32 },
 ];
 export const PLAN_FIELDS = [
-  { code: 'JSA1', label: 'Signed JSA document reference', required: true, reference: true },
-  { code: 'JSA2', label: 'JSA team / joint site visit notes', required: true },
-  { code: 'SHFT', label: 'Planned shift end (site time)', required: true, datetime: true },
-  { code: 'ISSR', label: 'Proposed issuer SAP user ID', required: true, user: true },
-  { code: 'ACCP', label: 'Proposed acceptor SAP user ID', required: true, user: true },
-  { code: 'OPER', label: 'Proposed area operator SAP user ID', required: true, user: true },
+  { code: 'JSA1', label: 'Signed JSA document reference', reference: true },
+  { code: 'JSA2', label: 'JSA team / joint site visit notes' },
+  { code: 'SHFT', label: 'Planned shift end (site time)', datetime: true },
+  { code: 'ISSR', label: 'Proposed issuer SAP user ID', user: true },
+  { code: 'ACCP', label: 'Proposed acceptor SAP user ID', user: true },
+  { code: 'OPER', label: 'Proposed area operator SAP user ID', user: true },
   { code: 'AP01', label: 'Proposed Approver I SAP user ID', user: true },
   { code: 'AP02', label: 'Proposed Approver II SAP user ID', user: true },
   { code: 'AP03', label: 'Proposed Approver III SAP user ID', user: true },
@@ -136,8 +170,26 @@ export const PLAN_FIELDS = [
   { code: 'CHEM', label: 'Chemicals / contents of line or equipment (ChemicalContent)', applies: ['LINE', 'LBRK', 'CONF', 'CSE'] },
   { code: 'RADP', label: 'Supporting radiation permit reference', applies: ['RAD'], reference: true },
   { code: 'OTHR', label: 'Other work scope and controls', applies: ['OTHER'], required: true },
-  { code: 'NOTE', label: 'Other tools / nature of work and preparation notes' },
 ] as const;
+
+export const SECTION_D_FIELD_CODES = [
+  'JSA1',
+  'JSA2',
+  'SHFT',
+  'ISSR',
+  'ACCP',
+  'OPER',
+  'AP01',
+  'AP02',
+  'AP03',
+  'DIST'
+] as const;
+
+export type SectionDFieldCode = typeof SECTION_D_FIELD_CODES[number];
+
+export function isSectionDField(code: string): boolean {
+  return (SECTION_D_FIELD_CODES as readonly string[]).includes(code);
+}
 
 export interface PlanCheck { response: '' | 'YES' | 'NO' | 'NA'; remarks: string }
 export interface SitePlan {
@@ -203,12 +255,6 @@ export function sitePlanRows(primary: string, plan: SitePlan): SafetyRecord[] {
     let value = (plan.fields[field.code] || '').trim();
     if (field.code === 'FWNM' && !value && plan.fields.FWAT) value = plan.fields.FWAT.trim();
     if (field.code === 'SBNM' && !value && plan.fields.STBY) value = plan.fields.STBY.trim();
-    if (field.code === 'NOTE' && !value) {
-      value = [
-        plan.fields.OTHER_NATURE ? `Nature: ${plan.fields.OTHER_NATURE.trim()}` : '',
-        plan.fields.OTHER_TOOLS ? `Tools: ${plan.fields.OTHER_TOOLS.trim()}` : ''
-      ].filter(Boolean).join('; ');
-    }
     const record = row(field.code, field.label, value);
     if ('reference' in field) record.ReferenceNo = value;
     rows.push(record);
@@ -291,15 +337,30 @@ export function validateSitePermit(payload: PermitDeepInsertPayload): void {
   }
 
   if (!rows.some(record => record.ItemCode === 'NATR') || !rows.some(record => record.ItemCode === 'TOOL')) throw new Error('Select the nature of work and tools / equipment.');
-  if ((rows.some(record => ['NATR', 'TOOL'].includes(record.ItemCode) && (record.Remarks === 'Other' || record.Remarks.startsWith('Other')))) && !value('NOTE')) throw new Error('Describe the other nature of work or tools in preparation notes.');
-  if (value('ISSR').toUpperCase() === value('ACCP').toUpperCase()) throw new Error('Issuer and acceptor must be different people.');
+  if (rows.some(record => ['NATR', 'TOOL'].includes(record.ItemCode) && record.Remarks === 'Other') && !value('NOTE')) {
+    throw new Error('Describe the other nature of work or tools in preparation notes.');
+  }
+  if (value('ISSR') && value('ACCP') && value('ISSR').toUpperCase() === value('ACCP').toUpperCase()) {
+    throw new Error('Issuer and acceptor must be different people.');
+  }
   if (!payload.AreaLoc.trim() || !payload.ExecDept.trim()) throw new Error('Complete the work area and execution department.');
   const start = siteTime(payload.ValidFromD, payload.ValidFromT);
   const end = siteTime(payload.ValidToD, payload.ValidToT);
-  const [shiftDate, shiftTime] = value('SHFT').split('T');
-  const shiftEnd = siteTime(shiftDate, shiftTime || '');
-  if (![start, end, shiftEnd].every(Number.isFinite) || end <= start || shiftEnd <= start) throw new Error('Enter valid site times and a shift end after work starts.');
-  if (end > Math.min(start + 8 * 3600000, shiftEnd)) throw new Error('Initial validity must end within eight hours or at shift end, whichever is earlier. Request an authorized extension separately.');
+  const shiftVal = value('SHFT');
+  if (shiftVal) {
+    const [shiftDate, shiftTime] = shiftVal.split('T');
+    const shiftEnd = siteTime(shiftDate, shiftTime || '');
+    if (!Number.isFinite(shiftEnd) || shiftEnd <= start) {
+      throw new Error('Enter valid site times and a shift end after work starts.');
+    }
+    if (end > Math.min(start + 8 * 3600000, shiftEnd)) {
+      throw new Error('Initial validity must end within eight hours or at shift end, whichever is earlier. Request an authorized extension separately.');
+    }
+  } else {
+    if (end > start + 8 * 3600000) {
+      throw new Error('Initial validity must end within eight hours or at shift end, whichever is earlier. Request an authorized extension separately.');
+    }
+  }
   if (requiresGasPlan(types) && payload.GasTestRequired !== 'Y' && payload.GasTestRequired !== 'X') throw new Error('Hot work / confined-space planning requires gas testing. Select Yes.');
   if (requiresGasPlan(types) && !['1', '2'].includes(payload.GasTestFreqHr)) throw new Error('Plan gas retesting at intervals of no more than two hours for hot work / confined space.');
   if ((types.includes('CONF') || types.includes('CSE')) && payload.IsolationRequired !== 'Y' && payload.IsolationRequired !== 'X') throw new Error('Confined-space planning requires positive isolation. Add the isolation plan.');

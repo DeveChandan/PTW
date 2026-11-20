@@ -14,7 +14,8 @@ interface PermitApproverWorkspaceProps {
   initialPermitNo?: string;
 }
 
-type FilterStatus = 'PENDING_APPROVAL' | 'ALL' | 'APPROVED' | 'REJECTED';
+type FilterStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'ACTIVE_QUEUE' | 'ALL';
+type DatePreset = 'THIS_MONTH' | 'LAST_WEEK' | 'TODAY' | 'LAST_30_DAYS' | 'ALL' | 'CUSTOM';
 type DossierTab = 'overview' | 'gas' | 'hazards' | 'isolation';
 type MobileView = 'queue' | 'detail';
 
@@ -109,9 +110,21 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
   const [selectedPermitNo, setSelectedPermitNo] = useState<string>(initialPermitNo || '');
   const [selectedPermit, setSelectedPermit] = useState<PermitDeepInsertResponse | null>(null);
 
-  // Pagination & Plant Summary State
+  // Creation Date & Pagination State (matching SAP OData V4 Erdat filter & $top=50&$count=true)
+  const initialMonthRange = useMemo(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const firstDay = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+    const lastDayObj = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const lastDay = `${lastDayObj.getFullYear()}-${pad(lastDayObj.getMonth() + 1)}-${pad(lastDayObj.getDate())}`;
+    return { from: firstDay, to: lastDay };
+  }, []);
+
+  const [datePreset, setDatePreset] = useState<DatePreset>('THIS_MONTH');
+  const [dateFrom, setDateFrom] = useState<string>(initialMonthRange.from);
+  const [dateTo, setDateTo] = useState<string>(initialMonthRange.to);
   const [offset, setOffset] = useState<number>(0);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [plantSummary, setPlantSummary] = useState<PlantPermitSummary | null>(null);
 
@@ -297,11 +310,16 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showMatrixModal]);
 
-  // Load Plant-wide aggregate counts for KPI cards
-  const loadPlantSummary = async (targetPlant: string, signal?: AbortSignal) => {
+  // Load Plant-wide aggregate counts for KPI cards synchronized with date boundaries
+  const loadPlantSummary = async (
+    targetPlant: string,
+    signal?: AbortSignal,
+    fFrom = dateFrom,
+    fTo = dateTo
+  ) => {
     if (!targetPlant?.trim()) return;
     try {
-      const summary = await sitePermitApi.getPlantSummary(targetPlant, signal);
+      const summary = await sitePermitApi.getPlantSummary(targetPlant, signal, false, fFrom, fTo);
       if (!signal?.aborted) {
         setPlantSummary(summary);
       }
@@ -310,12 +328,55 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
     }
   };
 
-  // Load Permit List from SAP with pagination and server-side status filtering
+  // Helper to apply quick creation date presets matching SAP OData V4 Erdat filter
+  const applyDatePreset = (preset: DatePreset) => {
+    setDatePreset(preset);
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const toYMD = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    let from = '';
+    let to = '';
+
+    if (preset === 'TODAY') {
+      from = toYMD(now);
+      to = toYMD(now);
+    } else if (preset === 'LAST_WEEK') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 7);
+      from = toYMD(past);
+      to = toYMD(now);
+    } else if (preset === 'THIS_MONTH') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      from = toYMD(firstDay);
+      to = toYMD(lastDay);
+    } else if (preset === 'LAST_30_DAYS') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 30);
+      from = toYMD(past);
+      to = toYMD(now);
+    } else if (preset === 'ALL') {
+      from = '';
+      to = '';
+    }
+
+    setDateFrom(from);
+    setDateTo(to);
+    setOffset(0);
+    void loadPermits(0, filterStatus, pageSize, searchQuery, from, to, plant);
+    void loadPlantSummary(plant, undefined, from, to);
+  };
+
+  // Load Permit List from SAP with pagination, creation date filtering, and server-side status filtering
   const loadPermits = async (
     targetOffset = offset,
     targetStatus = filterStatus,
     targetPageSize = pageSize,
-    targetSearch = searchQuery
+    targetSearch = searchQuery,
+    targetDateFrom = dateFrom,
+    targetDateTo = dateTo,
+    targetPlant = plant
   ) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -326,19 +387,41 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
     // Map filterStatus to SAP OData filter parameter
     let sapStatus = 'ALL';
     if (targetStatus === 'PENDING_APPROVAL') sapStatus = 'CRTD';
-    else if (targetStatus === 'APPROVED') sapStatus = 'APPROVED';
+    else if (targetStatus === 'APPROVED') sapStatus = 'APPROVED_ACTIVE';
     else if (targetStatus === 'REJECTED') sapStatus = 'REJT';
+    else if (targetStatus === 'ACTIVE_QUEUE') sapStatus = 'APPROVER_QUEUE';
+    else if (targetStatus === 'ALL') sapStatus = 'ALL';
 
     try {
-      const list = await sitePermitApi.list(
-        plant,
-        targetSearch,
-        targetOffset,
-        abortControllerRef.current.signal,
-        'ALL',
-        sapStatus,
-        targetPageSize
-      );
+      const list = await sitePermitApi.list({
+        plant: targetPlant === 'ALL' ? '' : targetPlant,
+        search: targetSearch,
+        skip: targetOffset,
+        top: targetPageSize,
+        signal: abortControllerRef.current.signal,
+        type: 'ALL',
+        status: sapStatus,
+        dateFrom: targetDateFrom,
+        dateTo: targetDateTo,
+        select: [
+          'Permit_No',
+          'Status',
+          'PermitType',
+          'Werks',
+          'Erdat',
+          'JobDesc',
+          'AreaLoc',
+          'Erzet',
+          'ValidFromD',
+          'ValidFromT',
+          'ValidToD',
+          'ValidToT',
+          'SupvName',
+          'Aenam',
+          'PermitIssuer'
+        ],
+        expand: []
+      });
       setPermits(list);
       setTotalCount(typeof list.totalCount === 'number' ? list.totalCount : list.length);
       setOffset(targetOffset);
@@ -384,8 +467,8 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
   useEffect(() => {
     setOffset(0);
-    void loadPermits(0, filterStatus, pageSize, searchQuery);
-    void loadPlantSummary(plant);
+    void loadPermits(0, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
+    void loadPlantSummary(plant, undefined, dateFrom, dateTo);
     return () => {
       abortControllerRef.current?.abort();
     };
@@ -394,7 +477,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setOffset(0);
-    void loadPermits(0, filterStatus, pageSize, searchQuery);
+    void loadPermits(0, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
   };
 
   const handleCopyPermit = (pNo: string) => {
@@ -670,8 +753,8 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
       // Reload detail, list and plant summary from SAP backend
       await loadPermitDetail(selectedPermit.Permit_No);
-      void loadPermits(offset, filterStatus, pageSize, searchQuery);
-      void loadPlantSummary(plant);
+      void loadPermits(offset, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
+      void loadPlantSummary(plant, undefined, dateFrom, dateTo);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to submit approval to SAP', {
         title: `${actionToSubmit === 'AP' ? 'Approval' : 'Rejection'} Submission Failed`
@@ -684,7 +767,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
   const handleFilterChange = (newStatus: FilterStatus) => {
     setFilterStatus(newStatus);
     setOffset(0);
-    void loadPermits(0, newStatus, pageSize, searchQuery);
+    void loadPermits(0, newStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
   };
 
   // Current page permits (already filtered and paginated server-side by SAP OData)
@@ -710,6 +793,15 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
   const totalPlantCount = useMemo(() => {
     if (plantSummary?.total !== undefined) return plantSummary.total;
+    return totalCount > 0 ? totalCount : permits.length;
+  }, [plantSummary, totalCount, permits]);
+
+  const queueTotalCount = useMemo(() => {
+    if (plantSummary?.statusCounts) {
+      const sc = plantSummary.statusCounts;
+      // Approver active queue: CRTD + INTD + APPR + REJT (excludes non-relevant CLSD/CLOS/CANC)
+      return (sc.CRTD || 0) + (sc.INTD || 0) + (sc.APPR || 0) + (sc.REJT || 0);
+    }
     return totalCount > 0 ? totalCount : permits.length;
   }, [plantSummary, totalCount, permits]);
 
@@ -793,8 +885,10 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                 className="bg-transparent font-mono font-bold text-slate-900 focus:outline-none cursor-pointer text-xs"
               >
                 <option value="1002">1002 - Dahej</option>
+                <option value="1001">1001 - Fluoropolymer</option>
                 <option value="1003">1003 - Jolva</option>
                 <option value="2001">2001 - Corporate</option>
+                <option value="ALL">All Plants</option>
               </select>
             </div>
 
@@ -803,7 +897,8 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
               type="button"
               disabled={loadingList}
               onClick={() => {
-                void loadPermits();
+                void loadPermits(offset, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
+                void loadPlantSummary(plant, undefined, dateFrom, dateTo);
                 if (selectedPermitNo) void loadPermitDetail(selectedPermitNo);
               }}
               className="p-1.5 sm:p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition disabled:opacity-50 active:scale-95 flex items-center justify-center shrink-0"
@@ -982,7 +1077,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
               <button
                 type="button"
                 onClick={() => handleFilterChange('PENDING_APPROVAL')}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   filterStatus === 'PENDING_APPROVAL'
                     ? 'bg-[#006398] text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -999,7 +1094,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
               <button
                 type="button"
                 onClick={() => handleFilterChange('APPROVED')}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   filterStatus === 'APPROVED'
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1015,20 +1110,136 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
 
               <button
                 type="button"
-                onClick={() => handleFilterChange('ALL')}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                  filterStatus === 'ALL'
+                onClick={() => handleFilterChange('REJECTED')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  filterStatus === 'REJECTED'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <span>Rejected</span>
+                <span className={`px-1.5 py-0.2 rounded-md font-mono text-[10px] ${
+                  filterStatus === 'REJECTED' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {rejectedCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFilterChange('ACTIVE_QUEUE')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  filterStatus === 'ACTIVE_QUEUE'
                     ? 'bg-[#006398] text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                <span>All Permits</span>
+                <span>Active Queue</span>
+                <span className={`px-1.5 py-0.2 rounded-md font-mono text-[10px] ${
+                  filterStatus === 'ACTIVE_QUEUE' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {queueTotalCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFilterChange('ALL')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  filterStatus === 'ALL'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <span>All Records</span>
                 <span className={`px-1.5 py-0.2 rounded-md font-mono text-[10px] ${
                   filterStatus === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
                 }`}>
-                  {totalPlantCount}
+                  {totalCount > 0 ? totalCount : totalPlantCount}
                 </span>
               </button>
+            </div>
+
+            {/* Creation Date Filter (Erdat) matching SAP OData V4 Erdat ge ... and Erdat le ... */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[15px] text-[#006398]">calendar_month</span>
+                  <span>Created:</span>
+                </span>
+                {datePreset !== 'ALL' && (
+                  <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-mono font-bold border border-emerald-200">
+                    {dateFrom && dateTo ? `${dateFrom} → ${dateTo}` : datePreset}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                {[
+                  { id: 'ALL', label: 'All Dates' },
+                  { id: 'LAST_WEEK', label: 'Last 1 Week' },
+                  { id: 'TODAY', label: 'Today' },
+                  { id: 'THIS_MONTH', label: 'This Month' },
+                  { id: 'LAST_30_DAYS', label: 'Last 30 Days' }
+                ].map((p) => {
+                  const isSelected = datePreset === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => applyDatePreset(p.id as any)}
+                      className={`px-2 py-0.5 rounded-lg font-semibold transition cursor-pointer border ${
+                        isSelected
+                          ? 'bg-[#006398] text-white border-[#006398] shadow-2xs'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date Pickers */}
+              <div className="flex items-center gap-1 text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400">From:</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDatePreset('CUSTOM');
+                    setDateFrom(val);
+                    setOffset(0);
+                    void loadPermits(0, filterStatus, pageSize, searchQuery, val, dateTo, plant);
+                    void loadPlantSummary(plant, undefined, val, dateTo);
+                  }}
+                  className="bg-transparent text-slate-700 font-mono outline-hidden cursor-pointer w-24 text-[10px]"
+                />
+                <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">To:</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDatePreset('CUSTOM');
+                    setDateTo(val);
+                    setOffset(0);
+                    void loadPermits(0, filterStatus, pageSize, searchQuery, dateFrom, val, plant);
+                    void loadPlantSummary(plant, undefined, dateFrom, val);
+                  }}
+                  className="bg-transparent text-slate-700 font-mono outline-hidden cursor-pointer w-24 text-[10px]"
+                />
+                {(dateFrom || dateTo) && (
+                  <button
+                    type="button"
+                    onClick={() => applyDatePreset('ALL')}
+                    className="ml-auto text-slate-400 hover:text-rose-600 font-bold px-1 cursor-pointer"
+                    title="Clear date filter"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1174,7 +1385,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                     onChange={(e) => {
                       const newSize = Number(e.target.value);
                       setPageSize(newSize);
-                      void loadPermits(0, filterStatus, newSize, searchQuery);
+                      void loadPermits(0, filterStatus, newSize, searchQuery, dateFrom, dateTo, plant);
                     }}
                     className="bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-0.5 text-[11px] font-mono font-bold text-slate-700 focus:outline-none focus:border-[#006398] cursor-pointer"
                   >
@@ -1190,7 +1401,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                   <button
                     type="button"
                     disabled={offset === 0 || loadingList}
-                    onClick={() => void loadPermits(0, filterStatus, pageSize, searchQuery)}
+                    onClick={() => void loadPermits(0, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant)}
                     title="First Page"
                     className="p-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition cursor-pointer disabled:cursor-not-allowed"
                   >
@@ -1200,7 +1411,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                   <button
                     type="button"
                     disabled={offset === 0 || loadingList}
-                    onClick={() => void loadPermits(Math.max(0, offset - pageSize), filterStatus, pageSize, searchQuery)}
+                    onClick={() => void loadPermits(Math.max(0, offset - pageSize), filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant)}
                     title="Previous Page"
                     className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white font-medium transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-0.5"
                   >
@@ -1217,7 +1428,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                   <button
                     type="button"
                     disabled={offset + pageSize >= totalCount || loadingList || permits.length === 0}
-                    onClick={() => void loadPermits(offset + pageSize, filterStatus, pageSize, searchQuery)}
+                    onClick={() => void loadPermits(offset + pageSize, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant)}
                     title="Next Page"
                     className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white font-medium transition cursor-pointer disabled:cursor-not-allowed flex items-center gap-0.5"
                   >
@@ -1230,7 +1441,7 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                     disabled={offset + pageSize >= totalCount || loadingList || permits.length === 0}
                     onClick={() => {
                       const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-                      void loadPermits((totalPages - 1) * pageSize, filterStatus, pageSize, searchQuery);
+                      void loadPermits((totalPages - 1) * pageSize, filterStatus, pageSize, searchQuery, dateFrom, dateTo, plant);
                     }}
                     title="Last Page"
                     className="p-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition cursor-pointer disabled:cursor-not-allowed"
@@ -1556,11 +1767,11 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                             </div>
 
                             <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50">
-                              <span className="text-[10px] font-bold text-slate-600 block">CARBON MONOXIDE (CO)</span>
+                              <span className="text-[10px] font-bold text-slate-600 block">CARBON DIOXIDE (CO2)</span>
                               <span className="text-lg font-extrabold font-mono text-slate-900 block mt-0.5">
                                 {gt.CoVal || 0} ppm
                               </span>
-                              <span className="text-[10px] font-medium text-slate-500">Limit: &lt; 25 ppm</span>
+                              <span className="text-[10px] font-medium text-slate-500">Limit: &lt; 5000 ppm</span>
                             </div>
 
                             <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50">
@@ -1920,9 +2131,9 @@ export const PermitApproverWorkspace: React.FC<PermitApproverWorkspaceProps> = (
                             {match && (
                               <div className="mt-1 flex items-center justify-between">
                                 <span className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-bold ${
-                                  isApproved ? 'bg-emerald-100 text-emerald-800' : isVerified ? 'bg-sky-100 text-sky-800' : isRejected ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
+                                  isApproved ? 'bg-emerald-100 text-emerald-800' : isVerified ? 'bg-sky-100 text-sky-800' : isRejected ? 'bg-rose-100 text-rose-800' : match.Action === 'CL' || match.Action === 'CLOSED' || match.Action === 'CLSD' ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-700'
                                 }`}>
-                                  {match.Action === 'AP' ? 'APPROVED' : match.Action === 'VR' ? 'VERIFIED' : match.Action === 'RJ' ? 'REJECTED' : match.Action}
+                                  {match.Action === 'AP' ? 'APPROVED' : match.Action === 'VR' ? 'VERIFIED' : match.Action === 'RJ' ? 'REJECTED' : match.Action === 'CL' || match.Action === 'CLOSED' || match.Action === 'CLSD' ? 'CLOSED' : match.Action}
                                 </span>
                                 {match.ActionDate && (
                                   <span className="font-mono text-[9px] text-slate-500">

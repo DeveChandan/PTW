@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
 import { resolveLinkedIsolations } from '../../core/ptw/prerequisites';
@@ -8,11 +9,20 @@ import { getRequiredApproversForPermit, getTimeBand } from '../../core/ptw/appro
 import { PERMIT_CATEGORIES, PROCEDURE } from '../../core/ptw/siteProcedure';
 import { PrerequisitePanel } from './PrerequisitePanel';
 import { SectionCard } from '../../shared/components/SectionCard';
+import { AttachmentManager } from '../../shared/components/AttachmentManager';
 import { toast } from '../../shared/context/ToastContext';
+import {
+  isPermitAuditLog,
+  isIsolationAuditLog,
+  isIsolationItemAuditLog,
+  isIsolationCertAuditLog
+} from '../../core/api/modules/auditLog.api';
 import { PermitAnnexPrintView } from './PermitAnnexPrintView';
+import { PermitTypeIcon } from '../../shared/components/PermitTypeIcon';
 import { PermitPrintModal } from './PermitPrintModal';
 import { ShiftRenewalModal } from './ShiftRenewalModal';
 import { CertificateActions } from '../isolation/CertificateActions';
+import { PermitClosureActionCard } from '../closure/PermitClosureActionCard';
 import {
   JHA_TEMPLATES,
   detectBestJhaTemplate,
@@ -30,6 +40,9 @@ import { PermitJhaPrintView } from './PermitJhaPrintView';
 import { validatePhoneNumber } from '../../core/utils/phoneValidation';
 import { useUserPtwRoles } from '../../shared/hooks/useUserPtwRoles';
 import { getPermitClearanceLevels } from '../../core/ptw/permitClearanceLevels';
+import { isPointNormalized, isPointIsolated, isPointZeroEnergy } from '../../core/types/isolation.types';
+import { checklistApi, toSapChecklistPermitType } from '../../core/api/modules/checklist.api';
+import type { SapChecklistItem } from '../../core/types/checklist.types';
 
 interface PermitDisplayWorkspaceProps {
   user: SapUser | null;
@@ -46,7 +59,8 @@ type TabType =
   | 'isolation'
   | 'gastest'
   | 'approvals'
-  | 'renewals_audit';
+  | 'renewals_audit'
+  | 'attachments';
 
 export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
   user,
@@ -65,12 +79,27 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [levelFilter, setLevelFilter] = useState<'ALL' | 'GAS_TEST' | 'APPROVER' | 'ACCEPTER' | 'AREA_OPERATOR'>('ALL');
   const [quickLookupNo, setQuickLookupNo] = useState<string>(initialPermitNo || '');
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [dateTo, setDateTo] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [datePreset, setDatePreset] = useState<'ALL' | 'LAST_WEEK' | 'TODAY' | 'THIS_MONTH' | 'LAST_30_DAYS' | 'CUSTOM'>('LAST_WEEK');
 
   // Local Findability State (Instant Client-side Filter & Inspect)
   const [tableQuery, setTableQuery] = useState<string>('');
   const [expandedPermitNo, setExpandedPermitNo] = useState<string | null>(null);
   const [previewHistoryError, setPreviewHistoryError] = useState('');
   const [loadingPreviewHistory, setLoadingPreviewHistory] = useState(false);
+
+  // Audit Trail Object Filter State: 'ALL' | 'PERMIT' | 'ISOLATION' | 'SEPARATE'
+  const [auditFilterTab, setAuditFilterTab] = useState<'ALL' | 'PERMIT' | 'ISOLATION' | 'SEPARATE'>('ALL');
+  const [auditObjectIdSearch, setAuditObjectIdSearch] = useState<string>('');
+  const [auditIsoSubFilter, setAuditIsoSubFilter] = useState<'ALL' | 'CERT' | 'ITEMS'>('ALL');
   useEffect(() => {
     if (!expandedPermitNo) return;
     const controller = new AbortController();
@@ -141,6 +170,67 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
   const [acceptorComments, setAcceptorComments] = useState<string>('');
   const [submittingAcceptor, setSubmittingAcceptor] = useState<boolean>(false);
 
+  // Live SAP Checklist Questions cache: Map of `${sapPermitType}::${questionnaireId}` -> SapChecklistItem
+  const [checklistQuestionsMap, setChecklistQuestionsMap] = useState<Record<string, SapChecklistItem>>({});
+  const [loadingChecklistQuestions, setLoadingChecklistQuestions] = useState<boolean>(false);
+
+  // Resolves live SAP questionnaire items for checklist responses in selectedPermit._CHK
+  useEffect(() => {
+    const chkItems = selectedPermit?._CHK;
+    if (!chkItems || chkItems.length === 0) return;
+
+    const distinctTypes = Array.from(
+      new Set(chkItems.map((c) => c.PermitType?.trim()).filter(Boolean))
+    );
+    if (distinctTypes.length === 0) return;
+
+    let isMounted = true;
+    setLoadingChecklistQuestions(true);
+
+    Promise.allSettled(
+      distinctTypes.map(async (rawType) => {
+        const sapType = toSapChecklistPermitType(rawType) || rawType;
+        const items = await checklistApi.fetchChecklist(sapType);
+        return { rawType, sapType, items };
+      })
+    ).then((results) => {
+      if (!isMounted) return;
+      const newMap: Record<string, SapChecklistItem> = {};
+      results.forEach((res) => {
+        if (res.status === 'fulfilled' && res.value?.items) {
+          const { rawType, sapType, items } = res.value;
+          items.forEach((item) => {
+            const rawId = String(item.QuestionaireId || '').trim();
+            const unpaddedId = rawId.replace(/^0+/, '') || rawId;
+            newMap[`${sapType}::${unpaddedId}`] = item;
+            newMap[`${rawType}::${unpaddedId}`] = item;
+            newMap[`${sapType}::${rawId}`] = item;
+            newMap[`${rawType}::${rawId}`] = item;
+          });
+        }
+      });
+      setChecklistQuestionsMap((prev) => ({ ...prev, ...newMap }));
+      setLoadingChecklistQuestions(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedPermit?._CHK]);
+
+  const getResolvedChecklistQuestion = (permitType?: string, qId?: string | number): SapChecklistItem | undefined => {
+    if (!permitType || !qId) return undefined;
+    const sapType = (toSapChecklistPermitType(permitType) || permitType).trim().toUpperCase();
+    const rawId = String(qId).trim();
+    const unpaddedId = rawId.replace(/^0+/, '') || rawId;
+    return (
+      checklistQuestionsMap[`${sapType}::${unpaddedId}`] ||
+      checklistQuestionsMap[`${permitType.trim().toUpperCase()}::${unpaddedId}`] ||
+      checklistQuestionsMap[`${sapType}::${rawId}`] ||
+      checklistQuestionsMap[`${permitType.trim().toUpperCase()}::${rawId}`]
+    );
+  };
+
   // User Authorization Evaluation strictly from SAP /UserRole entity set
   const {
     roles: userRoles,
@@ -152,6 +242,26 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     hasAreaOperatorRole,
     refreshRoles
   } = useUserPtwRoles(user);
+
+  const isPermitCreator = useMemo(() => {
+    if (!user?.id || !selectedPermit) return false;
+    const currentUserId = user.id.trim().toUpperCase();
+    const ernam = (selectedPermit.Ernam || '').trim().toUpperCase();
+    return ernam === currentUserId || !ernam;
+  }, [user?.id, selectedPermit]);
+
+  const hasIssuerRole = useMemo(() => {
+    return isUserAdmin || userRoles.some((r) =>
+      r === 'PTW_ISSU' || r === 'ZPTW_ISSU' || r === 'PTW_ISSUER' || r === 'ZPTW_ISSUER'
+    );
+  }, [isUserAdmin, userRoles]);
+
+  const canResubmitPermit = useMemo(() => {
+    if (!selectedPermit) return false;
+    const isRejected = selectedPermit.Status === 'REJT' || selectedPermit.Status === 'REJC';
+    if (!isRejected) return false;
+    return isUserAdmin || (hasIssuerRole && isPermitCreator);
+  }, [selectedPermit, isUserAdmin, hasIssuerRole, isPermitCreator]);
 
   const handleOpenAcceptorModal = (action: 'accept' | 'reject') => {
     if (!selectedPermit) return;
@@ -213,7 +323,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
       }
       setShowAcceptorModal(false);
       setAcceptorComments('');
-      await loadPermitDetail(selectedPermit.Permit_No);
+      await loadPermitDetail(selectedPermit.Permit_No, true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to submit acceptor action to SAP', {
         title: `${acceptorActionType === 'accept' ? 'Acceptance' : 'Rejection'} Failed`
@@ -238,6 +348,12 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
   const handleOpenResubmitModal = () => {
     if (!selectedPermit) return;
+    if (!canResubmitPermit) {
+      toast.warning('Permit resubmission is restricted to the permit creator with PTW_ISSU authorization or PTW_ADMIN.', {
+        title: 'Authorization Required'
+      });
+      return;
+    }
     setEditJobDesc(selectedPermit.JobDesc || '');
     setEditSupvName(selectedPermit.SupvName || '');
     setEditSupvPhone(selectedPermit.SupvPhone || '');
@@ -252,9 +368,9 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
   const handleOpenApprovalModal = async () => {
     if (selectedPermit) {
-      if (selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ACCP' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV') {
-        toast.info(`Permit ${selectedPermit.Permit_No} is already fully approved (${selectedPermit.Status}). No further approvals are required.`, {
-          title: 'Permit Already Approved'
+      if (['APPR', 'ACCP', 'ISSU', 'ACTV', 'ACCL', 'AROP', 'CLSD', 'CLOS'].includes(selectedPermit.Status)) {
+        toast.info(`Permit ${selectedPermit.Permit_No} approvals are already completed (${selectedPermit.Status}). No further approvals are required.`, {
+          title: 'Approvals Completed'
         });
         return;
       }
@@ -359,7 +475,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
       );
       setShowApprovalModal(false);
       setApprovalComments('');
-      await loadPermitDetail(selectedPermit.Permit_No);
+      await loadPermitDetail(selectedPermit.Permit_No, true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to submit approval to SAP', {
         title: 'Approval Submission Failed'
@@ -371,6 +487,12 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
   const handleResubmitPermit = async () => {
     if (!selectedPermit || submittingResubmit) return;
+    if (!canResubmitPermit) {
+      toast.warning('Permit resubmission is restricted to the permit creator with PTW_ISSU authorization or PTW_ADMIN.', {
+        title: 'Authorization Required'
+      });
+      return;
+    }
 
     if (resubmitMode === 'quick_edit') {
       if (editSupvPhone.trim()) {
@@ -410,7 +532,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
       );
       setShowResubmitModal(false);
       setResubmitComments('');
-      await loadPermitDetail(selectedPermit.Permit_No);
+      await loadPermitDetail(selectedPermit.Permit_No, true);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to resubmit permit to SAP Gateway.', {
         title: 'Resubmission Failed'
@@ -592,12 +714,20 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     });
   };
 
-  // Load Plant-wide aggregates for KPI strip and filter pills
-  const loadPlantSummary = async (targetPlant: string, signal?: AbortSignal) => {
+  // Load Plant-wide aggregates for KPI strip and filter pills with date filtering support
+  const loadPlantSummary = async (
+    targetPlant: string,
+    forceRefresh = false,
+    signal?: AbortSignal,
+    overrideDateFrom?: string,
+    overrideDateTo?: string
+  ) => {
     if (!targetPlant.trim()) return;
     setLoadingSummary(true);
+    const effDateFrom = overrideDateFrom !== undefined ? overrideDateFrom : dateFrom;
+    const effDateTo = overrideDateTo !== undefined ? overrideDateTo : dateTo;
     try {
-      const summary = await sitePermitApi.getPlantSummary(targetPlant, signal);
+      const summary = await sitePermitApi.getPlantSummary(targetPlant, signal, forceRefresh, effDateFrom, effDateTo);
       if (!signal?.aborted) {
         setPlantSummary(summary);
         lastBaselinePlantRef.current = targetPlant;
@@ -609,12 +739,50 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     }
   };
 
-  // Load Permit List from SAP OData V4 with count and pagination
+  // Helper to apply quick creation date presets matching SAP OData V4 Erdat filter
+  const applyDatePreset = (preset: 'ALL' | 'LAST_WEEK' | 'TODAY' | 'THIS_MONTH' | 'LAST_30_DAYS') => {
+    setDatePreset(preset);
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const toYMD = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    let from = '';
+    let to = '';
+
+    if (preset === 'TODAY') {
+      from = toYMD(now);
+      to = toYMD(now);
+    } else if (preset === 'LAST_WEEK') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 7);
+      from = toYMD(past);
+      to = toYMD(now);
+    } else if (preset === 'THIS_MONTH') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      from = toYMD(firstDay);
+      to = toYMD(lastDay);
+    } else if (preset === 'LAST_30_DAYS') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 30);
+      from = toYMD(past);
+      to = toYMD(now);
+    }
+
+    setDateFrom(from);
+    setDateTo(to);
+    void loadPermitList(0, categoryFilter, statusFilter, pageSize, from, to);
+    void loadPlantSummary(plant, false, undefined, from, to);
+  };
+
+  // Load Permit List from SAP OData V4 with count, pagination, and backend Erdat date filter
   const loadPermitList = async (
     skip = 0,
     overrideCategory?: string,
     overrideStatus?: string,
-    overridePageSize?: number
+    overridePageSize?: number,
+    overrideDateFrom?: string,
+    overrideDateTo?: string
   ) => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
@@ -626,6 +794,8 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     const effCategory = overrideCategory !== undefined ? overrideCategory : categoryFilter;
     const effStatus = overrideStatus !== undefined ? overrideStatus : statusFilter;
     const effPageSize = overridePageSize !== undefined ? overridePageSize : pageSize;
+    const effDateFrom = overrideDateFrom !== undefined ? overrideDateFrom : dateFrom;
+    const effDateTo = overrideDateTo !== undefined ? overrideDateTo : dateTo;
 
     try {
       const data = await sitePermitApi.list(
@@ -635,7 +805,11 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
         controller.signal,
         effCategory,
         effStatus,
-        effPageSize
+        effPageSize,
+        undefined,
+        undefined,
+        effDateFrom,
+        effDateTo
       );
       if (!controller.signal.aborted) {
         setPermits(data);
@@ -659,8 +833,8 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     }
   };
 
-  // Load Single Permit Deep Details (All 10 Collections expanded)
-  const loadPermitDetail = async (permitNo: string) => {
+  // Load Single Permit Deep Details (Cached with 3-minute TTL to reduce SAP Gateway calls)
+  const loadPermitDetail = async (permitNo: string, forceRefresh = false) => {
     if (!permitNo.trim()) return;
     abortControllerRef.current?.abort();
     const controller = new AbortController();
@@ -670,7 +844,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     setLoading(false);
     setError('');
     try {
-      const data = await sitePermitApi.read(permitNo.trim(), controller.signal);
+      const data = await sitePermitApi.read(permitNo.trim(), controller.signal, forceRefresh);
       if (!controller.signal.aborted) {
         setSelectedPermit(data);
         setViewMode('detail');
@@ -700,8 +874,8 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     if (initialPermitNo) {
       void loadPermitDetail(initialPermitNo);
     } else {
-      void loadPermitList(0);
-      void loadPlantSummary(plant);
+      void loadPermitList(0, categoryFilter, statusFilter, pageSize, dateFrom, dateTo);
+      void loadPlantSummary(plant, false, undefined, dateFrom, dateTo);
     }
     return () => abortControllerRef.current?.abort();
   }, []);
@@ -726,9 +900,19 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     setShowPrintModal(true);
   };
 
+  // Check if plantSummary matches the active date filter
+  const isSummaryInSyncWithDates = useMemo(() => {
+    if (!plantSummary) return false;
+    const effFrom = dateFrom ? dateFrom.trim().slice(0, 10) : '';
+    const effTo = dateTo ? dateTo.trim().slice(0, 10) : '';
+    const summaryFrom = plantSummary.dateFrom ? plantSummary.dateFrom.trim().slice(0, 10) : '';
+    const summaryTo = plantSummary.dateTo ? plantSummary.dateTo.trim().slice(0, 10) : '';
+    return effFrom === summaryFrom && effTo === summaryTo;
+  }, [plantSummary, dateFrom, dateTo]);
+
   // KPI Calculations based on true plant-wide baseline with fallback
   const kpiStats = useMemo(() => {
-    if (plantSummary) {
+    if (plantSummary && isSummaryInSyncWithDates) {
       return {
         total: plantSummary.total,
         active: plantSummary.active,
@@ -738,6 +922,8 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
         rejected: plantSummary.rejected || 0,
         closed: plantSummary.closed,
         hotOrConf: plantSummary.hotOrConf,
+        hot: plantSummary.categoryCounts?.HOT ?? 0,
+        conf: plantSummary.categoryCounts?.CONF ?? 0,
       };
     }
     const total = totalCount > 0 ? totalCount : permits.length;
@@ -746,14 +932,16 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     const approved = permits.filter(p => p.Status === 'APPR').length;
     const draft = permits.filter(p => p.Status === 'CRTD' || p.Status === 'DRAF').length;
     const rejected = permits.filter(p => p.Status === 'REJT' || p.Status === 'REJC').length;
-    const closed = permits.filter(p => p.Status === 'CLOS' || p.Status === 'CANC').length;
-    const hotOrConf = permits.filter(p => p.PermitType === 'HOT' || p.PermitType === 'CONF' || p.PermitType === 'CSE').length;
-    return { total, active, intended, approved, draft, rejected, closed, hotOrConf };
-  }, [plantSummary, totalCount, permits]);
+    const closed = permits.filter(p => p.Status === 'CLOS' || p.Status === 'CLSD' || p.Status === 'CANC').length;
+    const hot = permits.filter(p => p.PermitType === 'HOT').length;
+    const conf = permits.filter(p => p.PermitType === 'CONF' || p.PermitType === 'CSE').length;
+    const hotOrConf = hot + conf;
+    return { total, active, intended, approved, draft, rejected, closed, hotOrConf, hot, conf };
+  }, [plantSummary, isSummaryInSyncWithDates, totalCount, permits]);
 
   // Category counts based on plant-wide baseline
   const categoryCounts = useMemo(() => {
-    if (plantSummary?.categoryCounts) {
+    if (plantSummary?.categoryCounts && isSummaryInSyncWithDates) {
       return plantSummary.categoryCounts;
     }
     return {
@@ -764,11 +952,11 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
       HGHT: permits.filter(p => p.PermitType === 'HGHT' || p.PermitType === 'W@H').length,
       ELEC: permits.filter(p => p.PermitType === 'ELEC').length,
     };
-  }, [plantSummary, totalCount, permits]);
+  }, [plantSummary, isSummaryInSyncWithDates, totalCount, permits]);
 
   // Status counts based on plant-wide baseline
   const statusCounts = useMemo(() => {
-    if (plantSummary?.statusCounts) {
+    if (plantSummary?.statusCounts && isSummaryInSyncWithDates) {
       return plantSummary.statusCounts;
     }
     return {
@@ -778,9 +966,9 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
       APPR: permits.filter(p => p.Status === 'APPR').length,
       CRTD: permits.filter(p => p.Status === 'CRTD' || p.Status === 'DRAF').length,
       REJT: permits.filter(p => p.Status === 'REJT' || p.Status === 'REJC').length,
-      CLOS: permits.filter(p => p.Status === 'CLOS' || p.Status === 'CANC').length,
+      CLOS: permits.filter(p => p.Status === 'CLOS' || p.Status === 'CLSD' || p.Status === 'CANC').length,
     };
-  }, [plantSummary, totalCount, permits]);
+  }, [plantSummary, isSummaryInSyncWithDates, totalCount, permits]);
 
   // Client-filtered permits for instant search-as-you-type and level filtering
   const displayedPermits = useMemo(() => {
@@ -795,8 +983,8 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
         return true;
       });
     }
-    if (!tableQuery.trim()) return list;
-    const q = tableQuery.toLowerCase().trim();
+    const q = (tableQuery || search).toLowerCase().trim();
+    if (!q) return list;
     return list.filter(p =>
       (p.Permit_No && p.Permit_No.toLowerCase().includes(q)) ||
       (p.Aufnr && p.Aufnr.toLowerCase().includes(q)) ||
@@ -810,7 +998,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
       (p.PermitType && p.PermitType.toLowerCase().includes(q)) ||
       (p.Status && p.Status.toLowerCase().includes(q))
     );
-  }, [permits, levelFilter, tableQuery]);
+  }, [permits, levelFilter, tableQuery, search]);
 
   // Helper: Status Badges with enhanced color depth
   const renderStatusBadge = (status: string, compact = false) => {
@@ -857,11 +1045,27 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
             <span>REJECTED</span>
           </span>
         );
-      case 'CLOS':
+      case 'ACCL':
         return (
-          <span className={`inline-flex items-center gap-1.5 ${compact ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} rounded-full font-bold font-mono bg-blue-100 text-blue-800 border border-blue-300 shadow-xs`}>
-            <span className="material-symbols-outlined text-[14px] shrink-0 text-blue-700">task_alt</span>
-            <span>CLOSED / RESTORED</span>
+          <span className={`inline-flex items-center gap-1.5 ${compact ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} rounded-full font-bold font-mono bg-teal-100/90 text-teal-800 border border-teal-300 shadow-xs`}>
+            <span className="material-symbols-outlined text-[14px] shrink-0 text-teal-700">handshake</span>
+            <span>ACCEPTOR CLOSED (ACCL)</span>
+          </span>
+        );
+      case 'AROP':
+        return (
+          <span className={`inline-flex items-center gap-1.5 ${compact ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} rounded-full font-bold font-mono bg-cyan-100/90 text-cyan-800 border border-cyan-300 shadow-xs`}>
+            <span className="material-symbols-outlined text-[14px] shrink-0 text-cyan-700">verified_user</span>
+            <span>AREA CLEARED (AROP)</span>
+          </span>
+        );
+      case 'CLSD':
+      case 'CLOS':
+      case 'CLOSED':
+        return (
+          <span className={`inline-flex items-center gap-1.5 ${compact ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} rounded-full font-bold font-mono bg-slate-200 text-slate-800 border border-slate-400 shadow-xs`}>
+            <span className="material-symbols-outlined text-[14px] shrink-0 text-slate-700">task_alt</span>
+            <span>CLOSED (CLSD)</span>
           </span>
         );
       case 'SUSP':
@@ -887,14 +1091,41 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
     }
   };
 
-  // Helper: Category Info
+  // Helper: Category Info with Industrial Hazard Distinction
   const getCategoryInfo = (code: string) => {
-    const found = PERMIT_CATEGORIES.find(c => c.code === code || c.sapCode === code);
+    const clean = (code || '').trim().toUpperCase();
+    const found = PERMIT_CATEGORIES.find(c => c.code.toUpperCase() === clean || c.sapCode.toUpperCase() === clean);
+    const isConf = clean === 'CONF' || clean === 'CSE';
+    const isHot = clean === 'HOT';
+    const isHeight = clean === 'HGHT' || clean === 'W@H' || clean === 'HEIGHT';
+    const isElec = clean === 'ELEC';
+
+    let hazardBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+    let hazardLevel = 'STANDARD';
+
+    if (isConf) {
+      hazardBadgeClass = 'bg-rose-50 text-rose-800 border-rose-300 font-bold';
+      hazardLevel = 'CRITICAL HAZARD';
+    } else if (isHot) {
+      hazardBadgeClass = 'bg-amber-50 text-amber-900 border-amber-300 font-bold';
+      hazardLevel = 'HIGH RISK';
+    } else if (isHeight) {
+      hazardBadgeClass = 'bg-orange-50 text-orange-900 border-orange-200 font-semibold';
+      hazardLevel = 'ELEVATION';
+    } else if (isElec) {
+      hazardBadgeClass = 'bg-yellow-50 text-yellow-900 border-yellow-300 font-semibold';
+      hazardLevel = 'ELECTRICAL';
+    }
+
     return {
       label: found?.label || code,
       icon: found?.icon || 'description',
       desc: found?.desc || 'Permit Activity',
-      code
+      code,
+      hazardBadgeClass,
+      hazardLevel,
+      isHot,
+      isConf
     };
   };
 
@@ -1089,7 +1320,23 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
               </div>
               <div className="flex items-end justify-between">
                 <span className="text-2xl sm:text-3xl font-bold font-display text-slate-900 tracking-tight leading-none">{kpiStats.total}</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-600">All Records</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                  datePreset !== 'ALL'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {datePreset === 'LAST_WEEK'
+                    ? 'Last 1 Week'
+                    : datePreset === 'TODAY'
+                    ? 'Today'
+                    : datePreset === 'THIS_MONTH'
+                    ? 'This Month'
+                    : datePreset === 'LAST_30_DAYS'
+                    ? 'Last 30 Days'
+                    : datePreset === 'CUSTOM'
+                    ? 'Date Range'
+                    : 'All Records'}
+                </span>
               </div>
             </button>
 
@@ -1185,27 +1432,106 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
               </div>
             </button>
 
-            {/* Critical: Hot / Confined */}
-            <button
-              type="button"
-              onClick={() => handleKpiFilter('CRITICAL')}
-              className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between ${
+            {/* Critical: Hot & Confined Space Entry */}
+            <div
+              className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between ${
                 categoryFilter === 'CRITICAL' || categoryFilter === 'HOT' || categoryFilter === 'CONF'
                   ? 'bg-gradient-to-br from-rose-50/80 to-rose-100/60 border-rose-500 ring-2 ring-rose-500/30 shadow-md'
                   : 'bg-white border-slate-200/90 hover:border-rose-300 hover:shadow-xs'
               }`}
             >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-xs font-semibold text-rose-800">Hot / Confined</span>
-                <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700">
-                  <span className="material-symbols-outlined text-[16px]">local_fire_department</span>
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <button
+                  type="button"
+                  onClick={() => handleKpiFilter('CRITICAL')}
+                  className="text-xs font-semibold text-rose-800 hover:text-rose-950 flex items-center gap-1 transition-colors cursor-pointer text-left"
+                  title="Click to view all High Risk (Hot & Confined) permits"
+                >
+                  <span>Hot & Confined</span>
+                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleKpiFilter('CRITICAL')}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase transition-all cursor-pointer ${
+                      categoryFilter === 'CRITICAL'
+                        ? 'bg-rose-700 text-white shadow-2xs'
+                        : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                    }`}
+                    title="Filter all High Risk permits"
+                  >
+                    {kpiStats.hotOrConf} Total
+                  </button>
+                  <div className="w-6 h-6 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700">
+                    <span className="material-symbols-outlined text-[15px]">local_fire_department</span>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-end justify-between">
-                <span className="text-2xl sm:text-3xl font-bold font-display text-rose-950 tracking-tight leading-none">{kpiStats.hotOrConf}</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-rose-100 text-rose-800">High Risk</span>
+
+              <div className="flex items-end justify-between gap-2">
+                {/* Hot Work Count */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCategoryFilter('HOT');
+                    setStatusFilter('ALL');
+                    void loadPermitList(0, 'HOT', 'ALL');
+                  }}
+                  className={`group flex-1 py-0.5 px-1.5 rounded-xl transition-all cursor-pointer text-left ${
+                    categoryFilter === 'HOT'
+                      ? 'bg-rose-600 text-white shadow-2xs ring-1 ring-rose-700'
+                      : 'hover:bg-rose-100/60'
+                  }`}
+                  title="Click to view Hot Work permits"
+                >
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-2xl sm:text-3xl font-bold font-display tracking-tight leading-none ${
+                      categoryFilter === 'HOT' ? 'text-white' : 'text-rose-950'
+                    }`}>
+                      {categoryCounts.HOT || 0}
+                    </span>
+                    <span className={`text-[11px] font-bold flex items-center gap-0.5 ${
+                      categoryFilter === 'HOT' ? 'text-rose-100' : 'text-rose-700'
+                    }`}>
+                      Hot 🔥
+                    </span>
+                  </div>
+                </button>
+
+                <div className="h-6 w-px bg-rose-200 self-center shrink-0" />
+
+                {/* Confined Space Entry Count */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCategoryFilter('CONF');
+                    setStatusFilter('ALL');
+                    void loadPermitList(0, 'CONF', 'ALL');
+                  }}
+                  className={`group flex-1 py-0.5 px-1.5 rounded-xl transition-all cursor-pointer text-left ${
+                    categoryFilter === 'CONF'
+                      ? 'bg-amber-700 text-white shadow-2xs ring-1 ring-amber-800'
+                      : 'hover:bg-rose-100/60'
+                  }`}
+                  title="Click to view Confined Space Entry (CSE) permits"
+                >
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-2xl sm:text-3xl font-bold font-display tracking-tight leading-none ${
+                      categoryFilter === 'CONF' ? 'text-white' : 'text-rose-950'
+                    }`}>
+                      {categoryCounts.CONF || 0}
+                    </span>
+                    <span className={`text-[11px] font-bold flex items-center gap-0.5 ${
+                      categoryFilter === 'CONF' ? 'text-amber-100' : 'text-amber-800'
+                    }`}>
+                      CSE 🚪
+                    </span>
+                  </div>
+                </button>
               </div>
-            </button>
+            </div>
 
             {/* Closed / Restored */}
             <button
@@ -1230,153 +1556,371 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
             </button>
           </div>
 
-          {/* Unified Filter & Search Strip */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs space-y-3">
-            <form onSubmit={e => { e.preventDefault(); void loadPermitList(0); if (plant !== lastBaselinePlantRef.current || !plantSummary) void loadPlantSummary(plant); }} className="flex flex-wrap items-end gap-3">
-              <label className="min-w-48 flex-1 text-sm font-semibold text-slate-700">
-                Search permits
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Permit number, job, equipment or location" className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-sky-600" />
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Plant
-                <input value={plant} maxLength={4} onChange={e => setPlant(e.target.value.toUpperCase())} className="mt-1 block w-20 rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-600" />
-              </label>
-              <button type="submit" disabled={loading} className="min-h-11 rounded-lg bg-[#006398] px-5 text-sm font-semibold text-white hover:bg-[#004e78] disabled:opacity-50">{loading ? 'Searching…' : 'Search'}</button>
-            </form>
-            <details className="text-sm text-slate-600">
-              <summary className="cursor-pointer">Filter the current page{tableQuery ? ' · Filter applied' : ''}</summary>
-              <label className="mt-2 block">
-                Find within the loaded results only
-                <input value={tableQuery} onChange={e => setTableQuery(e.target.value)} type="search" placeholder="Permit, job, location or contractor" className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-600" />
-              </label>
-            </details>
-
-            {/* Bottom Row: Category & Status Filter Pills */}
-            <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-mono text-slate-400 mr-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">category</span>
-                  <span>Type:</span>
-                </span>
-                {[
-                  { id: 'ALL', label: 'All Types', count: categoryCounts.ALL },
-                  { id: 'HOT', label: 'Hot 🔥', count: categoryCounts.HOT },
-                  { id: 'COLD', label: 'Cold ❄️', count: categoryCounts.COLD },
-                  { id: 'CONF', label: 'Confined 🚪', count: categoryCounts.CONF },
-                  { id: 'HGHT', label: 'Height 🪜', count: categoryCounts.HGHT },
-                  { id: 'ELEC', label: 'Electrical ⚡', count: categoryCounts.ELEC }
-                ].map(cat => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setCategoryFilter(cat.id);
-                      void loadPermitList(0, cat.id, statusFilter);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all inline-flex items-center gap-1.5 ${
-                      categoryFilter === cat.id
-                        ? 'bg-[#006398] text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <span>{cat.label}</span>
-                    <span className={`px-1 py-0.2 rounded text-[10px] ${
-                      categoryFilter === cat.id ? 'bg-white/20 text-white font-bold' : 'bg-slate-200 text-slate-600'
-                    }`}>
-                      {cat.count}
-                    </span>
-                  </button>
-                ))}
-
-                <div className="h-4 w-[1px] bg-slate-200 mx-1.5 hidden sm:block" />
-
-                <span className="text-[11px] font-mono text-slate-400 mr-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">flag</span>
-                  <span>Status:</span>
-                </span>
-                {[
-                  { id: 'ALL', label: 'All', count: statusCounts.ALL },
-                  { id: 'ISSU', label: 'Issued (Active)', count: statusCounts.ISSU },
-                  { id: 'INTD', label: 'Initiated', count: statusCounts.INTD },
-                  { id: 'APPR', label: 'Approved', count: statusCounts.APPR },
-                  { id: 'CRTD', label: 'Created', count: statusCounts.CRTD },
-                  { id: 'REJT', label: 'Rejected', count: statusCounts.REJT },
-                  { id: 'CLOS', label: 'Closed', count: statusCounts.CLOS }
-                ].map(st => (
-                  <button
-                    key={st.id}
-                    type="button"
-                    onClick={() => {
-                      setStatusFilter(st.id);
-                      void loadPermitList(0, categoryFilter, st.id);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all inline-flex items-center gap-1.5 ${
-                      statusFilter === st.id
-                        ? 'bg-slate-800 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <span>{st.label}</span>
-                    <span className={`px-1 py-0.2 rounded text-[10px] ${
-                      statusFilter === st.id ? 'bg-white/20 text-white font-bold' : 'bg-slate-200 text-slate-600'
-                    }`}>
-                      {st.count}
-                    </span>
-                  </button>
-                ))}
-
-                <div className="h-4 w-[1px] bg-slate-200 mx-1.5 hidden sm:block" />
-
-                <span className="text-[11px] font-mono text-slate-400 mr-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">alt_route</span>
-                  <span>Clearance Stage:</span>
-                </span>
-                {[
-                  { id: 'ALL', label: 'All Levels' },
-                  { id: 'GAS_TEST', label: '1. Gas Req', icon: 'air' },
-                  { id: 'APPROVER', label: '2. Approver Pend', icon: 'draw' },
-                  { id: 'ACCEPTER', label: '3. Acceptor Pend', icon: 'hourglass_top' },
-                  { id: 'AREA_OPERATOR', label: '4. Area Op Pend', icon: 'engineering' }
-                ].map(lvl => (
-                  <button
-                    key={lvl.id}
-                    type="button"
-                    onClick={() => setLevelFilter(lvl.id as any)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all inline-flex items-center gap-1 cursor-pointer ${
-                      levelFilter === lvl.id
-                        ? 'bg-[#006398] text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {lvl.icon && <span className="material-symbols-outlined text-[13px]">{lvl.icon}</span>}
-                    <span>{lvl.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Active Filter Clear & Result Counts */}
-              <div className="flex items-center gap-2 ml-auto">
-                {(categoryFilter !== 'ALL' || statusFilter !== 'ALL' || levelFilter !== 'ALL' || tableQuery || search) && (
+          {/* Modernized Unified Search & Filter Command Panel */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs space-y-4">
+            {/* Top Row: Search Input + Plant Code + Primary Actions */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void loadPermitList(0);
+                if (plant !== lastBaselinePlantRef.current || !plantSummary) void loadPlantSummary(plant);
+              }}
+              className="flex flex-col md:flex-row md:items-center gap-3"
+            >
+              {/* Search Bar with Icon and Clear Button */}
+              <div className="relative flex-1">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                  <span className="material-symbols-outlined text-[20px]">search</span>
+                </div>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSearch(val);
+                    setTableQuery(val);
+                  }}
+                  placeholder="Search permits by number (e.g. PTW0000098), order, notification, equipment, location..."
+                  className="w-full rounded-xl border border-slate-300/90 bg-slate-50/50 pl-10 pr-9 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-[#006398] focus:outline-none focus:ring-2 focus:ring-[#006398]/15 transition-all shadow-2xs"
+                />
+                {(search || tableQuery) && (
                   <button
                     type="button"
                     onClick={() => {
-                      setCategoryFilter('ALL');
-                      setStatusFilter('ALL');
-                      setLevelFilter('ALL');
-                      setTableQuery('');
                       setSearch('');
-                      void loadPermitList(0, 'ALL', 'ALL');
-                      void loadPlantSummary(plant);
+                      setTableQuery('');
+                      void loadPermitList(0, categoryFilter, statusFilter);
                     }}
-                    className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 px-2 py-0.5 rounded hover:bg-rose-50 cursor-pointer"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    title="Clear search input"
                   >
-                    <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
-                    <span>Reset All Filters</span>
+                    <span className="material-symbols-outlined text-[18px]">cancel</span>
                   </button>
                 )}
+              </div>
 
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20">
-                  {tableQuery
+              {/* Plant Badge Input & Search Button */}
+              <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 shadow-2xs">
+                  <span className="material-symbols-outlined text-[16px] text-slate-500">factory</span>
+                  <span className="font-semibold text-slate-500">Plant:</span>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={plant}
+                    onChange={(e) => setPlant(e.target.value.toUpperCase())}
+                    className="w-14 bg-white rounded-md px-1.5 py-0.5 font-mono font-bold text-center border border-slate-300 text-slate-900 focus:outline-none focus:border-[#006398]"
+                    title="SAP Plant Code (e.g. 1002)"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-[#006398] hover:bg-[#004e78] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-95 shrink-0"
+                >
+                  <span className={`material-symbols-outlined text-[16px] ${loading ? 'animate-spin' : ''}`}>
+                    {loading ? 'progress_activity' : 'search'}
+                  </span>
+                  <span>{loading ? 'Searching…' : 'Search SAP'}</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Structured Multi-Facet Filter Rows */}
+            <div className="space-y-3 pt-1 border-t border-slate-100">
+              {/* Row 1: Status Lifecycle Filter */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="w-28 shrink-0 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="material-symbols-outlined text-[15px] text-slate-400">flag</span>
+                  <span>Status:</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 flex-1">
+                  {[
+                    { id: 'ALL', label: 'All', count: statusCounts.ALL, dotColor: 'bg-slate-400' },
+                    { id: 'ISSU', label: 'Active', count: statusCounts.ISSU, dotColor: 'bg-emerald-500' },
+                    { id: 'INTD', label: 'Initiated', count: statusCounts.INTD, dotColor: 'bg-sky-500' },
+                    { id: 'APPR', label: 'Approved', count: statusCounts.APPR, dotColor: 'bg-amber-500' },
+                    { id: 'CRTD', label: 'Draft', count: statusCounts.CRTD, dotColor: 'bg-slate-500' },
+                    { id: 'CLOS', label: 'Closed', count: statusCounts.CLOS, dotColor: 'bg-teal-500' },
+                    { id: 'REJT', label: 'Rejected', count: statusCounts.REJT, dotColor: 'bg-rose-500' }
+                  ].map(st => {
+                    const isSelected = statusFilter === st.id;
+                    return (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter(st.id);
+                          void loadPermitList(0, categoryFilter, st.id);
+                        }}
+                        className={`w-full py-1.5 px-2 rounded-xl text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-slate-900/10'
+                            : 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-white' : st.dotColor}`} />
+                        <span className="truncate">{st.label}</span>
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold shrink-0 ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                        }`}>
+                          {st.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Row 2: Category / Permit Work Type */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="w-28 shrink-0 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="material-symbols-outlined text-[15px] text-slate-400">category</span>
+                  <span>Work Type:</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 flex-1">
+                  {[
+                    { id: 'ALL', label: 'All Types', count: categoryCounts.ALL },
+                    { id: 'HOT', label: 'Hot Work 🔥', count: categoryCounts.HOT },
+                    { id: 'COLD', label: 'Cold Work ❄️', count: categoryCounts.COLD },
+                    { id: 'CONF', label: 'Confined Space 🚪', count: categoryCounts.CONF },
+                    { id: 'HGHT', label: 'Height 🪜', count: categoryCounts.HGHT },
+                    { id: 'ELEC', label: 'Electrical ⚡', count: categoryCounts.ELEC }
+                  ].map(cat => {
+                    const isSelected = categoryFilter === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => {
+                          setCategoryFilter(cat.id);
+                          void loadPermitList(0, cat.id, statusFilter);
+                        }}
+                        className={`w-full py-1.5 px-2 rounded-xl text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-[#006398] text-white border-[#006398] shadow-xs ring-2 ring-[#006398]/10'
+                            : 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="truncate">{cat.label}</span>
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold shrink-0 ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                        }`}>
+                          {cat.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Row 3: Clearance Workflow Stage */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="w-28 shrink-0 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="material-symbols-outlined text-[15px] text-slate-400">alt_route</span>
+                  <span>Clearance:</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 flex-1">
+                  {[
+                    { id: 'ALL', label: 'All Stages' },
+                    { id: 'GAS_TEST', label: '1. Gas Test Req', icon: 'air' },
+                    { id: 'APPROVER', label: '2. Approver Pending', icon: 'draw' },
+                    { id: 'ACCEPTER', label: '3. Acceptor Handover', icon: 'hourglass_top' },
+                    { id: 'AREA_OPERATOR', label: '4. Area Op Clearance', icon: 'engineering' }
+                  ].map(lvl => {
+                    const isSelected = levelFilter === lvl.id;
+                    return (
+                      <button
+                        key={lvl.id}
+                        type="button"
+                        onClick={() => setLevelFilter(lvl.id as any)}
+                        className={`w-full py-1.5 px-2 rounded-xl text-xs font-semibold transition-all inline-flex items-center justify-center gap-1 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-[#006398] text-white border-[#006398] shadow-xs ring-2 ring-[#006398]/10'
+                            : 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100 hover:border-slate-300'
+                        }`}
+                      >
+                        {lvl.icon && <span className="material-symbols-outlined text-[14px] shrink-0">{lvl.icon}</span>}
+                        <span className="truncate">{lvl.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Row 4: Creation Date Filter (SAP OData V4 Erdat Range) */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="w-28 shrink-0 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="material-symbols-outlined text-[15px] text-slate-400">calendar_month</span>
+                  <span>Created:</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 flex-1">
+                  {[
+                    { id: 'ALL', label: 'All Dates' },
+                    { id: 'LAST_WEEK', label: 'Last 1 Week' },
+                    { id: 'TODAY', label: 'Today' },
+                    { id: 'THIS_MONTH', label: 'This Month' },
+                    { id: 'LAST_30_DAYS', label: 'Last 30 Days' }
+                  ].map(p => {
+                    const isSelected = datePreset === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => applyDatePreset(p.id as any)}
+                        className={`py-1.5 px-3 rounded-xl text-xs font-semibold transition-all inline-flex items-center gap-1 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-[#006398] text-white border-[#006398] shadow-xs ring-2 ring-[#006398]/10'
+                            : 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100 hover:border-slate-300'
+                        }`}
+                      >
+                        <span>{p.label}</span>
+                      </button>
+                    );
+                  })}
+
+                  <div className="flex items-center gap-1.5 ml-auto text-xs bg-slate-50 border border-slate-200/90 rounded-xl px-2.5 py-1">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">From:</span>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDatePreset('CUSTOM');
+                        setDateFrom(val);
+                        void loadPermitList(0, categoryFilter, statusFilter, pageSize, val, dateTo);
+                        void loadPlantSummary(plant, false, undefined, val, dateTo);
+                      }}
+                      className="text-xs bg-transparent text-slate-700 font-mono outline-hidden cursor-pointer"
+                    />
+                    <span className="text-[10px] uppercase font-bold text-slate-400 ml-1">To:</span>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDatePreset('CUSTOM');
+                        setDateTo(val);
+                        void loadPermitList(0, categoryFilter, statusFilter, pageSize, dateFrom, val);
+                        void loadPlantSummary(plant, false, undefined, dateFrom, val);
+                      }}
+                      className="text-xs bg-transparent text-slate-700 font-mono outline-hidden cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Row: Active Filter Summary, Reset, & Result Counts */}
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                {(categoryFilter !== 'ALL' || statusFilter !== 'ALL' || levelFilter !== 'ALL' || dateFrom || dateTo || tableQuery || search) ? (
+                  <>
+                    <span className="text-[11px] font-medium text-slate-500">Active Filters:</span>
+                    {statusFilter !== 'ALL' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-300">
+                        <span>Status: {statusFilter}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStatusFilter('ALL');
+                            void loadPermitList(0, categoryFilter, 'ALL');
+                          }}
+                          className="hover:text-rose-600 font-bold ml-0.5 cursor-pointer"
+                          title="Remove status filter"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {categoryFilter !== 'ALL' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-300">
+                        <span>Type: {categoryFilter}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCategoryFilter('ALL');
+                            void loadPermitList(0, 'ALL', statusFilter);
+                          }}
+                          className="hover:text-rose-600 font-bold ml-0.5 cursor-pointer"
+                          title="Remove type filter"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {levelFilter !== 'ALL' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-300">
+                        <span>Stage: {levelFilter}</span>
+                        <button
+                          type="button"
+                          onClick={() => setLevelFilter('ALL')}
+                          className="hover:text-rose-600 font-bold ml-0.5 cursor-pointer"
+                          title="Remove stage filter"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {(dateFrom || dateTo) && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                        <span>Created: {datePreset === 'LAST_WEEK' ? `Last 1 Week (${dateFrom} → ${dateTo})` : `${dateFrom ? dateFrom : 'Start'} → ${dateTo ? dateTo : 'Now'}`}</span>
+                        <button
+                          type="button"
+                          onClick={() => applyDatePreset('ALL')}
+                          className="hover:text-rose-600 font-bold ml-0.5 cursor-pointer"
+                          title="Remove date filter"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {(search || tableQuery) && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-800 border border-purple-300">
+                        <span>Search: &ldquo;{search || tableQuery}&rdquo;</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch('');
+                            setTableQuery('');
+                            void loadPermitList(0, categoryFilter, statusFilter);
+                          }}
+                          className="hover:text-rose-600 font-bold ml-0.5 cursor-pointer"
+                          title="Clear search query"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter('ALL');
+                        setStatusFilter('ALL');
+                        setLevelFilter('ALL');
+                        setTableQuery('');
+                        setSearch('');
+                        setDateFrom('');
+                        setDateTo('');
+                        setDatePreset('ALL');
+                        void loadPermitList(0, 'ALL', 'ALL', pageSize, '', '');
+                        void loadPlantSummary(plant, false, undefined, '', '');
+                      }}
+                      className="text-[11px] text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-rose-50 transition cursor-pointer ml-1"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+                      <span>Reset All Filters</span>
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-[11px] text-slate-400 italic">Showing all registered site permits for Plant {plant}</span>
+                )}
+              </div>
+
+              {/* Result Counts Badge */}
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20">
+                  {tableQuery || search
                     ? `${displayedPermits.length} of ${permits.length} in view · ${totalCount} in SAP`
                     : `${totalCount === 0 ? 0 : offset + 1}–${Math.min(offset + permits.length, totalCount)} of ${totalCount} Records`}
                 </span>
@@ -1500,17 +2044,46 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                               <span className="block font-mono text-[10px] text-slate-400 mt-0.5">
                                 Rev: {item.FormRev || '0'} · ID: {item.Revision || '—'}
                               </span>
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                {(item.IsBlank === 'X' || (!item.Aufnr?.trim() && !item.Qmnum?.trim()) || item.Aufnr?.trim().toUpperCase() === 'BLANK PERMIT') && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300" title="Blank Permit without PM Reference">
+                                    BLANK
+                                  </span>
+                                )}
+                                {item.IsTemplate === 'X' && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-100 text-indigo-900 border border-indigo-300" title="Master Reusable Template Permit">
+                                    TEMPLATE
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Category with Icon */}
                             <td className="py-3 px-3.5">
                               <div className="flex items-center gap-1.5">
-                                <span className="material-symbols-outlined text-[17px] text-slate-500 shrink-0">
-                                  {catInfo.icon}
+                                <span className={`p-1.5 rounded-lg border flex items-center justify-center shrink-0 ${
+                                  catInfo.isConf
+                                    ? 'bg-rose-50 border-rose-300 text-rose-600 shadow-2xs'
+                                    : catInfo.isHot
+                                    ? 'bg-amber-50 border-amber-300 text-amber-600 shadow-2xs'
+                                    : 'bg-slate-50 border-slate-200 text-slate-500'
+                                }`}>
+                                  <PermitTypeIcon icon={catInfo.icon} type={catInfo.code} size={16} />
                                 </span>
                                 <div>
-                                  <span className="font-semibold text-slate-800 block text-[11px] leading-tight">{catInfo.label}</span>
-                                  <span className="font-mono text-[10px] text-slate-400">{catInfo.code}</span>
+                                  <span className="font-semibold text-slate-800 block text-[11px] leading-tight">
+                                    {catInfo.label}
+                                  </span>
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <span className="font-mono text-[10px] text-slate-400">{catInfo.code}</span>
+                                    {(catInfo.isHot || catInfo.isConf) && (
+                                      <span className={`text-[9px] font-bold uppercase tracking-wider px-1 rounded ${
+                                        catInfo.isConf ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
+                                      }`}>
+                                        {catInfo.hazardLevel}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </td>
@@ -1613,14 +2186,27 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
                             {/* Action Button */}
                             <td className="py-3 px-3.5 text-right whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => void loadPermitDetail(item.Permit_No)}
-                                className="px-3 py-1.5 bg-[#006398] hover:bg-[#004e78] text-white rounded-lg text-xs font-semibold shadow-xs transition-all inline-flex items-center gap-1 ml-auto"
-                              >
-                                <span>Open Dossier</span>
-                                <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-                              </button>
+                              {['CLSD', 'CLOS', 'CANC'].includes(item.Status) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void loadPermitDetail(item.Permit_No)}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/90 rounded-lg text-xs font-medium transition-all inline-flex items-center gap-1.5 ml-auto cursor-pointer"
+                                  title="View Closed Permit Record"
+                                >
+                                  <span>View Record</span>
+                                  <span className="material-symbols-outlined text-[14px] text-slate-400">visibility</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => void loadPermitDetail(item.Permit_No)}
+                                  className="px-3 py-1.5 bg-[#006398] hover:bg-[#004e78] text-white rounded-lg text-xs font-semibold shadow-xs transition-all inline-flex items-center gap-1.5 ml-auto active:scale-95 cursor-pointer"
+                                  title="Open Permit Dossier"
+                                >
+                                  <span>Open Dossier</span>
+                                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                                </button>
+                              )}
                             </td>
                           </tr>
 
@@ -1925,9 +2511,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-200/70">
               <div className="flex items-start gap-3">
                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#006398] to-[#004266] text-white flex items-center justify-center shadow-md shrink-0">
-                  <span className="material-symbols-outlined text-[24px]">
-                    {getCategoryInfo(selectedPermit.PermitType).icon}
-                  </span>
+                  <PermitTypeIcon icon={getCategoryInfo(selectedPermit.PermitType).icon} type={selectedPermit.PermitType} size={24} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2.5 flex-wrap">
@@ -1947,10 +2531,38 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
                     {renderStatusBadge(selectedPermit.Status)}
 
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20 shadow-xs flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[13px]">{getCategoryInfo(selectedPermit.PermitType).icon}</span>
-                      <span>{getCategoryInfo(selectedPermit.PermitType).label}</span>
-                    </span>
+                    {/* Blank Permit Badge */}
+                    {(selectedPermit.IsBlank === 'X' || (!selectedPermit.Aufnr?.trim() && !selectedPermit.Qmnum?.trim()) || selectedPermit.Aufnr?.trim().toUpperCase() === 'BLANK PERMIT') && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs flex items-center gap-1" title="Permit created without an SAP PM Maintenance Order or Notification reference">
+                        <span className="material-symbols-outlined text-[13px]">note_add</span>
+                        <span>BLANK PERMIT</span>
+                      </span>
+                    )}
+
+                    {/* Template Permit Badge */}
+                    {selectedPermit.IsTemplate === 'X' && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-indigo-100 text-indigo-900 border border-indigo-300 shadow-xs flex items-center gap-1" title="Saved as Master Reusable Permit Template">
+                        <span className="material-symbols-outlined text-[13px]">bookmark</span>
+                        <span>TEMPLATE</span>
+                      </span>
+                    )}
+
+                    {(() => {
+                      const catInfo = getCategoryInfo(selectedPermit.PermitType);
+                      return (
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border shadow-xs flex items-center gap-1.5 ${catInfo.hazardBadgeClass}`}>
+                          <PermitTypeIcon icon={catInfo.icon} type={selectedPermit.PermitType} size={13} />
+                          <span>{catInfo.label}</span>
+                          {(catInfo.isHot || catInfo.isConf) && (
+                            <span className={`text-[9px] font-bold uppercase tracking-wider px-1 rounded ${
+                              catInfo.isConf ? 'bg-rose-200/80 text-rose-900' : 'bg-amber-200/80 text-amber-950'
+                            }`}>
+                              {catInfo.hazardLevel}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()}
 
                     {/* Additional Sub-categories */}
                     {selectedPermit._WorkType && selectedPermit._WorkType.length > 0 && (
@@ -1970,7 +2582,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                             className="px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-sky-50 text-[#006398] border border-sky-200 shadow-xs flex items-center gap-1"
                             title={`Additional Work Category: ${getCategoryInfo(wt.WorkType).label} (${wt.WorkType})`}
                           >
-                            <span className="material-symbols-outlined text-[12px]">{getCategoryInfo(wt.WorkType).icon}</span>
+                            <PermitTypeIcon icon={getCategoryInfo(wt.WorkType).icon} type={wt.WorkType} size={12} />
                             <span>+{getCategoryInfo(wt.WorkType).label}</span>
                           </span>
                         ))
@@ -1985,29 +2597,51 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
               {/* Action Buttons */}
               <div className="no-print flex flex-wrap items-center gap-2 self-start lg:self-center">
+                {(selectedPermit.Status === 'CRTD' || selectedPermit.Status === 'DRAF') && onRevisePermit && (
+                  <button
+                    type="button"
+                    onClick={() => onRevisePermit(selectedPermit)}
+                    className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                    title="Open permit in creator/editor to modify fields before submission"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit_note</span>
+                    <span>Edit Draft</span>
+                  </button>
+                )}
+
                 {(selectedPermit.Status === 'REJT' || selectedPermit.Status === 'REJC') && (
-                  <div className="flex items-center gap-1.5">
-                    {onRevisePermit && (
+                  canResubmitPermit ? (
+                    <div className="flex items-center gap-1.5">
+                      {onRevisePermit && (
+                        <button
+                          type="button"
+                          onClick={() => onRevisePermit(selectedPermit)}
+                          className="px-3 py-1.5 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
+                          title="Open full 8-step permit editor to revise rejected fields, crew muster, or PPE"
+                        >
+                          <span className="material-symbols-outlined text-[16px] text-amber-700">edit_note</span>
+                          <span>Revise in Editor</span>
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => onRevisePermit(selectedPermit)}
-                        className="px-3 py-1.5 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
-                        title="Open full 8-step permit editor to revise rejected fields, crew muster, or PPE"
+                        onClick={handleOpenResubmitModal}
+                        className="px-3.5 py-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95"
+                        title="Quickly edit header values and resubmit to approval workflow via SAP bound action"
                       >
-                        <span className="material-symbols-outlined text-[16px] text-amber-700">edit_note</span>
-                        <span>Revise in Editor</span>
+                        <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                        <span>Quick Edit & Resubmit</span>
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleOpenResubmitModal}
-                      className="px-3.5 py-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95"
-                      title="Quickly edit header values and resubmit to approval workflow via SAP bound action"
+                    </div>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-800 border border-rose-200 rounded-xl text-xs font-semibold"
+                      title="Only the permit creator with PTW_ISSU authorization or PTW_ADMIN can revise and resubmit."
                     >
-                      <span className="material-symbols-outlined text-[16px]">restart_alt</span>
-                      <span>Quick Edit & Resubmit</span>
-                    </button>
-                  </div>
+                      <span className="material-symbols-outlined text-[16px] text-rose-600">lock</span>
+                      <span>Resubmit Restricted (Creator & Issuer only)</span>
+                    </span>
+                  )
                 )}
 
                 {updatingPrereq && (
@@ -2017,7 +2651,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   </span>
                 )}
 
-                {!['CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
+                {!['CLSD', 'CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
                   <button
                     type="button"
                     disabled={loadingDetail || updatingPrereq}
@@ -2038,10 +2672,37 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   <span>Print permit</span>
                 </button>
 
+                {onRevisePermit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const templateCopy: PermitDeepInsertResponse = {
+                        ...selectedPermit,
+                        Permit_No: '',
+                        Status: 'CRTD',
+                        IsTemplate: selectedPermit.IsTemplate === 'X' ? 'X' : ' ',
+                        '@odata.etag': undefined
+                      };
+                      onRevisePermit(templateCopy);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                      selectedPermit.IsTemplate === 'X'
+                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'
+                        : 'bg-white border border-indigo-300 hover:border-indigo-500 text-indigo-700 hover:bg-indigo-50'
+                    }`}
+                    title="Load this permit's configuration (Nature, Tools, Crew, PPE, Safety, Hazards) into the Permit Creator as a new permit"
+                  >
+                    <span className={`material-symbols-outlined text-[15px] ${selectedPermit.IsTemplate === 'X' ? 'text-white' : 'text-indigo-600'}`}>
+                      bookmark_add
+                    </span>
+                    <span>Use as Template</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   disabled={loadingDetail || updatingPrereq}
-                  onClick={() => void loadPermitDetail(selectedPermit.Permit_No)}
+                  onClick={() => void loadPermitDetail(selectedPermit.Permit_No, true)}
                   className="px-3.5 py-1.5 border border-slate-300 hover:border-[#006398] hover:text-[#006398] bg-white text-slate-700 rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <span className={`material-symbols-outlined text-[15px] ${loadingDetail ? 'animate-spin' : ''}`}>
@@ -2291,8 +2952,8 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
               );
             })()}
 
-            {/* Embedded Prerequisite Actions Panel for eligible roles */}
-            {(isUserAdmin || userRoles.some(r => ['ZPTW_GAS_TESTER', 'PTW_GAS_TESTER', 'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE', 'ZPTW_ADMIN', 'PTW_ADMIN'].includes(r))) && (
+            {/* Embedded Prerequisite Actions Panel for preliminary / verification stages */}
+            {['CRTD', 'DRAF', 'INTD'].includes(selectedPermit.Status) && (isUserAdmin || userRoles.some(r => ['ZPTW_GAS_TESTER', 'PTW_GAS_TESTER', 'ZPTW_SAFETY_OFFICER', 'PTW_SAFETY_OFFICER', 'PTW_SAFE', 'ZPTW_ADMIN', 'PTW_ADMIN'].includes(r))) && (
               <div className="mt-3 pt-3 border-t border-slate-200/60">
                 <PrerequisitePanel
                   key={`${selectedPermit.Permit_No}:${selectedPermit['@odata.etag'] || ''}`}
@@ -2304,6 +2965,20 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     setSelectedPermit(current =>
                       current?.Permit_No === updated.Permit_No ? updated : current
                     );
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Embedded Permit Closure & Handover Workflow Card */}
+            {['ACTV', 'ISSU', 'ACCL', 'AROP', 'CLSD', 'CLOS'].includes(selectedPermit.Status) && (
+              <div className="mt-3 pt-3 border-t border-slate-200/60">
+                <PermitClosureActionCard
+                  permit={selectedPermit}
+                  user={user}
+                  onSuccess={() => {
+                    void loadPermitDetail(selectedPermit.Permit_No, true);
+                    void loadPlantSummary(plant || selectedPermit.Werks || '1002', true);
                   }}
                 />
               </div>
@@ -2358,6 +3033,12 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   label: 'History',
                   icon: 'history',
                   badge: selectedPermit._AuditLog?.length
+                },
+                {
+                  id: 'attachments',
+                  label: 'Attachments',
+                  icon: 'attach_file',
+                  badge: selectedPermit._Attachment?.length || null
                 },
               ].map(tab => (
                 <button
@@ -2731,12 +3412,20 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   theme="blue"
                   sectionTag="CHECKLISTS"
                   title="Compliance Questionnaire Responses (_CHK)"
-                  subtitle="Category specific statutory checklists recorded in SAP child table _CHK."
+                  subtitle="Category specific statutory checklists recorded in SAP child table _CHK with live SAP questions."
                   icon="checklist"
                   badge={
-                    <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-sky-50 text-sky-800 border border-sky-200">
-                      {selectedPermit._CHK.length} Answers
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {loadingChecklistQuestions && (
+                        <span className="flex items-center gap-1 text-[11px] font-mono text-sky-700">
+                          <span className="material-symbols-outlined text-[13px] animate-spin">sync</span>
+                          Loading Questions...
+                        </span>
+                      )}
+                      <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                        {selectedPermit._CHK.length} Answers
+                      </span>
+                    </div>
                   }
                 >
                   <div className="overflow-x-auto">
@@ -2744,46 +3433,77 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-mono text-[11px]">
                           <th className="p-2.5 w-12 text-center">#</th>
-                          <th className="p-2.5 w-28">Category</th>
-                          <th className="p-2.5 w-36">Questionnaire ID</th>
-                          <th className="p-2.5 w-32">Response</th>
-                          <th className="p-2.5">Remarks / Verification Notes</th>
+                          <th className="p-2.5 w-24">Category</th>
+                          <th className="p-2.5 w-20">ID</th>
+                          <th className="p-2.5 min-w-[280px]">Safety Verification Question (Live SAP /Checklist)</th>
+                          <th className="p-2.5 w-36">Response</th>
+                          <th className="p-2.5 min-w-[180px]">Remarks / Verification Notes</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-sans">
-                        {selectedPermit._CHK.map((chk, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/60">
-                            <td className="p-2.5 font-mono text-slate-400 text-center">{idx + 1}</td>
-                            <td className="p-2.5 font-mono font-bold text-slate-700">
-                              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                                {chk.PermitType}
-                              </span>
-                            </td>
-                            <td className="p-2.5 font-mono font-bold text-[#006398]">{chk.QuestionnaireId}</td>
-                            <td className="p-2.5 whitespace-nowrap">
-                              {chk.Answer === 'YES' ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                  <span className="material-symbols-outlined text-[12px]">check</span>
-                                  YES (Compliant)
+                        {selectedPermit._CHK.map((chk, idx) => {
+                          const question = getResolvedChecklistQuestion(chk.PermitType, chk.QuestionnaireId);
+                          return (
+                            <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="p-2.5 font-mono text-slate-400 text-center">{idx + 1}</td>
+                              <td className="p-2.5 font-mono font-bold text-slate-700 whitespace-nowrap">
+                                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                  {chk.PermitType}
                                 </span>
-                              ) : chk.Answer === 'NO' ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                                  <span className="material-symbols-outlined text-[12px]">close</span>
-                                  NO (Non-Compliant)
+                                {question?.Category && (
+                                  <span className="block mt-1 text-[9px] font-mono text-slate-400 font-normal">
+                                    {question.Category}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-2.5 font-mono font-bold text-[#006398] whitespace-nowrap">
+                                <span className="rounded bg-sky-50 px-1.5 py-0.5 border border-sky-200">
+                                  #{chk.QuestionnaireId}
                                 </span>
-                              ) : chk.Answer === 'NA' ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                  N/A
-                                </span>
-                              ) : (
-                                <span className="font-mono text-slate-500 font-bold">{chk.Answer || '—'}</span>
-                              )}
-                            </td>
-                            <td className="p-2.5 text-slate-700">
-                              {chk.Remarks || '—'}
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="p-2.5">
+                                {question ? (
+                                  <div className="space-y-1">
+                                    <p className="text-slate-900 font-medium text-xs leading-relaxed">
+                                      {question.Question}
+                                    </p>
+                                  </div>
+                                ) : loadingChecklistQuestions ? (
+                                  <span className="text-slate-400 text-[11px] flex items-center gap-1.5 font-mono italic">
+                                    <span className="material-symbols-outlined text-[13px] animate-spin text-[#006398]">sync</span>
+                                    Resolving from SAP /Checklist...
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-500 font-mono text-[11px] italic">
+                                    Question #{chk.QuestionnaireId} ({chk.PermitType})
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-2.5 whitespace-nowrap">
+                                {chk.Answer === 'YES' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <span className="material-symbols-outlined text-[12px]">check</span>
+                                    YES (Compliant)
+                                  </span>
+                                ) : chk.Answer === 'NO' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                    <span className="material-symbols-outlined text-[12px]">close</span>
+                                    NO (Non-Compliant)
+                                  </span>
+                                ) : chk.Answer === 'NA' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                    N/A
+                                  </span>
+                                ) : (
+                                  <span className="font-mono text-slate-500 font-bold">{chk.Answer || '—'}</span>
+                                )}
+                              </td>
+                              <td className="p-2.5 text-slate-700">
+                                {chk.Remarks || '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -3514,7 +4234,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                         <CertificateActions
                           certificate={cert}
                           user={user}
-                          onUpdated={() => void loadPermitDetail(selectedPermit.Permit_No)}
+                          onUpdated={() => void loadPermitDetail(selectedPermit.Permit_No, true)}
                         />
                       </div>
                     ))}
@@ -3551,23 +4271,23 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                           <td className="p-2.5 font-mono font-bold text-slate-800">{iso.LockTagNo || '—'}</td>
                           <td className="p-2.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                              iso.IsIsolated === 'Y' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                              isPointIsolated(iso) ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                             }`}>
-                              {iso.IsIsolated === 'Y' ? 'ISOLATED' : 'PENDING'}
+                              {isPointIsolated(iso) ? 'ISOLATED' : 'PENDING'}
                             </span>
                           </td>
                           <td className="p-2.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                              iso.ZeroEnergyConf === 'Y' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                              isPointZeroEnergy(iso) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
                             }`}>
-                              {iso.ZeroEnergyConf === 'Y' ? 'CONFIRMED' : 'NO'}
+                              {isPointZeroEnergy(iso) ? 'CONFIRMED' : 'NO'}
                             </span>
                           </td>
                           <td className="p-2.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-mono ${
-                              iso.IsNormalized === 'Y' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-500'
+                              isPointNormalized(iso) ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-500'
                             }`}>
-                              {iso.IsNormalized === 'Y' ? 'RESTORED' : 'ACTIVE'}
+                              {isPointNormalized(iso) ? 'RESTORED' : 'ACTIVE'}
                             </span>
                           </td>
                         </tr>
@@ -3604,7 +4324,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     const latest = selectedPermit._GasTest[selectedPermit._GasTest.length - 1];
                     const o2Ok = latest.O2Pct >= 19.5 && latest.O2Pct <= 23.5;
                     const lelOk = latest.LelPct < 1.0;
-                    const coOk = latest.CoVal < 25.0;
+                    const coOk = latest.CoVal <= 5000.0;
                     const h2sOk = latest.H2sVal < 10.0;
                     return (
                       <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
@@ -3630,9 +4350,9 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                           </div>
 
                           <div className={`p-3 rounded-xl border ${coOk ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
-                            <span className="text-[10px] font-mono block text-slate-500">CO (Carbon Monoxide)</span>
+                            <span className="text-[10px] font-mono block text-slate-500">CO2 (Carbon Dioxide)</span>
                             <span className="text-xl font-bold font-mono">{latest.CoVal} ppm</span>
-                            <span className="block text-[10px] font-mono mt-0.5">{coOk ? 'SAFE (< 25 ppm)' : 'TOXIC DANGER'}</span>
+                            <span className="block text-[10px] font-mono mt-0.5">{coOk ? 'SAFE (≤ 5,000 ppm)' : 'HAZARDOUS'}</span>
                           </div>
 
                           <div className={`p-3 rounded-xl border ${h2sOk ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
@@ -3656,7 +4376,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                           <th className="p-2.5">Sample Level</th>
                           <th className="p-2.5">O2 %</th>
                           <th className="p-2.5">LEL %</th>
-                          <th className="p-2.5">CO</th>
+                          <th className="p-2.5">CO2</th>
                           <th className="p-2.5">H2S</th>
                           <th className="p-2.5">Meter ID</th>
                           <th className="p-2.5">Tester</th>
@@ -3700,14 +4420,18 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-blue-50 text-[#006398] border border-blue-200">
                     {selectedPermit._Approval?.length || 0} Signatures
                   </span>
-                  {selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV' ? (
+                  {['APPR', 'ACCP', 'ISSU', 'ACTV', 'ACCL', 'AROP', 'CLSD', 'CLOS'].includes(selectedPermit.Status) ? (
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold shadow-2xs">
                         <span className="material-symbols-outlined text-[15px] text-emerald-600">verified</span>
                         <span>Approvals Completed</span>
                       </span>
-
                     </div>
+                  ) : ['REJT', 'REJC'].includes(selectedPermit.Status) ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 text-rose-800 border border-rose-300 text-xs font-bold shadow-2xs">
+                      <span className="material-symbols-outlined text-[15px] text-rose-600">cancel</span>
+                      <span>Approvals Rejected</span>
+                    </span>
                   ) : (
                     <button
                       type="button"
@@ -3738,7 +4462,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
                     Multi-Tier Authorization Pipeline (Live SAP /Approval Flow)
                   </span>
-                  {(selectedPermit.Status === 'APPR' || selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV') && (
+                  {['APPR', 'ACCP', 'ISSU', 'ACTV', 'ACCL', 'AROP', 'CLSD', 'CLOS'].includes(selectedPermit.Status) && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
                       <span className="material-symbols-outlined text-[13px] text-emerald-600">verified</span>
                       <span>All Required Approvals Complete</span>
@@ -3764,25 +4488,34 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {onRevisePermit && (
-                        <button
-                          type="button"
-                          onClick={() => onRevisePermit(selectedPermit)}
-                          className="px-3 py-2 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-                          title="Open full 8-step permit editor to revise crew, hazards, or PPE"
-                        >
-                          <span className="material-symbols-outlined text-[16px] text-rose-700">edit_note</span>
-                          <span>Revise in Editor</span>
-                        </button>
+                      {canResubmitPermit ? (
+                        <>
+                          {onRevisePermit && (
+                            <button
+                              type="button"
+                              onClick={() => onRevisePermit(selectedPermit)}
+                              className="px-3 py-2 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                              title="Open full 8-step permit editor to revise crew, hazards, or PPE"
+                            >
+                              <span className="material-symbols-outlined text-[16px] text-rose-700">edit_note</span>
+                              <span>Revise in Editor</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleOpenResubmitModal}
+                            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                            <span>Quick Edit & Resubmit</span>
+                          </button>
+                        </>
+                      ) : (
+                        <p className="text-xs text-rose-700 italic flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px]">lock</span>
+                          <span>Resubmission restricted to permit creator with PTW_ISSU role or PTW_ADMIN.</span>
+                        </p>
                       )}
-                      <button
-                        type="button"
-                        onClick={handleOpenResubmitModal}
-                        className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">restart_alt</span>
-                        <span>Quick Edit & Resubmit</span>
-                      </button>
                     </div>
                   </div>
                 )}
@@ -4013,57 +4746,102 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-sans">
-                      {selectedPermit._Approval.map((app, i) => {
-                        const isApproved = app.Action === 'AP' || app.Action === 'APPROVED';
-                        const isVerified = app.Action === 'VR' || app.Action === 'VERIFIED';
-                        const isRejected = app.Action === 'RJ' || app.Action === 'REJECTED';
-                        const actionLabel = isApproved ? 'APPROVED' : isVerified ? 'VERIFIED' : isRejected ? 'REJECTED' : (app.Action || 'PENDING');
-                        const badgeColor = isApproved
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : isVerified
-                          ? 'bg-sky-100 text-sky-800 border-sky-300'
-                          : isRejected
-                          ? 'bg-rose-100 text-rose-800 border-rose-300'
-                          : 'bg-slate-100 text-slate-700 border-slate-300';
+                      {(() => {
+                        const sortedApprovals = [...selectedPermit._Approval].sort((a, b) => {
+                          const parseMs = (record: typeof a): number => {
+                            if (!record.ActionDate) return -1;
+                            const d = String(record.ActionDate).trim().slice(0, 10);
+                            let t = String(record.ActionTime || '00:00:00').trim();
+                            if (/^\d:\d{2}/.test(t)) {
+                              t = '0' + t;
+                            }
+                            const ms = Date.parse(`${d}T${t}`);
+                            if (!isNaN(ms)) return ms;
+                            const ms2 = Date.parse(`${d} ${t}`);
+                            return !isNaN(ms2) ? ms2 : -1;
+                          };
 
-                        const roleLabel =
-                          app.RoleId === 'PTW_APPR1'
-                            ? 'PTW_APPR1 (Approver I)'
-                            : app.RoleId === 'PTW_APPR2'
-                            ? 'PTW_APPR2 (Approver II)'
-                            : app.RoleId === 'PTW_APPR3'
-                            ? 'PTW_APPR3 (Approver III)'
-                            : app.RoleId === 'VER'
-                            ? 'VER (Site Verification)'
-                            : app.RoleId === 'ISS'
-                            ? 'ISS (Permit Issuer)'
-                            : app.RoleId;
+                          const msA = parseMs(a);
+                          const msB = parseMs(b);
 
-                        return (
-                          <tr key={i} className="hover:bg-slate-50">
-                            <td className="p-2.5 font-mono font-bold text-slate-600">
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] text-slate-700 border border-slate-200">
-                                Cycle {app.CycleNo || 1}
-                              </span>
-                            </td>
-                            <td className="p-2.5 font-bold text-slate-800 font-mono">{app.Stage || 'Stage ' + (i + 1)}</td>
-                            <td className="p-2.5 font-mono text-slate-500 font-bold">{app.SeqNo}</td>
-                            <td className="p-2.5 font-mono font-semibold text-slate-700">{roleLabel}</td>
-                            <td className="p-2.5">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeColor}`}>
-                                {actionLabel}
-                              </span>
-                            </td>
-                            <td className="p-2.5 font-mono font-bold text-slate-900">
-                              {app.SignedBy?.trim() ? app.SignedBy : <span className="text-slate-400 font-normal italic">Awaiting Signature</span>}
-                            </td>
-                            <td className="p-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                              {app.ActionDate ? `${app.ActionDate} ${app.ActionTime || ''}` : <span className="text-slate-400 italic">Pending</span>}
-                            </td>
-                            <td className="p-2.5 text-slate-600 max-w-xs">{app.Comments || '—'}</td>
-                          </tr>
-                        );
-                      })}
+                          if (msA > 0 && msB > 0) {
+                            if (msA !== msB) return msB - msA; // Newest first (descending)
+                          } else if (msA > 0 && msB <= 0) {
+                            return -1; // Timestamped on top
+                          } else if (msA <= 0 && msB > 0) {
+                            return 1;
+                          }
+
+                          // Tie-breaker: CycleNo desc, then SeqNo desc
+                          const cycleDiff = (Number(b.CycleNo) || 1) - (Number(a.CycleNo) || 1);
+                          if (cycleDiff !== 0) return cycleDiff;
+                          return (Number(b.SeqNo) || 0) - (Number(a.SeqNo) || 0);
+                        });
+
+                        return sortedApprovals.map((app, i) => {
+                          const normAction = (app.Action || '').toUpperCase().trim();
+                          const isApproved = normAction === 'AP' || normAction === 'APPROVED';
+                          const isVerified = normAction === 'VR' || normAction === 'VERIFIED';
+                          const isRejected = normAction === 'RJ' || normAction === 'REJECTED';
+                          const isClosed = normAction === 'CL' || normAction === 'CLOSED' || normAction === 'CLSD';
+                          const actionLabel = isApproved
+                            ? 'APPROVED'
+                            : isVerified
+                            ? 'VERIFIED'
+                            : isRejected
+                            ? 'REJECTED'
+                            : isClosed
+                            ? 'CLOSED'
+                            : (app.Action || 'PENDING');
+                          const badgeColor = isApproved
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : isVerified
+                            ? 'bg-sky-100 text-sky-800 border-sky-300'
+                            : isRejected
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : isClosed
+                            ? 'bg-teal-100 text-teal-800 border-teal-300'
+                            : 'bg-slate-100 text-slate-700 border-slate-300';
+
+                          const roleLabel =
+                            app.RoleId === 'PTW_APPR1'
+                              ? 'PTW_APPR1 (Approver I)'
+                              : app.RoleId === 'PTW_APPR2'
+                              ? 'PTW_APPR2 (Approver II)'
+                              : app.RoleId === 'PTW_APPR3'
+                              ? 'PTW_APPR3 (Approver III)'
+                              : app.RoleId === 'VER'
+                              ? 'VER (Site Verification)'
+                              : app.RoleId === 'ISS'
+                              ? 'ISS (Permit Issuer)'
+                              : app.RoleId;
+
+                          return (
+                            <tr key={`${app.Stage}-${app.SeqNo}-${app.ActionDate || ''}-${app.ActionTime || ''}-${i}`} className="hover:bg-slate-50">
+                              <td className="p-2.5 font-mono font-bold text-slate-600">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] text-slate-700 border border-slate-200">
+                                  Cycle {app.CycleNo || 1}
+                                </span>
+                              </td>
+                              <td className="p-2.5 font-bold text-slate-800 font-mono">{app.Stage || 'Stage ' + (i + 1)}</td>
+                              <td className="p-2.5 font-mono text-slate-500 font-bold">{app.SeqNo}</td>
+                              <td className="p-2.5 font-mono font-semibold text-slate-700">{roleLabel}</td>
+                              <td className="p-2.5">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeColor}`}>
+                                  {actionLabel}
+                                </span>
+                              </td>
+                              <td className="p-2.5 font-mono font-bold text-slate-900">
+                                {app.SignedBy?.trim() ? app.SignedBy : <span className="text-slate-400 font-normal italic">Awaiting Signature</span>}
+                              </td>
+                              <td className="p-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                                {app.ActionDate ? `${app.ActionDate} ${app.ActionTime || ''}` : <span className="text-slate-400 italic">Pending</span>}
+                              </td>
+                              <td className="p-2.5 text-slate-600 max-w-xs">{app.Comments || '—'}</td>
+                            </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -4120,6 +4898,16 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                           <span>Reject (Acceptor)</span>
                         </button>
                       </>
+                    ) : ['CLSD', 'CLOS'].includes(selectedPermit.Status) ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs">
+                        <span className="material-symbols-outlined text-[16px] text-emerald-600">task_alt</span>
+                        <span>Permit Closed (CLSD)</span>
+                      </span>
+                    ) : ['ACCL', 'AROP'].includes(selectedPermit.Status) ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold shadow-2xs">
+                        <span className="material-symbols-outlined text-[16px] text-teal-600">handshake</span>
+                        <span>Acceptor Handover Complete ({selectedPermit.Status})</span>
+                      </span>
                     ) : selectedPermit.Status === 'ISSU' || selectedPermit.Status === 'ACTV' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[11px] font-bold">
                         <span className="material-symbols-outlined text-[14px]">check</span>
@@ -4146,9 +4934,10 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
 
               {/* Log Approval / Sign Clearance Modal */}
               {showApprovalModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-                  <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-200 space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                typeof document !== 'undefined' ? createPortal(
+                  <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 animate-in fade-in duration-150">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-200 space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-2">
                         <span className="p-2 rounded-xl bg-blue-50 text-[#006398]">
                           <span className="material-symbols-outlined text-[20px]">draw</span>
@@ -4320,14 +5109,16 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
+                </div>,
+                document.body
+              ) : null)}
 
               {/* Permit Acceptor (Section K) Modal: acceptPermit / rejectAcceptor */}
               {showAcceptorModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-                  <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-200 space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                typeof document !== 'undefined' ? createPortal(
+                  <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 animate-in fade-in duration-150">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-200 space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-2">
                         <span className={`p-2 rounded-xl ${acceptorActionType === 'accept' ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'}`}>
                           <span className="material-symbols-outlined text-[20px]">
@@ -4456,17 +5247,19 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                </div>,
+                document.body
+              ) : null)}
             </SectionCard>
           )}
 
           {/* ========================================================================= */}
               {/* Resubmit & Revise Rejected Permit Modal (SAP Bound Action: PermitInfo('...')/...Resubmit) */}
               {showResubmitModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-                  <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                typeof document !== 'undefined' ? createPortal(
+                  <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 overflow-y-auto animate-in fade-in duration-150">
+                    <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-2.5">
                         <span className="p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
                           <span className="material-symbols-outlined text-[22px]">restart_alt</span>
@@ -4700,8 +5493,9 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                </div>,
+                document.body
+              ) : null)}
 
           {/* TAB 8: SHIFT RENEWALS & AUDIT LOG (N) */}
           {/* ========================================================================= */}
@@ -4719,7 +5513,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                       {selectedPermit._ShiftRenewal?.length || 0} Records
                     </span>
-                    {!['CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
+                    {!['CLSD', 'CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
                       <button
                         type="button"
                         disabled={loadingDetail || updatingPrereq}
@@ -4736,7 +5530,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                 {!selectedPermit._ShiftRenewal || selectedPermit._ShiftRenewal.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400 space-y-2">
                     <p>No shift renewals recorded.</p>
-                    {!['CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
+                    {!['CLSD', 'CLOS', 'CANC', 'REJT', 'REJC'].includes(selectedPermit.Status) && (
                       <button
                         type="button"
                         disabled={loadingDetail || updatingPrereq}
@@ -4789,80 +5583,421 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
               </SectionCard>
 
               {/* Full Audit Trail */}
-              <SectionCard
-                theme="slate"
-                sectionTag="SECTION N.2"
-                title="Permit history"
-                subtitle="Recorded permit changes, in chronological order."
-                icon="history"
-                badge={
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                    {selectedPermit._AuditLog?.length || 0} Events
-                  </span>
-                }
-              >
-                {!selectedPermit._AuditLog || selectedPermit._AuditLog.length === 0 ? (
-                  <p className="p-6 text-center text-xs text-slate-400">No audit log records found for this permit.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-mono text-[10px]">
-                          <th className="p-2.5">Action</th>
-                          <th className="p-2.5">Transition</th>
-                          <th className="p-2.5">Actor (SAP User)</th>
-                          <th className="p-2.5">Event Timestamp</th>
-                          <th className="p-2.5">Reason / Comments</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {selectedPermit._AuditLog.map((log, i) => (
-                          <tr key={log.AuditId || i} className="hover:bg-slate-50 font-mono">
-                            <td className="p-2.5">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
-                                {log.Action}
-                              </span>
-                            </td>
-                            <td className="p-2.5 text-slate-600">
-                              {log.OldStatus || log.NewStatus ? (
-                                <>
-                                  <span className="text-slate-500">{log.OldStatus || 'INIT'}</span>
-                                  <span className="mx-1 text-slate-400">→</span>
-                                  <span className="font-bold text-slate-900">{log.NewStatus || '—'}</span>
-                                </>
-                              ) : (
-                                <span className="text-slate-400 font-sans italic text-[11px]">Initial Record</span>
-                              )}
-                            </td>
-                            <td className="p-2.5 text-indigo-700 font-bold">{log.Actor}</td>
-                            <td className="p-2.5 text-slate-500 whitespace-nowrap" title={log.EventAt || undefined}>
-                              {(() => {
-                                if (!log.EventAt) return '—';
-                                try {
-                                  const d = new Date(log.EventAt);
-                                  if (isNaN(d.getTime())) return log.EventAt;
-                                  return d.toLocaleString('en-IN', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: true
-                                  });
-                                } catch {
-                                  return log.EventAt;
-                                }
-                              })()}
-                            </td>
-                            <td className="p-2.5 font-sans text-slate-600">{log.Comments || '—'}</td>
+              {(() => {
+                const allLogs = selectedPermit._AuditLog || [];
+                const permitLogs = allLogs.filter((log) => isPermitAuditLog(log, selectedPermit.Permit_No));
+                const isoLogs = allLogs.filter((log) => isIsolationAuditLog(log));
+                const isoCertLogs = isoLogs.filter((log) => isIsolationCertAuditLog(log));
+                const isoItemLogs = isoLogs.filter((log) => isIsolationItemAuditLog(log));
+
+                const filterBySearch = (list: typeof allLogs) => {
+                  if (!auditObjectIdSearch.trim()) return list;
+                  const q = auditObjectIdSearch.trim().toUpperCase();
+                  return list.filter((log) => {
+                    const objId = (log.ObjectId || '').toUpperCase();
+                    const objType = (log.ObjectType || '').toUpperCase();
+                    const action = (log.Action || '').toUpperCase();
+                    const actor = (log.Actor || '').toUpperCase();
+                    const comments = (log.Comments || '').toUpperCase();
+                    return objId.includes(q) || objType.includes(q) || action.includes(q) || actor.includes(q) || comments.includes(q);
+                  });
+                };
+
+                const effectiveIsoLogs =
+                  auditIsoSubFilter === 'CERT'
+                    ? isoCertLogs
+                    : auditIsoSubFilter === 'ITEMS'
+                    ? isoItemLogs
+                    : isoLogs;
+
+                const renderAuditTable = (logs: typeof allLogs, emptyMsg: string) => {
+                  if (!logs || logs.length === 0) {
+                    return (
+                      <div className="p-6 text-center text-xs text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                        {emptyMsg}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-mono text-[10px] uppercase">
+                            <th className="p-2.5">Object</th>
+                            <th className="p-2.5">Action</th>
+                            <th className="p-2.5">Status</th>
+                            <th className="p-2.5">Actor (SAP User)</th>
+                            <th className="p-2.5">Event Timestamp</th>
+                            <th className="p-2.5">Reason / Comments</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </SectionCard>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {logs.map((log, i) => {
+                            const rawType = (log.ObjectType || (log.ObjectId?.includes('/') ? 'ISOL_ITEM' : log.ObjectId?.startsWith('ISO') ? 'ISOLATION' : 'PERMIT')).toUpperCase();
+                            const objType = rawType === 'ISOL_ITEM' ? 'ISOL_ITEM' : rawType === 'ISOLATION' ? 'ISOLATION' : 'PERMIT';
+                            const objId = log.ObjectId || log.PermitNo || selectedPermit.Permit_No;
+                            const newStat = (log.NewStatus || '').trim();
+
+                            return (
+                              <tr key={log.AuditId || `${log.ObjectId}_${i}`} className="hover:bg-slate-50/80 font-mono transition-colors">
+                                {/* 1. Object (ObjectType & ObjectId) */}
+                                <td className="p-2.5 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                        objType === 'ISOL_ITEM'
+                                          ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                          : objType === 'ISOLATION'
+                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                          : 'bg-sky-50 text-sky-800 border-sky-200'
+                                      }`}
+                                    >
+                                      {objType}
+                                    </span>
+                                    <span className="font-semibold text-slate-800 text-[11px]">{objId}</span>
+                                  </div>
+                                </td>
+
+                                {/* 2. Action */}
+                                <td className="p-2.5 whitespace-nowrap">
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${
+                                      log.Action === 'CREATE'
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : log.Action === 'WORK_COMPLETE'
+                                        ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                        : log.Action === 'ACCEPTOR_CLOSE'
+                                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                        : log.Action === 'AREA_OPERATOR_CLOSE'
+                                        ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                        : log.Action === 'ISSUER_CLOSE'
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : log.Action === 'APPROVE'
+                                        ? 'bg-teal-50 text-teal-800 border-teal-200'
+                                        : log.Action?.startsWith('NORMALIZE')
+                                        ? 'bg-cyan-50 text-cyan-800 border-cyan-200'
+                                        : 'bg-slate-100 text-slate-800 border-slate-300'
+                                    }`}
+                                  >
+                                    {log.Action}
+                                  </span>
+                                </td>
+
+                                {/* 3. Status (NewStatus; ignore OldStatus per instruction) */}
+                                <td className="p-2.5 whitespace-nowrap">
+                                  {newStat && newStat !== '(blank)' ? (
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                        newStat === 'CLSD'
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                          : newStat === 'ACTV'
+                                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                          : newStat === 'ACCL'
+                                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                          : newStat === 'AROP'
+                                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                          : newStat === 'CRTD'
+                                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                          : newStat === 'ISOL' || newStat === 'APPR'
+                                          ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                          : newStat === 'NORM'
+                                          ? 'bg-teal-50 text-teal-700 border-teal-200'
+                                          : 'bg-slate-100 text-slate-700 border-slate-200'
+                                      }`}
+                                    >
+                                      {newStat}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 font-mono text-[11px]">—</span>
+                                  )}
+                                </td>
+
+                                {/* 4. Actor (SAP User) */}
+                                <td className="p-2.5 text-indigo-700 font-bold whitespace-nowrap">{log.Actor || '—'}</td>
+
+                                {/* 5. Event Timestamp */}
+                                <td className="p-2.5 text-slate-500 whitespace-nowrap" title={log.EventAt || undefined}>
+                                  {(() => {
+                                    if (!log.EventAt) return '—';
+                                    try {
+                                      const d = new Date(log.EventAt);
+                                      if (isNaN(d.getTime())) return log.EventAt;
+                                      return d.toLocaleString('en-IN', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: true
+                                      });
+                                    } catch {
+                                      return log.EventAt;
+                                    }
+                                  })()}
+                                </td>
+
+                                {/* 6. Reason / Comments */}
+                                <td className="p-2.5 font-sans text-slate-600">{log.Comments || '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                };
+
+                return (
+                  <SectionCard
+                    theme="slate"
+                    sectionTag="SECTION N.2"
+                    title="Permit & Isolation Audit Trail"
+                    subtitle="Recorded lifecycle events, clearances, and isolation actions in chronological order."
+                    icon="history"
+                    badge={
+                      <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                        <span className="px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                          {allLogs.length} Total
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          {permitLogs.length} Permit
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          {isoLogs.length} Isolation
+                        </span>
+                      </div>
+                    }
+                  >
+                    {allLogs.length === 0 ? (
+                      <p className="p-6 text-center text-xs text-slate-400">No audit log records found for this permit.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Object ID Filter Bar & Separation Controls */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+                          {/* Segmented Filter Buttons */}
+                          <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100/90 rounded-xl border border-slate-200 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => setAuditFilterTab('ALL')}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition ${
+                                auditFilterTab === 'ALL'
+                                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">list_alt</span>
+                              <span>All Events ({allLogs.length})</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setAuditFilterTab('PERMIT')}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition ${
+                                auditFilterTab === 'PERMIT'
+                                  ? 'bg-white text-blue-900 shadow-2xs border border-blue-200'
+                                  : 'text-slate-600 hover:text-blue-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[14px] text-blue-600">description</span>
+                              <span>Permit Log ({permitLogs.length})</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setAuditFilterTab('ISOLATION')}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition ${
+                                auditFilterTab === 'ISOLATION'
+                                  ? 'bg-white text-amber-900 shadow-2xs border border-amber-200'
+                                  : 'text-slate-600 hover:text-amber-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[14px] text-amber-600">lock</span>
+                              <span>Isolation Log ({isoLogs.length})</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setAuditFilterTab('SEPARATE')}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold transition ${
+                                auditFilterTab === 'SEPARATE'
+                                  ? 'bg-[#006398] text-white shadow-2xs'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">splitscreen</span>
+                              <span>Show Separately</span>
+                            </button>
+                          </div>
+
+                          {/* Instant Object ID Filter Input */}
+                          <div className="relative">
+                            <input
+                              type="text"
+                              placeholder="Filter by Object ID (e.g. PTW..., ISO...)..."
+                              value={auditObjectIdSearch}
+                              onChange={(e) => setAuditObjectIdSearch(e.target.value)}
+                              className="w-full sm:w-64 rounded-lg border border-slate-200 bg-white px-2.5 py-1 pl-7 font-mono text-[11px] text-slate-800 placeholder-slate-400 outline-none focus:border-[#006398]"
+                            />
+                            <span className="material-symbols-outlined absolute left-2 top-1.5 text-[13px] text-slate-400">
+                              filter_alt
+                            </span>
+                            {auditObjectIdSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setAuditObjectIdSearch('')}
+                                className="absolute right-2 top-1 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* MODE A: SHOW SEPARATELY (Two Dedicated Distinct Tables) */}
+                        {auditFilterTab === 'SEPARATE' && (
+                          <div className="space-y-6">
+                            {/* Table 1: Permit Lifecycle Audit Log */}
+                            <div className="rounded-xl border border-blue-200 bg-blue-50/20 p-3.5 space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-600 text-white shadow-2xs">
+                                    <span className="material-symbols-outlined text-[15px]">description</span>
+                                  </span>
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                                      Permit Lifecycle Audit Log · Object ID: {selectedPermit.Permit_No}
+                                    </h4>
+                                    <p className="text-[10px] text-slate-500">
+                                      Events logged where Object ID stores Permit Number (Creation, Clearances, Work Completion, Closure).
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                  {permitLogs.length} Records
+                                </span>
+                              </div>
+                              {renderAuditTable(filterBySearch(permitLogs), `No permit lifecycle events found for ${selectedPermit.Permit_No}.`)}
+                            </div>
+
+                            {/* Table 2: Isolation Certificate & Point Items Audit Log */}
+                            <div className="rounded-xl border border-amber-200 bg-amber-50/20 p-3.5 space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-600 text-white shadow-2xs">
+                                    <span className="material-symbols-outlined text-[15px]">lock</span>
+                                  </span>
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                                      Isolation Certificate & Points Ledger · Object ID: ISO... / ISO.../#
+                                    </h4>
+                                    <p className="text-[10px] text-slate-500">
+                                      Events logged where Object ID stores Isolation Certificate or Point Item Number (Approvals, Item Normalizations).
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 text-[10px] font-mono font-bold">
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                    {isoCertLogs.length} Cert
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                                    {isoItemLogs.length} Points
+                                  </span>
+                                </div>
+                              </div>
+                              {renderAuditTable(filterBySearch(isoLogs), 'No isolation or point normalization events recorded for this permit.')}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* MODE B: PERMIT LOG ONLY */}
+                        {auditFilterTab === 'PERMIT' && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                              <span>Showing events where Object ID stores Permit Number: <strong className="font-mono text-slate-800">{selectedPermit.Permit_No}</strong></span>
+                              <span className="font-mono text-[10px]">{filterBySearch(permitLogs).length} of {permitLogs.length} rows</span>
+                            </div>
+                            {renderAuditTable(filterBySearch(permitLogs), `No permit lifecycle events found for ${selectedPermit.Permit_No}.`)}
+                          </div>
+                        )}
+
+                        {/* MODE C: ISOLATION LOG ONLY */}
+                        {auditFilterTab === 'ISOLATION' && (
+                          <div className="space-y-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <div className="flex items-center gap-1.5 p-0.5 bg-slate-100 rounded-lg text-[11px] font-semibold">
+                                <button
+                                  type="button"
+                                  onClick={() => setAuditIsoSubFilter('ALL')}
+                                  className={`px-2 py-0.5 rounded-md transition ${
+                                    auditIsoSubFilter === 'ALL'
+                                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                                      : 'text-slate-600 hover:text-slate-900'
+                                  }`}
+                                >
+                                  All Isolation ({isoLogs.length})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setAuditIsoSubFilter('CERT')}
+                                  className={`px-2 py-0.5 rounded-md transition ${
+                                    auditIsoSubFilter === 'CERT'
+                                      ? 'bg-white text-amber-900 shadow-2xs font-bold'
+                                      : 'text-slate-600 hover:text-amber-900'
+                                  }`}
+                                >
+                                  Certificates ({isoCertLogs.length})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setAuditIsoSubFilter('ITEMS')}
+                                  className={`px-2 py-0.5 rounded-md transition ${
+                                    auditIsoSubFilter === 'ITEMS'
+                                      ? 'bg-white text-purple-900 shadow-2xs font-bold'
+                                      : 'text-slate-600 hover:text-purple-900'
+                                  }`}
+                                >
+                                  Lock Points ({isoItemLogs.length})
+                                </button>
+                              </div>
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                Filtered: {filterBySearch(effectiveIsoLogs).length} of {effectiveIsoLogs.length} rows
+                              </span>
+                            </div>
+                            {renderAuditTable(filterBySearch(effectiveIsoLogs), 'No isolation records match the current filter.')}
+                          </div>
+                        )}
+
+                        {/* MODE D: ALL EVENTS UNIFIED */}
+                        {auditFilterTab === 'ALL' && (
+                          <div className="space-y-2">
+                            {auditObjectIdSearch && (
+                              <div className="text-xs text-slate-500 px-1 font-mono text-[11px]">
+                                Filtered by Object ID / text: <strong>"{auditObjectIdSearch}"</strong> ({filterBySearch(allLogs).length} results)
+                              </div>
+                            )}
+                            {renderAuditTable(filterBySearch(allLogs), 'No audit logs found matching criteria.')}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </SectionCard>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 9: SAP DMS ATTACHMENTS (INF / Z_DMS) */}
+          {/* ========================================================================= */}
+          {activeTab === 'attachments' && (
+            <div className="space-y-4">
+              <AttachmentManager
+                objectType="PERMIT"
+                objectId={selectedPermit.Permit_No}
+                title={`Permit Attachments & Drawings (${selectedPermit.Permit_No})`}
+                description="Manage, inspect, and download engineering drawings, P&ID diagrams, JHA documents, and certificates stored in SAP DMS (INF / Z_DMS)."
+              />
             </div>
           )}
 
@@ -4884,7 +6019,7 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
             permit={selectedPermit}
             onClose={() => setShowRenewalModal(false)}
             onRenewed={async () => {
-              await loadPermitDetail(selectedPermit.Permit_No);
+              await loadPermitDetail(selectedPermit.Permit_No, true);
             }}
           />
 

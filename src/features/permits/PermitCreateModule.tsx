@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { SapUser } from '../../core/auth/sapAuthContext';
 import {
   PermitDeepInsertPayload,
@@ -22,15 +22,31 @@ import { sitePermitApi } from '../../core/api/modules/sitePermit.api';
 import { preparePermitCreate } from '../../core/api/modules/permitCreate.validation';
 import { initialPermitStatus, type Requirement } from '../../core/ptw/prerequisites';
 import { SiteProcedureStep, ProcedureGuidance } from './SiteProcedureStep';
-import { emptySitePlan, PERMIT_CATEGORIES, sitePlanRows, toNatwCode, toEquipCode } from '../../core/ptw/siteProcedure';
+import {
+  emptySitePlan,
+  PERMIT_CATEGORIES,
+  sitePlanRows,
+  toNatwCode,
+  toEquipCode,
+  fromNatwCode,
+  fromEquipCode,
+  NATURE_OF_WORK,
+  TOOLS,
+  PLAN_FIELDS,
+  PREPARATIONS,
+  SECTION_D_FIELD_CODES,
+  isSectionDField,
+  type PlanCheck
+} from '../../core/ptw/siteProcedure';
 import { PermitWorkSelectionStep } from './PermitWorkSelectionStep';
 import { WorkSelection, referenceId, toPermitReferenceFields } from '../../core/api/modules/permitWorkLookup.api';
-import { configApi, checklistApi, isolationApi, toSapChecklistPermitType, toSapPermitType, FALLBACK_CONFIG_DATA, FALLBACK_CHECKLISTS } from '../../core/api';
+import { configApi, checklistApi, isolationApi, attachmentApi, toSapChecklistPermitType, toSapPermitType, FALLBACK_CONFIG_DATA, FALLBACK_CHECKLISTS } from '../../core/api';
 import { SapConfigRecord } from '../../core/types/config.types';
 import { SapChecklistItem, ChecklistAnswer, ChecklistAnswerType } from '../../core/types/checklist.types';
 import { PpeValueHelpDialog } from '../../shared/components/PpeValueHelpDialog';
 import { PermitChecklistModal } from './PermitChecklistModal';
 import { SectionCard } from '../../shared/components/SectionCard';
+import { AttachmentManager } from '../../shared/components/AttachmentManager';
 import { toast } from '../../shared/context/ToastContext';
 import { useFormDraft } from '../../shared/hooks/useFormDraft';
 import type { SapIsolationHeader } from '../../core/types/isolation.types';
@@ -39,6 +55,10 @@ import { ExecutionTargetNestedDropdown } from './ExecutionTargetNestedDropdown';
 import { validatePhoneNumber, sanitizePhoneNumber } from '../../core/utils/phoneValidation';
 import { PermitAnnexPrintView } from './PermitAnnexPrintView';
 import { PermitPrintModal } from './PermitPrintModal';
+import {
+  IsolationTemplatesModal,
+  type ApplyIsolationTemplatePayload
+} from '../isolation/IsolationTemplatesModal';
 
 /**
  * Formats the combined execution target: plant - department.
@@ -146,25 +166,320 @@ export function buildPlantSelectOptions(currentWerks?: string): string[] {
 }
 
 /**
+ * Default prerequisites for blank permits (no SAP PM Order / Notification):
+ * Gas Testing Required defaults to 'N' (No) and Isolation Required defaults to ' ' (No).
+ */
+export function getBlankPermitDefaultPrerequisites(): {
+  isolationRequired: Requirement;
+  gasTestRequired: Requirement;
+} {
+  return {
+    isolationRequired: ' ',
+    gasTestRequired: 'N'
+  };
+}
+
+/**
  * Resolves ReferenceType ('EQUI' | 'FLOC') and ReferenceId (<= 30 chars per SAP ItemType)
- * for inline isolation points. Selecting FLOC populates Work Center (Arbpl) first.
+ * for inline isolation points. Selecting FLOC prefers Work Center Description (if available),
+ * then Work Center (Arbpl) code, then Functional Location (Tplnr <= 30 chars).
  */
 export function resolveIsolationPointReference(params: {
   referenceType?: 'EQUI' | 'FLOC';
   equnr?: string;
   arbpl?: string;
   tplnr?: string;
+  workCenterDesc?: string;
 }): { referenceType: 'EQUI' | 'FLOC'; referenceId: string } {
   const eq = (params.equnr || '').trim();
   const wc = (params.arbpl || '').trim();
+  const wcDesc = (params.workCenterDesc || '').trim();
   const fl = (params.tplnr || '').trim();
   const refType: 'EQUI' | 'FLOC' =
     params.referenceType ?? (eq ? 'EQUI' : fl ? 'FLOC' : 'EQUI');
   if (refType === 'FLOC') {
-    const flocRef = wc || (fl.length <= 30 ? fl : '');
+    const flocRef = wcDesc || wc || (fl.length <= 30 ? fl : '');
     return { referenceType: 'FLOC', referenceId: flocRef.slice(0, 30) };
   }
   return { referenceType: 'EQUI', referenceId: (eq || '10000001').slice(0, 30) };
+}
+
+/**
+ * Reusable Permit Template specification for auto-populating permit fields.
+ * Enables creating standard routine permits without re-entering data repeatedly.
+ */
+export interface PermitTemplateItem {
+  id: string;
+  name: string;
+  description: string;
+  permitType: string;
+  category: string;
+  jobDesc: string;
+  permitNo?: string;
+  sourcePermit?: PermitDeepInsertResponse | PermitInfoRecord;
+  areaLoc?: string;
+  execDept?: string;
+  execPlant?: string;
+  execAgency?: string;
+  shift?: string;
+  priority?: string;
+  gasTestRequired?: 'X' | ' ';
+  gasTestFreqHr?: string;
+  isolationRequired?: 'X' | ' ';
+  isolationRefType?: string;
+  // Deep Child Records for Fast Auto-Fill
+  nature?: string[];
+  tools?: string[];
+  otherNature?: string;
+  otherTools?: string;
+  workers?: WorkerRecord[];
+  ppeItems?: PPERecord[];
+  ppeCodes?: string[];
+  safetyChecklist?: SafetyRecord[];
+  hazards?: HazardControlRecord[];
+  hazardCodes?: string[];
+  safetySitePlanFields?: Record<string, string>;
+  safetyChecks?: Record<string, PlanCheck>;
+  additionalTypes?: string[];
+  isBuiltin?: boolean;
+  isBackendTemplate?: boolean;
+}
+
+/**
+ * Extracts all 6 deep sections from any SAP permit or response:
+ * 1. Nature of Work (_NATW / _Safety)
+ * 2. Tools & Equipment (_Equipment / _Safety)
+ * 3. Authorized Worker & Contractor Crew Ledger (_Worker)
+ * 4. Personal Protective Equipment Matrix & Safety Checks (_PPE)
+ * 5. Custom Safety Inspection Checks (_Safety) & Site Plan Preparations
+ * 6. Hazard Control Measures (_HazardControl)
+ */
+export function extractTemplateFromPermit(permit: PermitDeepInsertResponse | PermitInfoRecord): {
+  nature: string[];
+  tools: string[];
+  otherNature: string;
+  otherTools: string;
+  workers: WorkerRecord[];
+  ppeItems: PPERecord[];
+  safetyChecklist: SafetyRecord[];
+  hazards: HazardControlRecord[];
+  safetySitePlanFields: Record<string, string>;
+  safetyChecks: Record<string, PlanCheck>;
+  additionalTypes: string[];
+} {
+  const pAny = permit as any;
+  const rawNatw: NatwRecord[] = Array.isArray(pAny._NATW) ? pAny._NATW : [];
+  const rawEquipment: EquipmentRecord[] = Array.isArray(pAny._Equipment) ? pAny._Equipment : [];
+  const rawSafety: SafetyRecord[] = Array.isArray(pAny._Safety) ? pAny._Safety : [];
+  const rawWorkers: WorkerRecord[] = Array.isArray(pAny._Worker) ? pAny._Worker : [];
+  const rawPpe: PPERecord[] = Array.isArray(pAny._PPE) ? pAny._PPE : [];
+  const rawHazards: HazardControlRecord[] = Array.isArray(pAny._HazardControl) ? pAny._HazardControl : [];
+  const rawWorkTypes: WorkTypeRecord[] = Array.isArray(pAny._WorkType) ? pAny._WorkType : [];
+
+  // 1. Nature of Work
+  const natureSet = new Set<string>();
+  let otherNature = '';
+
+  rawNatw.forEach((item) => {
+    const desc = fromNatwCode(item.NatwCode, item.NatwDesc);
+    if (desc) natureSet.add(desc);
+    if (item.OtherText) otherNature = item.OtherText;
+    else if (item.NatwDesc?.startsWith('Other:')) otherNature = item.NatwDesc.replace(/^Other:\s*/, '').trim();
+  });
+
+  rawSafety.filter(s => s.ItemCode === 'NATR').forEach(s => {
+    const val = s.Remarks || s.ValueText || '';
+    if (val.startsWith('Other:')) {
+      natureSet.add('Other');
+      if (!otherNature) otherNature = val.replace(/^Other:\s*/, '').trim();
+    } else if (val) {
+      const match = NATURE_OF_WORK.find(n => n.toLowerCase() === val.trim().toLowerCase());
+      if (match) natureSet.add(match);
+      else natureSet.add(val.trim());
+    }
+  });
+
+  // 2. Tools & Equipment
+  const toolsSet = new Set<string>();
+  let otherTools = '';
+
+  rawEquipment.forEach((item) => {
+    const desc = fromEquipCode(item.EquipCode, item.EquipDesc);
+    if (desc) toolsSet.add(desc);
+    if (item.OtherText) otherTools = item.OtherText;
+    else if (item.EquipDesc?.startsWith('Other:')) otherTools = item.EquipDesc.replace(/^Other:\s*/, '').trim();
+  });
+
+  rawSafety.filter(s => s.ItemCode === 'TOOL').forEach(s => {
+    const val = s.Remarks || s.ValueText || '';
+    if (val.startsWith('Other:')) {
+      toolsSet.add('Other');
+      if (!otherTools) otherTools = val.replace(/^Other:\s*/, '').trim();
+    } else if (val) {
+      const match = TOOLS.find(t => t.toLowerCase() === val.trim().toLowerCase());
+      if (match) toolsSet.add(match);
+      else toolsSet.add(val.trim());
+    }
+  });
+
+  // 3. Authorized Worker & Contractor Crew Ledger
+  const workers: WorkerRecord[] = rawWorkers.map((w: any, idx) => ({
+    PermitNo: '',
+    ItemNo: String(idx + 1),
+    WorkerTypeCode: w.WorkerTypeCode || (w.WorkerType || 'EMP'),
+    WorkerName: w.WorkerName || '',
+    PhoneNo: w.PhoneNo || w.ContactNo || '',
+    ContractorId: w.ContractorId || '',
+    ContractorName: w.ContractorName || '',
+    EmpId: w.EmpId || w.BadgeNo || '',
+    Shift: w.Shift || 'G'
+  }));
+
+  // 4. Personal Protective Equipment Matrix & Safety Checks
+  const ppeItems: PPERecord[] = rawPpe.map((p, idx) => ({
+    PermitNo: '',
+    ItemNo: String(idx + 1),
+    PpeCode: p.PpeCode || '',
+    PpeDesc: p.PpeDesc || '',
+    IsRequired: (p.IsRequired === 'Y' || p.IsRequired === 'X') ? 'Y' : 'N',
+    IsAvailable: (p.IsAvailable === 'Y' || p.IsAvailable === 'X') ? 'Y' : 'N',
+    IsIssued: (p.IsIssued === 'Y' || p.IsIssued === 'X') ? 'Y' : 'N',
+    CheckedBy: '',
+    CheckedAt: null,
+    Remarks: p.Remarks || 'From Template'
+  }));
+
+  // 5. Custom Safety Inspection Checks (_Safety) & Site Plan Preparations
+  const safetySitePlanFields: Record<string, string> = {};
+  const safetyChecks: Record<string, PlanCheck> = {};
+  const safetyChecklist: SafetyRecord[] = [];
+
+  const knownPlanCodes = new Set(['DOCV', 'TYPE', 'NATR', 'TOOL']);
+  PLAN_FIELDS.forEach(f => knownPlanCodes.add(f.code));
+  PREPARATIONS.forEach(p => knownPlanCodes.add(p.code));
+
+  rawSafety.forEach((item, idx) => {
+    const code = (item.ItemCode || '').trim();
+    if (PREPARATIONS.some(p => p.code === code)) {
+      safetyChecks[code] = {
+        response: (item.Response || 'NO') as any,
+        remarks: item.Remarks || ''
+      };
+      return;
+    }
+    if (PLAN_FIELDS.some(f => f.code === code)) {
+      // Section D fields (JSA, shift, responsibilities) must remain blank on template use
+      if (!isSectionDField(code)) {
+        safetySitePlanFields[code] = (item.Remarks || item.ValueText || '').trim();
+      }
+      return;
+    }
+    if (knownPlanCodes.has(code)) return;
+
+    safetyChecklist.push({
+      PermitNo: '',
+      ItemNo: String(safetyChecklist.length + 1),
+      Category: item.Category || 'GEN',
+      ItemCode: code || `S${String(idx + 1).padStart(2, '0')}`,
+      Response: item.Response || 'NO',
+      ValueText: item.ValueText || item.Remarks || '',
+      ValueNum: item.ValueNum || 0,
+      Unit: item.Unit || '',
+      ReferenceNo: item.ReferenceNo || '',
+      ResponsibleUser: '',
+      VerifiedBy: '',
+      VerifiedAt: null,
+      Remarks: item.Remarks || ''
+    });
+  });
+
+  // 6. Hazard Control Measures
+  const hazards: HazardControlRecord[] = rawHazards.map((h, idx) => ({
+    PermitNo: '',
+    ItemNo: String(idx + 1),
+    HazardCode: h.HazardCode || '',
+    HazardDesc: h.HazardDesc || '',
+    RiskLevel: h.RiskLevel || 'MEDIUM',
+    ControlCode: h.ControlCode || `${h.HazardCode || 'HAZ'}01`,
+    ControlDesc: h.ControlDesc || '',
+    ControlStatus: h.ControlStatus || 'OPEN',
+    ResponsibleUser: h.ResponsibleUser || '',
+    VerifiedBy: '',
+    VerifiedAt: null,
+    Remarks: h.Remarks || 'From Template'
+  }));
+
+  // 7. Additional Work Types
+  const primaryType = permit.PermitType || '';
+  const additionalTypes = rawWorkTypes
+    .map(wt => wt.WorkType?.trim() || '')
+    .filter(wt => wt && wt !== primaryType && wt !== toSapPermitType(primaryType));
+
+  return {
+    nature: Array.from(natureSet),
+    tools: Array.from(toolsSet),
+    otherNature,
+    otherTools,
+    workers,
+    ppeItems,
+    safetyChecklist,
+    hazards,
+    safetySitePlanFields,
+    safetyChecks,
+    additionalTypes
+  };
+}
+
+export const BUILTIN_PERMIT_TEMPLATES: PermitTemplateItem[] = [];
+
+export function getUserTemplates(): PermitTemplateItem[] {
+  try {
+    const storage = typeof window !== 'undefined' && window.localStorage
+      ? window.localStorage
+      : typeof globalThis !== 'undefined' && globalThis.localStorage
+      ? globalThis.localStorage
+      : null;
+    if (!storage) return [];
+    const raw = storage.getItem('ptw_permit_templates');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((t: any) => !t.id?.startsWith('tmpl-hw-') && !t.id?.startsWith('tmpl-cw-') && !t.id?.startsWith('tmpl-cse-') && !t.id?.startsWith('tmpl-wah-') && !t.id?.startsWith('tmpl-elec-'))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveUserTemplate(tmpl: PermitTemplateItem): void {
+  try {
+    const storage = typeof window !== 'undefined' && window.localStorage
+      ? window.localStorage
+      : typeof globalThis !== 'undefined' && globalThis.localStorage
+      ? globalThis.localStorage
+      : null;
+    if (!storage) return;
+    const existing = getUserTemplates().filter(t => t.id !== tmpl.id);
+    const updated = [tmpl, ...existing].slice(0, 50);
+    storage.setItem('ptw_permit_templates', JSON.stringify(updated));
+  } catch (err) {
+    console.warn('Failed to save permit template to localStorage:', err);
+  }
+}
+
+export function deleteUserTemplate(id: string): void {
+  try {
+    const storage = typeof window !== 'undefined' && window.localStorage
+      ? window.localStorage
+      : typeof globalThis !== 'undefined' && globalThis.localStorage
+      ? globalThis.localStorage
+      : null;
+    if (!storage) return;
+    const existing = getUserTemplates().filter(t => t.id !== id);
+    storage.setItem('ptw_permit_templates', JSON.stringify(existing));
+  } catch (err) {
+    console.warn('Failed to delete permit template from localStorage:', err);
+  }
 }
 
 interface PermitCreateModuleProps {
@@ -649,7 +964,7 @@ export function getValidationTarget(
       stepName: 'Step 6: Hazards & 5x5 Risk',
       fieldId: 'field-hazard-desc',
       fieldLabel: 'Work Hazards & Controls',
-      advice: 'Add at least one hazard description and its corresponding risk control measure.'
+      advice: 'Optionally add hazard descriptions and corresponding risk control measures.'
     };
   }
 
@@ -776,6 +1091,108 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   const [workSelection, setWorkSelection] = useState<WorkSelection | null>(null);
   const [isBlankPermit, setIsBlankPermit] = useState<boolean>(false);
+  const [isTemplate, setIsTemplate] = useState<boolean>(false);
+  const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
+  const [showTemplateModal, setShowTemplateModal] = useState<boolean>(false);
+  const [templateSearch, setTemplateSearch] = useState<string>('');
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<string>('ALL');
+  const [backendTemplates, setBackendTemplates] = useState<PermitTemplateItem[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState<boolean>(false);
+
+  // Fetch master templates from SAP backend where IsTemplate = 'X'
+  const loadBackendTemplates = useCallback(async () => {
+    setIsLoadingTemplates(true);
+    try {
+      const records = await sitePermitApi.getTemplatePermits();
+      if (Array.isArray(records)) {
+        const mapped: PermitTemplateItem[] = records.map((p) => {
+          const extracted = extractTemplateFromPermit(p);
+          return {
+            id: `sap-${p.Permit_No}`,
+            permitNo: p.Permit_No,
+            name: `${p.PermitType || 'PERMIT'} - ${p.JobDesc?.slice(0, 50) || p.Permit_No}`,
+            description: `Master Template from ${p.Permit_No} · Plant ${p.Werks || '1002'} · ${p.AreaLoc || 'Site'}`,
+            permitType: p.PermitType || 'COLD',
+            category: PERMIT_CATEGORIES.find(c => c.code === p.PermitType || c.sapCode === p.PermitType)?.code || 'COLD',
+            jobDesc: p.JobDesc || '',
+            areaLoc: p.AreaLoc || '',
+            execDept: p.ExecDept || '',
+            execAgency: p.ExecAgency || 'EMP',
+            shift: p.Shift || 'G',
+            priority: p.Priority || '',
+            gasTestRequired: (p.GasTestRequired === 'X' || p.GasTestRequired === 'Y') ? 'X' : ' ',
+            gasTestFreqHr: p.GasTestFreqHr || '',
+            isolationRequired: (p.IsolationRequired === 'X' || p.IsolationRequired === 'Y') ? 'X' : ' ',
+            isolationRefType: p.IsolationRefType || '',
+            sourcePermit: p,
+            isBuiltin: false,
+            isBackendTemplate: true,
+            ...extracted
+          };
+        });
+        setBackendTemplates(mapped);
+      }
+    } catch (err) {
+      console.warn('Failed to load backend templates:', err);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  }, []);
+
+  const [manualPermitNo, setManualPermitNo] = useState<string>('');
+  const [isFetchingDirectPermit, setIsFetchingDirectPermit] = useState<boolean>(false);
+
+  // Directly fetch any specific permit (e.g. PTW0000110) from SAP and extract as reusable template
+  const handleFetchPermitAsTemplate = useCallback(async (permitNoToFetch: string) => {
+    let cleanNo = (permitNoToFetch || '').trim().toUpperCase();
+    if (!cleanNo) return;
+    if (!cleanNo.startsWith('PTW') && /^\d+$/.test(cleanNo)) {
+      cleanNo = `PTW${cleanNo.padStart(7, '0')}`;
+    }
+    setIsFetchingDirectPermit(true);
+    try {
+      const fullPermit = await sitePermitApi.read(cleanNo, undefined, true);
+      if (fullPermit && fullPermit.Permit_No) {
+        const extracted = extractTemplateFromPermit(fullPermit);
+        const newTmpl: PermitTemplateItem = {
+          id: `sap-${fullPermit.Permit_No}`,
+          permitNo: fullPermit.Permit_No,
+          name: `${fullPermit.PermitType || 'PERMIT'} - ${fullPermit.JobDesc?.slice(0, 50) || fullPermit.Permit_No}`,
+          description: `Master Template from ${fullPermit.Permit_No} · Plant ${fullPermit.Werks || '1002'} · ${fullPermit.AreaLoc || 'Site'}`,
+          permitType: fullPermit.PermitType || 'COLD',
+          category: PERMIT_CATEGORIES.find(c => c.code === fullPermit.PermitType || c.sapCode === fullPermit.PermitType)?.code || 'COLD',
+          jobDesc: fullPermit.JobDesc || '',
+          areaLoc: fullPermit.AreaLoc || '',
+          execDept: fullPermit.ExecDept || '',
+          execAgency: fullPermit.ExecAgency || 'EMP',
+          shift: fullPermit.Shift || 'G',
+          priority: fullPermit.Priority || '',
+          gasTestRequired: (fullPermit.GasTestRequired === 'X' || fullPermit.GasTestRequired === 'Y') ? 'X' : ' ',
+          gasTestFreqHr: fullPermit.GasTestFreqHr || '',
+          isolationRequired: (fullPermit.IsolationRequired === 'X' || fullPermit.IsolationRequired === 'Y') ? 'X' : ' ',
+          isolationRefType: fullPermit.IsolationRefType || '',
+          sourcePermit: fullPermit,
+          isBuiltin: false,
+          isBackendTemplate: true,
+          ...extracted
+        };
+        setBackendTemplates(prev => [newTmpl, ...prev.filter(p => p.permitNo !== newTmpl.permitNo)]);
+        saveUserTemplate(newTmpl);
+        setManualPermitNo('');
+        toast.success(`Loaded ${fullPermit.Permit_No} from SAP as reusable template! Nature, tools, crew, PPE, safety and hazards ready to apply.`);
+      }
+    } catch (err: any) {
+      toast.error(`Could not load permit ${cleanNo}: ${err?.message || 'Permit not found on SAP'}`);
+    } finally {
+      setIsFetchingDirectPermit(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showTemplateModal) {
+      void loadBackendTemplates();
+    }
+  }, [showTemplateModal, loadBackendTemplates]);
 
   // Permit Header Fields
   const permitNo = ''; // Assigned by SAP on creation.
@@ -788,6 +1205,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [aufnr, setAufnr] = useState<string>('');
   const [qmnum, setQmnum] = useState<string>('');
   const [auart, setAuart] = useState<string>('');
+  const [ktext, setKtext] = useState<string>('');
   const [personResp, setPersonResp] = useState<string>(user?.id || '');
   const [plannerGroup, setPlannerGroup] = useState<string>('');
   const [pmBasicStartD, setPmBasicStartD] = useState<string>('');
@@ -802,8 +1220,11 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   const [tplnr, setTplnr] = useState<string>('');
   const [werks, setWerks] = useState<string>(DEFAULT_PLANT_CODE);
   const [arbpl, setArbpl] = useState<string>('');
+  const [workCenterDesc, setWorkCenterDesc] = useState<string>('');
   const [areaLoc, setAreaLoc] = useState<string>('');
   const [jobDesc, setJobDesc] = useState<string>('');
+
+  const currentWorkCenterDesc = (workCenterDesc || workSelection?.reference?.WorkCenterDesc || '').trim();
 
   // Execution & Supervision
   const [execAgency, setExecAgency] = useState<string>('EMP');
@@ -829,15 +1250,20 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     if (!revisionPermit) return;
 
     const isBlankRevision =
+      revisionPermit.IsBlank === 'X' ||
       revisionPermit.Aufnr?.trim().toUpperCase() === BLANK_PERMIT_AUFNR ||
       (!revisionPermit.Aufnr?.trim() && !revisionPermit.Qmnum?.trim());
     const hasPmRef = !isBlankRevision;
     setIsBlankPermit(isBlankRevision);
+    if (revisionPermit.IsTemplate === 'X') {
+      setIsTemplate(true);
+    }
 
     if (revisionPermit.PermitType) setPermitType(revisionPermit.PermitType);
     if (revisionPermit.Aufnr) setAufnr(revisionPermit.Aufnr);
     if (revisionPermit.Qmnum) setQmnum(revisionPermit.Qmnum);
     if (revisionPermit.Auart) setAuart(revisionPermit.Auart);
+    if (revisionPermit.Ktext || (revisionPermit as any).KTEXT) setKtext(revisionPermit.Ktext || (revisionPermit as any).KTEXT);
     if (revisionPermit.PersonResp) setPersonResp(revisionPermit.PersonResp);
     if (revisionPermit.PlannerGroup) setPlannerGroup(revisionPermit.PlannerGroup);
     if (revisionPermit.Equnr) setEqunr(revisionPermit.Equnr);
@@ -862,6 +1288,14 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     if (revisionPermit.ValidToT) setValidToT(revisionPermit.ValidToT);
     if (revisionPermit.GasTestFreqHr) setGasTestFreqHr(revisionPermit.GasTestFreqHr);
     if (revisionPermit.CreatorComment) setCreatorComment(revisionPermit.CreatorComment);
+    if (isBlankRevision) {
+      const defaults = getBlankPermitDefaultPrerequisites();
+      setIsolationRequired((revisionPermit.IsolationRequired as Requirement) || defaults.isolationRequired);
+      setGasTestRequired((revisionPermit.GasTestRequired as Requirement) || defaults.gasTestRequired);
+    } else {
+      if (revisionPermit.IsolationRequired) setIsolationRequired(revisionPermit.IsolationRequired as Requirement);
+      if (revisionPermit.GasTestRequired) setGasTestRequired(revisionPermit.GasTestRequired as Requirement);
+    }
 
     if (hasPmRef) {
       setWorkSelection({
@@ -881,15 +1315,53 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setWorkSelection(null);
     }
 
-    if (revisionPermit._Worker && revisionPermit._Worker.length > 0) {
+    const extracted = extractTemplateFromPermit(revisionPermit);
+
+    if (extracted.workers.length > 0) {
+      setWorkers(extracted.workers);
+    } else if (revisionPermit._Worker && revisionPermit._Worker.length > 0) {
       setWorkers(revisionPermit._Worker);
     }
-    if (revisionPermit._PPE && revisionPermit._PPE.length > 0) {
+
+    if (extracted.ppeItems.length > 0) {
+      setPpeItems(extracted.ppeItems);
+    } else if (revisionPermit._PPE && revisionPermit._PPE.length > 0) {
       setPpeItems(revisionPermit._PPE);
     }
-    if (revisionPermit._HazardControl && revisionPermit._HazardControl.length > 0) {
+
+    if (extracted.hazards.length > 0) {
+      setHazards(extracted.hazards);
+    } else if (revisionPermit._HazardControl && revisionPermit._HazardControl.length > 0) {
       setHazards(revisionPermit._HazardControl);
     }
+
+    if (extracted.safetyChecklist.length > 0) {
+      setSafetyChecklist(extracted.safetyChecklist);
+    }
+
+    setSitePlan(prev => {
+      const cleanFields: Record<string, string> = {
+        ...prev.fields,
+        ...(extracted.otherNature ? { OTHER_NATURE: extracted.otherNature } : {}),
+        ...(extracted.otherTools ? { OTHER_TOOLS: extracted.otherTools } : {}),
+        ...extracted.safetySitePlanFields
+      };
+      // Section D fields (JSA, shift, responsibilities) must remain blank on template use
+      SECTION_D_FIELD_CODES.forEach(code => {
+        cleanFields[code] = '';
+      });
+      return {
+        ...prev,
+        additionalTypes: extracted.additionalTypes.length > 0 ? extracted.additionalTypes : prev.additionalTypes,
+        nature: extracted.nature.length > 0 ? extracted.nature : prev.nature,
+        tools: extracted.tools.length > 0 ? extracted.tools : prev.tools,
+        fields: cleanFields,
+        checks: {
+          ...prev.checks,
+          ...extracted.safetyChecks
+        }
+      };
+    });
 
     setActiveTab('general');
   }, [revisionPermit]);
@@ -1016,13 +1488,6 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setValidToT('17:00:00');
     }
     setShift((prev) => (prev === 'GENERAL' || prev === 'G' || !prev ? 'G' : prev));
-    setSitePlan((prev) => ({
-      ...prev,
-      fields: {
-        ...prev.fields,
-        SHFT: `${tmrwDate}T17:30`
-      }
-    }));
   };
 
   // Helper preset: Shift Start selection dropdown
@@ -1043,13 +1508,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setValidToT(preset.validToT);
     }
     setShift(preset.shiftCode);
-    setSitePlan((prev) => ({
-      ...prev,
-      fields: { ...prev.fields, SHFT: preset.plannedShiftEnd }
-    }));
   };
 
-  // Helper preset: Apply full shift validity window (Start, Expiry, Shift, SHFT)
+  // Helper preset: Apply full shift validity window (Start, Expiry, Shift)
   const handleApplyShiftPreset = (shiftType: 'DAY' | 'EVENING' | 'NIGHT', targetDay: 'TODAY' | 'TOMORROW' = presetTargetDay) => {
     const isTomorrow = targetDay === 'TOMORROW';
     const targetDate = getOffsetDateString(isTomorrow ? 1 : 0);
@@ -1060,10 +1521,6 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     setValidToD(preset.validToD);
     setValidToT(preset.validToT);
     setShift(preset.shiftCode);
-    setSitePlan((prev) => ({
-      ...prev,
-      fields: { ...prev.fields, SHFT: preset.plannedShiftEnd }
-    }));
   };
 
   // Helper preset: Snap Expiry to shift boundary (17:30 / 23:00 / 09:00)
@@ -1147,21 +1604,225 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     [newWorkerPhone]
   );
 
+  // Apply a reusable permit template to fast-populate fields across wizard steps
+  const applyPermitTemplate = async (tmpl: PermitTemplateItem) => {
+    let extracted = {
+      nature: tmpl.nature || [],
+      tools: tmpl.tools || [],
+      otherNature: tmpl.otherNature || '',
+      otherTools: tmpl.otherTools || '',
+      workers: tmpl.workers || [],
+      ppeItems: tmpl.ppeItems || [],
+      safetyChecklist: tmpl.safetyChecklist || [],
+      hazards: tmpl.hazards || [],
+      safetySitePlanFields: tmpl.safetySitePlanFields || {},
+      safetyChecks: tmpl.safetyChecks || {},
+      additionalTypes: tmpl.additionalTypes || []
+    };
+
+    // If template is from SAP backend and child collections were not pre-fetched:
+    if (tmpl.permitNo && (!extracted.workers.length && !extracted.ppeItems.length && !extracted.hazards.length && !extracted.nature.length)) {
+      try {
+        const fullPermit = await sitePermitApi.read(tmpl.permitNo);
+        if (fullPermit) {
+          extracted = extractTemplateFromPermit(fullPermit);
+        }
+      } catch (err) {
+        console.warn(`Could not load deep details for template ${tmpl.permitNo}:`, err);
+      }
+    } else if (tmpl.sourcePermit && (!extracted.nature.length && !extracted.tools.length)) {
+      extracted = extractTemplateFromPermit(tmpl.sourcePermit);
+    }
+
+    // Determine if user has already selected or entered an SAP Maintenance Order (Aufnr) or Notification (Qmnum)
+    const hasExistingPmRef = Boolean(
+      workSelection ||
+      (aufnr && aufnr.trim() !== '' && aufnr.trim() !== '-' && aufnr.trim() !== BLANK_PERMIT_AUFNR) ||
+      (qmnum && qmnum.trim() !== '')
+    );
+
+    if (tmpl.permitType) {
+      setPermitType(tmpl.permitType);
+      const cat = PERMIT_CATEGORIES.find(c => c.code === tmpl.permitType || c.sapCode === tmpl.permitType);
+      if (cat) {
+        setSitePlan(prev => ({ ...prev, primaryCategory: cat.code }));
+      }
+    }
+
+    if (hasExistingPmRef) {
+      // PRESERVE SELECTED MO / NOTIFICATION VALUES:
+      // Aufnr, Qmnum, Auart, Equnr, Tplnr, Werks, Arbpl, WorkCenterDesc, PlannerGroup, PmBasicStartD, workSelection
+      // Ensure isBlankPermit stays false!
+      setIsBlankPermit(false);
+
+      // Only adopt description or area from template if current order has none
+      if (!jobDesc?.trim() && tmpl.jobDesc) {
+        setJobDesc(tmpl.jobDesc);
+      }
+      if (!areaLoc?.trim() && tmpl.areaLoc) {
+        setAreaLoc(tmpl.areaLoc);
+      }
+      if (!execDept?.trim() && tmpl.execDept) {
+        const parsed = parseCombinedExecutionTarget(tmpl.execDept);
+        setExecDept(parsed.dept);
+        if (parsed.plant) setExecPlant(parsed.plant);
+      }
+      if (!priority?.trim() && tmpl.priority) {
+        setPriority(tmpl.priority);
+      }
+    } else if (isBlankPermit) {
+      // Standalone / Blank permit mode: user explicitly started a blank permit
+      if (tmpl.jobDesc) setJobDesc(tmpl.jobDesc);
+      if (tmpl.areaLoc) setAreaLoc(tmpl.areaLoc);
+      if (tmpl.execDept) {
+        const parsed = parseCombinedExecutionTarget(tmpl.execDept);
+        setExecDept(parsed.dept);
+        if (parsed.plant) setExecPlant(parsed.plant);
+      }
+      if (tmpl.priority) setPriority(tmpl.priority);
+
+      setIsBlankPermit(true);
+      setAufnr(BLANK_PERMIT_AUFNR);
+      setCreatorComment(BLANK_PERMIT_COMMENT);
+      previousWorkKey.current = 'TEMPLATE';
+    } else {
+      // User is creating a permit from Reference Document Source (Notification, Maintenance Order, Planned Shutdown)
+      // but has not committed an individual reference row yet:
+      // PRESERVE REFERENCE MODE! DO NOT SET isBlankPermit = true! DO NOT SET aufnr = '-'!
+      setIsBlankPermit(false);
+      if (tmpl.execDept) {
+        const parsed = parseCombinedExecutionTarget(tmpl.execDept);
+        setExecDept(parsed.dept);
+        if (parsed.plant) setExecPlant(parsed.plant);
+      }
+      previousWorkKey.current = 'TEMPLATE';
+    }
+
+    // Common operational template attributes
+    if (tmpl.execAgency) setExecAgency(tmpl.execAgency);
+    if (tmpl.shift) setShift(tmpl.shift);
+    if (tmpl.gasTestRequired !== undefined) {
+      setGasTestRequired(tmpl.gasTestRequired as Requirement);
+      if (tmpl.gasTestFreqHr) setGasTestFreqHr(tmpl.gasTestFreqHr);
+    }
+    if (tmpl.isolationRequired !== undefined) {
+      setIsolationRequired(tmpl.isolationRequired as Requirement);
+      if (tmpl.isolationRefType) setIsolationRefType(tmpl.isolationRefType);
+    }
+
+    // 1. Nature of Work & 2. Tools & Equipment & Site Plan Fields / Checks
+    setSitePlan(prev => {
+      const cleanFields: Record<string, string> = {
+        ...prev.fields,
+        ...(extracted.otherNature ? { OTHER_NATURE: extracted.otherNature } : {}),
+        ...(extracted.otherTools ? { OTHER_TOOLS: extracted.otherTools } : {}),
+        ...extracted.safetySitePlanFields
+      };
+      // Section D fields (JSA, shift, responsibilities) must remain blank on template use
+      SECTION_D_FIELD_CODES.forEach(code => {
+        cleanFields[code] = '';
+      });
+      return {
+        ...prev,
+        additionalTypes: extracted.additionalTypes.length > 0 ? extracted.additionalTypes : prev.additionalTypes,
+        nature: extracted.nature.length > 0 ? extracted.nature : prev.nature,
+        tools: extracted.tools.length > 0 ? extracted.tools : prev.tools,
+        fields: cleanFields,
+        checks: {
+          ...prev.checks,
+          ...extracted.safetyChecks
+        }
+      };
+    });
+
+    // 3. Authorized Worker & Contractor Crew Ledger
+    if (extracted.workers.length > 0) {
+      setWorkers(extracted.workers);
+      setPersonsQty(extracted.workers.length);
+    }
+
+    // 4. Personal Protective Equipment Matrix & Safety Checks
+    if (extracted.ppeItems.length > 0) {
+      setPpeItems(extracted.ppeItems);
+    } else if (tmpl.ppeCodes && tmpl.ppeCodes.length > 0) {
+      const newPpe: PPERecord[] = tmpl.ppeCodes.map((code, idx) => ({
+        PermitNo: '',
+        ItemNo: String(idx + 1),
+        PpeCode: code,
+        PpeDesc: code.replace('PPE_', '').replace(/_/g, ' '),
+        IsRequired: 'Y',
+        IsAvailable: 'Y',
+        IsIssued: 'Y',
+        CheckedBy: '',
+        CheckedAt: null,
+        Remarks: 'From Template'
+      }));
+      setPpeItems(newPpe);
+    }
+
+    // 5. Custom Safety Inspection Checks (_Safety)
+    if (extracted.safetyChecklist.length > 0) {
+      setSafetyChecklist(extracted.safetyChecklist);
+    }
+
+    // 6. Add Hazard Control Measure
+    // Per user instructions: hazards and inputs should start blank for both template use and normal new permit create.
+    setHazards([]);
+    setNewHazardCode('');
+    setNewControlCode('');
+    setNewHazardDesc('');
+    setNewControlDesc('');
+
+    // Auto-advance to general tab only if reference is committed or in blank permit mode
+    if (hasExistingPmRef || isBlankPermit) {
+      if (activeTab === 'work') {
+        setActiveTab('general');
+      }
+    }
+    setShowTemplateModal(false);
+
+    const refLabel = (aufnr && aufnr !== BLANK_PERMIT_AUFNR && aufnr !== '-')
+      ? `Maintenance Order ${aufnr}`
+      : qmnum
+      ? `Notification ${qmnum}`
+      : null;
+
+    if (hasExistingPmRef && refLabel) {
+      toast.success(
+        `Template "${tmpl.name}" applied! Retained ${refLabel} details and auto-populated Nature of Work, Tools, Crew Ledger, PPE Matrix, and Safety Checks.`,
+        { title: 'Template Applied with Reference', duration: 5500 }
+      );
+    } else if (!isBlankPermit) {
+      toast.success(
+        `Template "${tmpl.name}" loaded! Nature of Work, Tools, Crew, and PPE ready. Please select your Maintenance Notification, Order, or Planned Shutdown reference.`,
+        { title: 'Template Loaded - Reference Mode Active', duration: 6000 }
+      );
+    } else {
+      toast.success(
+        `Template applied: "${tmpl.name}"! Auto-populated Nature of Work, Tools, Crew Ledger, PPE Matrix, and Safety Checks.`,
+        { title: 'Blank Permit Template Auto-Filled', duration: 5000 }
+      );
+    }
+  };
+
   // Synchronize authorized crew quantity with actual crew muster ledger count
   useEffect(() => {
     setPersonsQty(workers.length);
   }, [workers.length]);
 
   // New Hazard Form Inputs
-  const [newHazardCode, setNewHazardCode] = useState('ELEC');
+  const [newHazardCode, setNewHazardCode] = useState('');
   const [newHazardDesc, setNewHazardDesc] = useState('');
-  const [newControlCode, setNewControlCode] = useState('ELEC01');
+  const [newControlCode, setNewControlCode] = useState('');
   const [newControlDesc, setNewControlDesc] = useState('');
 
   // Inline Isolation Certificate Creation Modal State
   const [showCreateIsoModal, setShowCreateIsoModal] = useState<boolean>(false);
+  const [showIsoTemplateModal, setShowIsoTemplateModal] = useState<boolean>(false);
   const [newIsoDescription, setNewIsoDescription] = useState<string>('');
   const [newIsoRemarks, setNewIsoRemarks] = useState<string>('');
+  const [newIsoIsTemplate, setNewIsoIsTemplate] = useState<boolean>(false);
+  const [newIsoAttachments, setNewIsoAttachments] = useState<File[]>([]);
   const [newIsoPoints, setNewIsoPoints] = useState<Array<{
     ReferenceType: 'EQUI' | 'FLOC';
     ReferenceId: string;
@@ -1172,6 +1833,31 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     LockTagNo: string;
     Remarks?: string;
   }>>([]);
+
+  const handleApplyIsoTemplateInPermit = (payload: ApplyIsolationTemplatePayload) => {
+    setNewIsoDescription(payload.description || '');
+    setNewIsoRemarks(payload.remarks || '');
+    if (payload.points && payload.points.length > 0) {
+      setNewIsoPoints(
+        payload.points.map((p) => ({
+          ReferenceType: (p.ReferenceType === 'FLOC' ? 'FLOC' : 'EQUI') as 'EQUI' | 'FLOC',
+          ReferenceId: p.ReferenceId || equnr || tplnr || '1000',
+          IsolationPoint: p.IsolationPoint || '',
+          IsolType: p.IsolType || 'MECH',
+          IsolMethod: p.IsolMethod || 'VALVE',
+          IsolatedState: p.IsolatedState || 'CLOSED',
+          LockTagNo: p.LockTagNo || '',
+          Remarks: p.Remarks || ''
+        }))
+      );
+    }
+    setShowCreateIsoModal(true);
+    setShowIsoTemplateModal(false);
+    toast.success(
+      `Applied template "${payload.sourceTitle || payload.description}" (${payload.points.length} points loaded).`,
+      { title: 'Isolation Template Applied' }
+    );
+  };
   const [isCreatingIso, setIsCreatingIso] = useState<boolean>(false);
   const [isolationTypes, setIsolationTypes] = useState<SapConfigRecord[]>(FALLBACK_CONFIG_DATA.ISOLATION_TYPE || []);
   const [isolatedStates, setIsolatedStates] = useState<SapConfigRecord[]>(FALLBACK_CONFIG_DATA.ISOLATED_STATE || []);
@@ -1230,11 +1916,28 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     debounceMs: 1200
   });
 
+  // Blank permits default Gas Testing Required and Isolation Required (LOTO) to "No" ('N' / ' ')
+  useEffect(() => {
+    if (isBlankPermit) {
+      if (!isolationRequired) {
+        setIsolationRequired(' ');
+      }
+      if (!gasTestRequired) {
+        setGasTestRequired('N');
+      }
+    }
+  }, [isBlankPermit, isolationRequired, gasTestRequired]);
+
   // Handler: Open Inline Create Isolation Certificate Modal
   const handleOpenCreateIsoModal = () => {
     const defaultDesc = jobDesc?.trim() ? `${jobDesc.trim()} - LOTO Boundary` : 'Plant Maintenance Isolation Boundary';
     const defaultRemarks = areaLoc?.trim() ? `Work Area: ${areaLoc.trim()}` : (werks ? `Plant ${werks}` : '');
-    const { referenceType: refType, referenceId: refId } = resolveIsolationPointReference({ equnr, arbpl, tplnr });
+    const { referenceType: refType, referenceId: refId } = resolveIsolationPointReference({
+      equnr,
+      arbpl,
+      tplnr,
+      workCenterDesc: currentWorkCenterDesc
+    });
     const defaultPoint = equnr?.trim() ? `${equnr.trim()}-ISO-01` : 'POINT-01';
 
     setNewIsoDescription(defaultDesc);
@@ -1256,7 +1959,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   const handleAddIsoPoint = () => {
     const nextIdx = newIsoPoints.length + 1;
-    const { referenceType: refType, referenceId: refId } = resolveIsolationPointReference({ equnr, arbpl, tplnr });
+    const { referenceType: refType, referenceId: refId } = resolveIsolationPointReference({
+      equnr,
+      arbpl,
+      tplnr,
+      workCenterDesc: currentWorkCenterDesc
+    });
     setNewIsoPoints((prev) => [
       ...prev,
       {
@@ -1287,7 +1995,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
             referenceType: nextType,
             equnr,
             arbpl,
-            tplnr
+            tplnr,
+            workCenterDesc: currentWorkCenterDesc
           });
           return {
             ...pt,
@@ -1328,6 +2037,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         PermitNo: '', // Will be linked automatically upon permit submission
         description: newIsoDescription.trim(),
         Remarks: newIsoRemarks.trim(),
+        IsTemplate: newIsoIsTemplate ? 'X' : ' ',
         _Item: newIsoPoints.map((p) => ({
           ReferenceType: p.ReferenceType || 'EQUI',
           ReferenceId: p.ReferenceId.trim(),
@@ -1346,6 +2056,38 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         throw new Error('SAP did not return an Isolation Certificate Number.');
       }
 
+      // If user staged attachments during creation, upload & link to new isolation in SAP DMS
+      if (newIsoAttachments.length > 0 && result.IsolationNo) {
+        try {
+          toast.info(`Uploading ${newIsoAttachments.length} document(s) to SAP DMS...`, {
+            title: 'DMS Attachment Upload'
+          });
+          const uploadRes = await attachmentApi.uploadAndLinkMultipleFiles(
+            newIsoAttachments,
+            'ISOLATION',
+            result.IsolationNo
+          );
+          if (uploadRes.successful.length > 0) {
+            toast.success(
+              `Uploaded and linked ${uploadRes.successful.length} attachment(s) to ${result.IsolationNo} in DMS.`,
+              { title: 'Isolation Attachments Saved' }
+            );
+          }
+          if (uploadRes.failed.length > 0) {
+            toast.warning(
+              `Uploaded ${uploadRes.successful.length} file(s), but ${uploadRes.failed.length} failed.`,
+              { title: 'Partial Attachment Upload' }
+            );
+          }
+        } catch (attErr) {
+          console.error('[PermitCreateModule] Isolation attachment upload failure:', attErr);
+          toast.warning(
+            'Isolation created in SAP, but automatic attachment upload failed.',
+            { title: 'Attachment Notice' }
+          );
+        }
+      }
+
       setIsolationNo(result.IsolationNo);
       if (newIsoPoints.length > 0 && newIsoPoints.every((p) => p.ReferenceType === 'FLOC')) {
         setIsolationRefType('FLOC');
@@ -1362,6 +2104,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         `Isolation Certificate ${result.IsolationNo} successfully registered in SAP database!`,
         { title: 'Isolation Registered & Linked', duration: 6000 }
       );
+      setNewIsoIsTemplate(false);
+      setNewIsoAttachments([]);
       setShowCreateIsoModal(false);
     } catch (err: any) {
       console.error('[PermitCreateModule] Failed to create isolation certificate:', err);
@@ -1378,11 +2122,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     activeTab,
     workSelection,
     isBlankPermit,
+    isTemplate,
     permitType,
     sitePlan,
     aufnr,
     qmnum,
     auart,
+    ktext,
     personResp,
     plannerGroup,
     pmBasicStartD,
@@ -1395,6 +2141,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     tplnr,
     werks,
     arbpl,
+    workCenterDesc,
     areaLoc,
     jobDesc,
     execAgency,
@@ -1459,11 +2206,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     activeTab,
     workSelection,
     isBlankPermit,
+    isTemplate,
     permitType,
     sitePlan,
     aufnr,
     qmnum,
     auart,
+    ktext,
     personResp,
     plannerGroup,
     pmBasicStartD,
@@ -1476,6 +2225,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     tplnr,
     werks,
     arbpl,
+    workCenterDesc,
     areaLoc,
     jobDesc,
     execAgency,
@@ -1511,11 +2261,13 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     if (draft.activeTab) setActiveTab(draft.activeTab);
     if (draft.workSelection) setWorkSelection(draft.workSelection);
     if (typeof draft.isBlankPermit === 'boolean') setIsBlankPermit(draft.isBlankPermit);
+    if (typeof draft.isTemplate === 'boolean') setIsTemplate(draft.isTemplate);
     if (draft.permitType) setPermitType(draft.permitType);
     if (draft.sitePlan) setSitePlan(draft.sitePlan);
     if (draft.aufnr !== undefined) setAufnr(draft.aufnr);
     if (draft.qmnum !== undefined) setQmnum(draft.qmnum);
     if (draft.auart) setAuart(draft.auart);
+    if (draft.ktext) setKtext(draft.ktext);
     if (draft.personResp) setPersonResp(draft.personResp);
     if (draft.plannerGroup) setPlannerGroup(draft.plannerGroup);
     if (draft.pmBasicStartD) setPmBasicStartD(draft.pmBasicStartD);
@@ -1528,6 +2280,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     if (draft.tplnr) setTplnr(draft.tplnr);
     if (draft.werks) setWerks(draft.werks);
     if (draft.arbpl) setArbpl(draft.arbpl);
+    if (draft.workCenterDesc) setWorkCenterDesc(draft.workCenterDesc);
     if (draft.areaLoc) setAreaLoc(draft.areaLoc);
     if (draft.jobDesc) setJobDesc(draft.jobDesc);
     if (draft.execAgency) setExecAgency(draft.execAgency);
@@ -1552,8 +2305,14 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     if (draft.validToT) setValidToT(draft.validToT);
     if (draft.gasTestFreqHr) setGasTestFreqHr(draft.gasTestFreqHr);
     if (draft.creatorComment) setCreatorComment(draft.creatorComment);
-    if (draft.isolationRequired) setIsolationRequired(draft.isolationRequired);
-    if (draft.gasTestRequired) setGasTestRequired(draft.gasTestRequired);
+    if (draft.isBlankPermit) {
+      const defaults = getBlankPermitDefaultPrerequisites();
+      setIsolationRequired(draft.isolationRequired || defaults.isolationRequired);
+      setGasTestRequired(draft.gasTestRequired || defaults.gasTestRequired);
+    } else {
+      if (draft.isolationRequired) setIsolationRequired(draft.isolationRequired);
+      if (draft.gasTestRequired) setGasTestRequired(draft.gasTestRequired);
+    }
     if (draft.isolationRefType) setIsolationRefType(draft.isolationRefType);
     if (draft.isolationNo) setIsolationNo(draft.isolationNo);
     if (draft.workers) setWorkers(draft.workers);
@@ -1711,7 +2470,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   // Nature of Work records formatted for SAP child table _NATW (Entity NATWType)
   const natwRecords = useMemo((): NatwRecord[] => {
     return (sitePlan.nature || []).map((desc, index) => {
-      const otherDetail = desc === 'Other' ? (sitePlan.fields.OTHER_NATURE || sitePlan.fields.NOTE || '').trim() : '';
+      const otherDetail = desc === 'Other' ? (sitePlan.fields.OTHER_NATURE || '').trim() : '';
       return {
         ItemNo: String(index + 1),
         NatwCode: toNatwCode(desc),
@@ -1719,12 +2478,12 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         OtherText: otherDetail.slice(0, 255)
       };
     });
-  }, [sitePlan.nature, sitePlan.fields.OTHER_NATURE, sitePlan.fields.NOTE]);
+  }, [sitePlan.nature, sitePlan.fields.OTHER_NATURE]);
 
   // Tools & Equipment records formatted for SAP child table _Equipment (Entity EquipmentType)
   const equipmentRecords = useMemo((): EquipmentRecord[] => {
     return (sitePlan.tools || []).map((desc, index) => {
-      const otherDetail = desc === 'Other' ? (sitePlan.fields.OTHER_TOOLS || sitePlan.fields.NOTE || '').trim() : '';
+      const otherDetail = desc === 'Other' ? (sitePlan.fields.OTHER_TOOLS || '').trim() : '';
       return {
         ItemNo: String(index + 1),
         EquipCode: toEquipCode(desc),
@@ -1732,7 +2491,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         OtherText: otherDetail.slice(0, 255)
       };
     });
-  }, [sitePlan.tools, sitePlan.fields.OTHER_TOOLS, sitePlan.fields.NOTE]);
+  }, [sitePlan.tools, sitePlan.fields.OTHER_TOOLS]);
 
   // Pre-fetch questionnaires for any active categories so item counts & progress are immediately ready
   useEffect(() => {
@@ -1913,20 +2672,34 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
 
   const resetPreparationForNewContext = () => {
     // A different job or blank context must not inherit site-specific preparation or JSA evidence.
-    setSitePlan(emptySitePlan()); setPermitType('');
+    const freshPlan = emptySitePlan();
+    SECTION_D_FIELD_CODES.forEach(code => {
+      freshPlan.fields[code] = '';
+    });
+    setSitePlan(freshPlan); setPermitType('');
     setIsolationRequired(''); setGasTestRequired(''); setExecDept(''); setExecPlant('');
     setWorkers([]); setPersonsQty(0); setHazards([]); setIsolations([]);
     setPpeItems([]); setSafetyChecklist([]); setIsolationNo('');
     setCategoryQuestions({}); setCategoryAnswers({}); setActiveChecklistPermitType(''); setIsChecklistModalOpen(false);
     setValidFromD(''); setValidFromT(''); setValidToD(''); setValidToT('');
+    setWorkCenterDesc('');
+    setKtext('');
   };
 
   // The first step owns reference selection; clear absent fields to avoid stale order linkage.
   const handleWorkSelected = (selection: WorkSelection) => {
     const selectionKey = `${selection.reference.ReferenceSource}:${referenceId(selection.source, selection.reference)}`;
-    if (previousWorkKey.current && previousWorkKey.current !== selectionKey) {
+    if (previousWorkKey.current && previousWorkKey.current !== selectionKey && previousWorkKey.current !== 'TEMPLATE') {
       resetPreparationForNewContext();
     }
+    // Guarantee Section D fields (JSA, shift, responsibilities) are blank on reference selection
+    setSitePlan(prev => {
+      const cleanFields: Record<string, string> = { ...prev.fields };
+      SECTION_D_FIELD_CODES.forEach(code => {
+        cleanFields[code] = '';
+      });
+      return { ...prev, fields: cleanFields };
+    });
     previousWorkKey.current = selectionKey;
     const ref = toPermitReferenceFields(selection.reference);
     setIsBlankPermit(false);
@@ -1934,14 +2707,16 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     setAufnr(ref.Aufnr || '');
     setQmnum(ref.Qmnum || '');
     setAuart(ref.Auart || '');
-    setJobDesc(ref.JobDesc);
+    setKtext(ref.Ktext || (selection.reference.ReferenceSource === 'ORDER' ? (selection.reference.JobDescription || '') : ''));
+    setJobDesc(ref.JobDesc || jobDesc);
     setEqunr(ref.Equnr || '');
     setTplnr(ref.Tplnr || '');
     setWerks(ref.Werks || DEFAULT_PLANT_CODE);
     setArbpl(ref.Arbpl || '');
-    setAreaLoc(ref.AreaLoc || ref.LocationDesc || '');
+    setWorkCenterDesc(ref.WorkCenterDesc || '');
+    setAreaLoc(ref.AreaLoc || ref.LocationDesc || areaLoc);
     setAssembly('');
-    setPriority(ref.Priority || '');
+    setPriority(ref.Priority || priority);
     setRevision('');
     setPersonResp(user?.id || '');
     setPlannerGroup(ref.PlannerGroup || '');
@@ -1949,7 +2724,10 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     setPmBasicFinishD('');
     setPmFinalDueD('');
     // Pre-populate Execution Target from Work Center description (if available); user may override via dropdown
-    setExecDept(normalizeWorkCenterTarget(ref.WorkCenterDesc));
+    const orderDept = normalizeWorkCenterTarget(ref.WorkCenterDesc);
+    if (orderDept) {
+      setExecDept(orderDept);
+    }
     setExecPlant('');
     setCreatorComment(selection.category + ' work · ' + selection.source + ' ' + referenceId(selection.source, selection.reference));
     setSubmissionResponse(null);
@@ -1967,6 +2745,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setEqunr('');
       setTplnr('');
       setArbpl('');
+      setWorkCenterDesc('');
       setAreaLoc('');
       setJobDesc('');
       setAssembly('');
@@ -1992,10 +2771,17 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       setQmnum('');
     }
     setAuart('');
+    setKtext('');
     setPersonResp(user?.id || '');
     setCreatorComment((prev) =>
       !switchingFromOtherWork && isBlankPermit && prev.trim() ? prev : BLANK_PERMIT_COMMENT
     );
+    // Blank permits default Gas Testing Required and Isolation Required (LOTO) to "No"
+    const blankPrereqs = getBlankPermitDefaultPrerequisites();
+    setIsolationRequired(blankPrereqs.isolationRequired);
+    setGasTestRequired(blankPrereqs.gasTestRequired);
+    setIsolationNo('');
+    setIsolations([]);
     setSubmissionResponse(null);
     setNotificationBanner(null);
     setActiveTab('general');
@@ -2219,7 +3005,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           targetTab: 'procedure'
         };
       }
-      if (sitePlan.nature.includes('Other') && !(sitePlan.fields.OTHER_NATURE || sitePlan.fields.NOTE)?.trim()) {
+      if (sitePlan.nature.includes('Other') && !sitePlan.fields.OTHER_NATURE?.trim()) {
         return {
           valid: false,
           message: 'Please specify the other nature of work in Section B.',
@@ -2235,7 +3021,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           targetTab: 'procedure'
         };
       }
-      if (sitePlan.tools.includes('Other') && !(sitePlan.fields.OTHER_TOOLS || sitePlan.fields.NOTE)?.trim()) {
+      if (sitePlan.tools.includes('Other') && !sitePlan.fields.OTHER_TOOLS?.trim()) {
         return {
           valid: false,
           message: 'Please specify the other tools & equipment in Section C.',
@@ -2251,51 +3037,11 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           targetTab: 'procedure'
         };
       }
-      if (!sitePlan.fields.JSA1?.trim()) {
+      if (sitePlan.fields.ISSR?.trim() && sitePlan.fields.ACCP?.trim() && sitePlan.fields.ISSR.trim().toUpperCase() === sitePlan.fields.ACCP.trim().toUpperCase()) {
         return {
           valid: false,
-          message: 'Signed JSA document reference is mandatory in Section D.',
-          fieldId: 'procedure-field-JSA1',
-          targetTab: 'procedure'
-        };
-      }
-      if (!sitePlan.fields.JSA2?.trim()) {
-        return {
-          valid: false,
-          message: 'JSA team / joint site visit notes are mandatory in Section D.',
-          fieldId: 'procedure-field-JSA2',
-          targetTab: 'procedure'
-        };
-      }
-      if (!sitePlan.fields.SHFT?.trim()) {
-        return {
-          valid: false,
-          message: 'Planned shift end time is mandatory in Section D.',
-          fieldId: 'procedure-field-SHFT',
-          targetTab: 'procedure'
-        };
-      }
-      if (!sitePlan.fields.ISSR?.trim()) {
-        return {
-          valid: false,
-          message: 'Proposed Issuer SAP user ID is mandatory in Section D.',
-          fieldId: 'procedure-field-ISSR',
-          targetTab: 'procedure'
-        };
-      }
-      if (!sitePlan.fields.ACCP?.trim()) {
-        return {
-          valid: false,
-          message: 'Proposed Acceptor SAP user ID is mandatory in Section D.',
+          message: 'Proposed Issuer and Proposed Acceptor must be different SAP user IDs in Section D.',
           fieldId: 'procedure-field-ACCP',
-          targetTab: 'procedure'
-        };
-      }
-      if (!sitePlan.fields.OPER?.trim()) {
-        return {
-          valid: false,
-          message: 'Proposed Area Operator SAP user ID is mandatory in Section D.',
-          fieldId: 'procedure-field-OPER',
           targetTab: 'procedure'
         };
       }
@@ -2469,39 +3215,30 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     if (tab === 'hazards') {
       if (newHazardDesc.trim() && newControlDesc.trim()) {
         const cellDef = getRiskMatrixCell(selectedMatrixCell.c, selectedMatrixCell.l);
+        const code = newHazardCode || 'GEN';
+        const cCode = newControlCode || `${code}01`;
         const autoH: HazardControlRecord = {
           PermitNo: permitNo,
           ItemNo: String(hazards.length + 1),
-          HazardCode: newHazardCode,
+          HazardCode: code,
           HazardDesc: newHazardDesc.toUpperCase(),
           RiskLevel: cellDef.sapRiskLevel,
-          ControlCode: newControlCode,
+          ControlCode: cCode,
           ControlDesc: newControlDesc,
           ControlStatus: 'OPEN',
           ResponsibleUser: user?.id || personResp,
           VerifiedBy: '',
           VerifiedAt: null,
-          Remarks: `[5x5 S=${selectedMatrixCell.c}, L=${selectedMatrixCell.l}, Score=${cellDef.score}: ${cellDef.riskLabel.toUpperCase()}] MANDATORY CONTROL VERIFICATION`
+          Remarks: `[5x5 S=${selectedMatrixCell.c}, L=${selectedMatrixCell.l}, Score=${cellDef.score}: ${cellDef.riskLabel.toUpperCase()}] CONTROL VERIFICATION`
         };
         setHazards((prev) => [...prev, autoH]);
         setNewHazardDesc('');
         setNewControlDesc('');
-      } else if (hazards.length === 0) {
-        if (newHazardDesc.trim() && !newControlDesc.trim()) {
-          return {
-            valid: false,
-            message: 'Control Description is mandatory for the entered hazard.',
-            fieldId: 'field-control-desc',
-            targetTab: 'hazards'
-          };
-        }
-        return {
-          valid: false,
-          message: 'Add at least one hazard and required risk control before proceeding.',
-          fieldId: 'field-hazard-desc',
-          targetTab: 'hazards'
-        };
+        setNewHazardCode('');
+        setNewControlCode('');
       }
+      // Hazards is optional; permit creation can proceed without hazards
+      return { valid: true };
     }
     if (tab === 'gas-isolation') {
       const isIso = isolationRequired === 'X' || isolationRequired === 'Y';
@@ -2635,38 +3372,42 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
   // 8. Add Hazard Control Handler
   const handleAddHazard = () => {
     if (!newHazardDesc.trim()) {
-      const msg = 'Hazard Description is mandatory.';
-      toast.warning(msg, { title: 'Mandatory Field Missing' });
+      const msg = 'Hazard Description is required to add a hazard measure.';
+      toast.warning(msg, { title: 'Required Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
       jumpToField('field-hazard-desc', 'hazards');
       return;
     }
     if (!newControlDesc.trim()) {
-      const msg = 'Control Description is mandatory.';
-      toast.warning(msg, { title: 'Mandatory Field Missing' });
+      const msg = 'Control Description is required to add a hazard measure.';
+      toast.warning(msg, { title: 'Required Field Missing' });
       setNotificationBanner({ type: 'error', message: msg });
       jumpToField('field-control-desc', 'hazards');
       return;
     }
     const nextItemNo = (Math.max(0, ...hazards.map(row => Number(row.ItemNo))) + 1).toString();
     const cellDef = getRiskMatrixCell(selectedMatrixCell.c, selectedMatrixCell.l);
+    const code = newHazardCode || 'GEN';
+    const cCode = newControlCode || `${code}01`;
     const newH: HazardControlRecord = {
       PermitNo: permitNo,
       ItemNo: nextItemNo,
-      HazardCode: newHazardCode,
+      HazardCode: code,
       HazardDesc: newHazardDesc.toUpperCase(),
       RiskLevel: cellDef.sapRiskLevel,
-      ControlCode: newControlCode,
+      ControlCode: cCode,
       ControlDesc: newControlDesc,
       ControlStatus: 'OPEN',
       ResponsibleUser: user?.id || personResp,
       VerifiedBy: '',
       VerifiedAt: null,
-      Remarks: `[5x5 S=${selectedMatrixCell.c}, L=${selectedMatrixCell.l}, Score=${cellDef.score}: ${cellDef.riskLabel.toUpperCase()}] MANDATORY CONTROL VERIFICATION`
+      Remarks: `[5x5 S=${selectedMatrixCell.c}, L=${selectedMatrixCell.l}, Score=${cellDef.score}: ${cellDef.riskLabel.toUpperCase()}] CONTROL VERIFICATION`
     };
     setHazards([...hazards, newH]);
     setNewHazardDesc('');
     setNewControlDesc('');
+    setNewHazardCode('');
+    setNewControlCode('');
     toast.info(`Added hazard control: ${newH.HazardDesc}`);
   };
 
@@ -2691,6 +3432,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       Qmart: workSelection?.reference.ReferenceSource === 'NOTIFICATION' ? workSelection.reference.OrderNotifType : '',
       Qmtxt: workSelection?.reference.ReferenceSource === 'NOTIFICATION' ? workSelection.reference.JobDescription : '',
       Qmdat: workSelection?.reference.ReferenceSource === 'NOTIFICATION' ? workSelection.reference.WorkDate : null,
+      Ktext: (ktext.trim() || (workSelection?.reference.ReferenceSource === 'ORDER' ? (workSelection.reference.JobDescription || '') : (aufnr && aufnr !== BLANK_PERMIT_AUFNR ? jobDesc : ''))).slice(0, 40),
 
       PersonResp: personResp,
       PlannerGroup: plannerGroup,
@@ -2789,6 +3531,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
         return rig || resc || '';
       })(),
 
+      IsBlank: isBlankPermit ? 'X' : ' ',
+      IsTemplate: isTemplate ? 'X' : ' ',
+
       _Worker: workers,
       _PPE: ppeItems,
       _Safety: [...sitePlanRows(permitType, sitePlan), ...safetyChecklist.filter(s => !s.ItemCode?.startsWith('Q'))],
@@ -2806,6 +3551,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     aufnr,
     qmnum,
     auart,
+    ktext,
     personResp,
     plannerGroup,
     pmBasicStartD,
@@ -2818,6 +3564,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     tplnr,
     werks,
     arbpl,
+    workCenterDesc,
     areaLoc,
     jobDesc,
     execAgency,
@@ -2851,7 +3598,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
     equipmentRecords,
     natwRecords,
     excludeChildNavs,
-    isOnlyColdWork
+    isOnlyColdWork,
+    isBlankPermit,
+    isTemplate
   ]);
 
   const requestPreview = useMemo(() => {
@@ -3021,6 +3770,44 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       };
       setSubmissionResponse(mergedResponse as unknown as PermitDeepInsertResponse);
 
+      // Save as user template if flagged as reusable template
+      if (isTemplate) {
+        const cleanFieldsForTemplate = { ...(sitePlan.fields || {}) };
+        SECTION_D_FIELD_CODES.forEach(code => {
+          delete cleanFieldsForTemplate[code];
+        });
+        saveUserTemplate({
+          id: `tmpl-user-${Date.now()}`,
+          name: `${permitType} - ${jobDesc.slice(0, 40) || 'Custom Template'}`,
+          description: `Saved from permit ${response.Permit_No}. Area: ${areaLoc || 'Plant'}`,
+          permitType,
+          category: PERMIT_CATEGORIES.find(c => c.code === permitType || c.sapCode === permitType)?.code || 'COLD',
+          jobDesc,
+          areaLoc,
+          execDept: formatExecutionTarget(execPlant, execDept),
+          shift,
+          priority,
+          gasTestRequired: (gasTestRequired === 'Y' || gasTestRequired === 'X') ? 'X' : ' ',
+          gasTestFreqHr,
+          isolationRequired: (isolationRequired === 'X' || isolationRequired === 'Y') ? 'X' : ' ',
+          isolationRefType,
+          permitNo: response.Permit_No,
+          nature: sitePlan.nature,
+          tools: sitePlan.tools,
+          otherNature: sitePlan.fields.OTHER_NATURE || '',
+          otherTools: sitePlan.fields.OTHER_TOOLS || '',
+          workers,
+          ppeItems,
+          safetyChecklist,
+          hazards,
+          safetySitePlanFields: cleanFieldsForTemplate,
+          safetyChecks: sitePlan.checks,
+          additionalTypes: sitePlan.additionalTypes,
+          isBuiltin: false
+        });
+        toast.info(`Permit ${response.Permit_No} saved as reusable template!`, { title: 'Template Saved' });
+      }
+
       // Cache newly created permit for immediate discovery in Gas Tester and Isolation modules
       try {
         if (import.meta.env.DEV && typeof window !== 'undefined' && window.localStorage) {
@@ -3059,6 +3846,36 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           console.log(`[PermitCreateModule] Successfully linked Permit ${response.Permit_No} to Isolation Certificate ${isolationNo.trim()}`);
         } catch (linkErr) {
           console.warn('[PermitCreateModule] Could not auto-backlink isolation certificate:', linkErr);
+        }
+      }
+
+      // Upload and link staged attachments to SAP DMS for this Permit
+      if (selectedAttachments.length > 0 && response.Permit_No) {
+        try {
+          toast.info(`Uploading ${selectedAttachments.length} document(s) to SAP DMS...`, {
+            title: 'DMS Upload in Progress'
+          });
+          const uploadRes = await attachmentApi.uploadAndLinkMultipleFiles(
+            selectedAttachments,
+            'PERMIT',
+            response.Permit_No
+          );
+          if (uploadRes.failed.length > 0) {
+            toast.warning(
+              `${uploadRes.successful.length} file(s) saved to DMS. ${uploadRes.failed.length} failed.`,
+              { title: 'Partial DMS Upload' }
+            );
+          } else {
+            toast.success(
+              `All ${uploadRes.successful.length} document(s) uploaded and linked to Permit ${response.Permit_No} in SAP DMS.`,
+              { title: 'DMS Upload Complete' }
+            );
+          }
+        } catch (attErr: any) {
+          console.error('[PermitCreateModule] DMS Upload Error:', attErr);
+          toast.error(`Attachment upload failed: ${attErr?.message || attErr}`, {
+            title: 'DMS Upload Error'
+          });
         }
       }
 
@@ -3274,6 +4091,18 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
             )}
 
             <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+              {/* Quick Template Picker */}
+              <button
+                type="button"
+                id="btn-header-templates"
+                onClick={() => setShowTemplateModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 hover:border-indigo-400 text-indigo-700 rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer"
+                title="Apply pre-configured permit template (Auto-fills scope, hazards, PPE, and checklist)"
+              >
+                <span className="material-symbols-outlined text-[15px] text-indigo-600">bookmark</span>
+                <span className="hidden sm:inline">Templates</span>
+              </button>
+
               <span className="px-2.5 py-1 rounded-xl font-mono text-xs font-bold bg-[#006398]/10 text-[#006398] border border-[#006398]/20">
                 {completionPercentage}%
               </span>
@@ -3591,6 +4420,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               client={user?.client}
               isBlankPermit={isBlankPermit}
               onStartBlankPermit={handleStartBlankPermit}
+              onSelectTemplate={() => setShowTemplateModal(true)}
               onInvalidate={() => {
                 setWorkSelection(null);
                 if (isBlankPermit) {
@@ -3619,6 +4449,38 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
           {/* TAB 1: General Details & PM Order */}
           {activeTab === 'general' && (
             <div className="space-y-6">
+              {/* Template & Fast-Fill Banner */}
+              <div className="p-3.5 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/50 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-100 border border-indigo-300 flex items-center justify-center text-indigo-700 shrink-0 shadow-2xs">
+                    <span className="material-symbols-outlined text-[20px]">bookmark</span>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-indigo-950 flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isTemplate}
+                        onChange={(e) => setIsTemplate(e.target.checked)}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-indigo-300 cursor-pointer"
+                      />
+                      <span>Save as Reusable Permit Template (<code className="font-mono text-indigo-700">IsTemplate = &apos;X&apos;</code>)</span>
+                    </label>
+                    <p className="text-[11px] text-indigo-800/80 mt-0.5 leading-snug">
+                      Flagging this permit stores it as a reusable master template for routine jobs. Future permits can auto-fill scope, hazards, PPE, and checklist in one click without re-typing.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateModal(true)}
+                  className="self-start sm:self-center px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-300 text-xs font-bold transition shadow-2xs flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  title="Browse standard and user-saved permit templates"
+                >
+                  <span className="material-symbols-outlined text-[15px] text-indigo-600">folder_open</span>
+                  <span>Browse Templates</span>
+                </button>
+              </div>
+
               {/* SECTION 2.1: Permit Category & Applicable Work Types */}
               <SectionCard
                 theme="blue"
@@ -3980,6 +4842,32 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                       className="ptw-input font-mono"
                     />
                   </div>
+
+                  <div className="sm:col-span-2 md:col-span-4">
+                    <label className="ptw-label flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[15px] text-[#006398]">notes</span>
+                        <span>Maintenance Order Text (KTEXT)</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {ktext.length}/40 {isBlankPermit ? '(Optional)' : '• Stored in Permit Header'}
+                      </span>
+                    </label>
+                    <input
+                      id="field-ktext"
+                      type="text"
+                      maxLength={40}
+                      value={ktext}
+                      readOnly={!isBlankPermit && Boolean(workSelection)}
+                      onChange={(e) => setKtext(e.target.value)}
+                      placeholder={isBlankPermit ? 'Enter maintenance order short text (KTEXT)...' : 'Maintenance order description from SAP (KTEXT)'}
+                      className={`ptw-input font-mono ${
+                        !isBlankPermit && Boolean(workSelection)
+                          ? 'bg-slate-50 text-slate-700 cursor-not-allowed'
+                          : 'bg-white text-slate-900'
+                      }`}
+                    />
+                  </div>
                 </div>
               </SectionCard>
 
@@ -4040,9 +4928,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         onChange={(e) => setArbpl(e.target.value)}
                         className="ptw-input font-mono"
                       />
-                      {workSelection?.reference?.WorkCenterDesc && (
-                        <p className="mt-1 text-[11px] text-slate-500 truncate" title={workSelection.reference.WorkCenterDesc}>
-                          ⚙️ <span className="text-slate-600 font-medium">{workSelection.reference.WorkCenterDesc}</span>
+                      {currentWorkCenterDesc && (
+                        <p className="mt-1 text-[11px] text-slate-500 truncate" title={currentWorkCenterDesc}>
+                          ⚙️ <span className="text-slate-600 font-medium">{currentWorkCenterDesc}</span>
                         </p>
                       )}
                     </div>
@@ -4799,11 +5687,20 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                             <button
                               type="button"
                               onClick={handleOpenCreateIsoModal}
-                              className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-[#006398] hover:bg-[#004e78] text-white shadow-2xs hover:shadow-xs transition flex items-center justify-center gap-1.5 shrink-0"
+                              className="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-[#006398] hover:bg-[#004e78] text-white shadow-2xs hover:shadow-xs transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                               title="Register a new isolation certificate and lock points directly in SAP"
                             >
                               <span className="material-symbols-outlined text-[15px]">lock_clock</span>
-                              <span>+ Create New Certificate</span>
+                              <span>+ Create New</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowIsoTemplateModal(true)}
+                              className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 shadow-2xs hover:shadow-xs transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+                              title="Browse and apply reusable isolation template"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">bookmark</span>
+                              <span>Use Template</span>
                             </button>
                           </div>
                         </div>
@@ -5488,8 +6385,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               icon="warning"
               badge={
                 hazards.length === 0 ? (
-                  <span className="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                    Required * (Min 1 Hazard)
+                  <span className="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-300">
+                    Optional (0 Added)
                   </span>
                 ) : (
                   <span className="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -5517,6 +6414,9 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 onMatrixCellClick={handleMatrixCellClick}
                 userPersonResp={user?.id || personResp}
                 permitNo={permitNo}
+                permitType={permitType}
+                additionalTypes={sitePlan.additionalTypes || []}
+                jobDesc={jobDesc}
               />
             </SectionCard>
           )}
@@ -5811,7 +6711,7 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         )}
                       </dd>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100"><dt className="text-slate-500 font-medium">JSA Reference</dt><dd className="mt-1 font-mono font-bold text-slate-900">{sitePlan.fields.JSA1 || 'Required'}</dd></div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100"><dt className="text-slate-500 font-medium">JSA Reference</dt><dd className="mt-1 font-mono font-bold text-slate-900">{sitePlan.fields.JSA1 || '—'}</dd></div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100"><dt className="text-slate-500 font-medium">Signatories (Proposed)</dt><dd className="mt-1 font-semibold text-slate-900">{sitePlan.fields.ISSR || '—'} (Issuer) / {sitePlan.fields.ACCP || '—'} (Acceptor) / {sitePlan.fields.OPER || '—'} (Operator)</dd></div>
                     {(sitePlan.fields.FWNM || sitePlan.fields.FWAT) && (
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -5847,8 +6747,55 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                         <dd className="mt-1 font-semibold text-slate-900">{sitePlan.fields.CHEM}</dd>
                       </div>
                     )}
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <dt className="text-slate-500 font-medium">Serialization Flags (OData V4)</dt>
+                      <dd className="mt-1 flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
+                        <span className={`px-2 py-0.5 rounded-full font-bold border ${
+                          isBlankPermit ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
+                          IsBlank: &quot;{isBlankPermit ? 'X' : ' '}&quot; ({isBlankPermit ? 'Blank Permit' : 'Linked Reference'})
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full font-bold border ${
+                          isTemplate ? 'bg-indigo-100 text-indigo-900 border-indigo-300' : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
+                          IsTemplate: &quot;{isTemplate ? 'X' : ' '}&quot; ({isTemplate ? 'Template' : 'Standard'})
+                        </span>
+                      </dd>
+                    </div>
                   </dl>
                 </div>
+
+                {/* Template Option Toggle */}
+                <div className="p-3.5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/40 flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 shrink-0">
+                      <span className="material-symbols-outlined text-[18px]">bookmark</span>
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-indigo-950 block">Save as Reusable Permit Template</span>
+                      <span className="text-[11px] text-indigo-800/80">Serializes <code className="font-mono text-indigo-700">IsTemplate = &apos;X&apos;</code> to SAP OData backend &amp; caches configuration for 1-click permit creation</span>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={isTemplate}
+                      onChange={(e) => setIsTemplate(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+
+                {/* Step 8.1: Permit Attachments & Work Instructions (SAP DMS) */}
+                <AttachmentManager
+                  objectType="PERMIT"
+                  stagedFiles={selectedAttachments}
+                  onStagedFilesChange={setSelectedAttachments}
+                  title="Step 8.1: Permit Attachments & Drawings (SAP DMS)"
+                  description="Attach P&IDs, JHA documents, vendor certificates, or rigging plans (max 10 MiB per file). Staged files will be automatically uploaded and linked to this permit in SAP DMS upon submission."
+                />
+
                 <ProcedureGuidance />
                 <details className="ptw-card p-4 border-slate-200">
                   <summary className="cursor-pointer text-xs font-semibold text-slate-700 flex items-center justify-between">
@@ -6043,10 +6990,34 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 font-mono">
                 <span className="font-bold text-slate-700">Permit Context:</span>
                 <span className="px-2 py-0.5 rounded bg-white border border-slate-200">Plant: {werks || '1000'}</span>
-                {arbpl && <span className="px-2 py-0.5 rounded bg-white border border-slate-200">Work Center: {arbpl}</span>}
+                {arbpl && (
+                  <span className="px-2 py-0.5 rounded bg-white border border-slate-200">
+                    Work Center: {arbpl}
+                    {currentWorkCenterDesc && ` (${currentWorkCenterDesc})`}
+                  </span>
+                )}
                 {equnr && <span className="px-2 py-0.5 rounded bg-white border border-slate-200">Equip: {equnr}</span>}
                 {tplnr && <span className="px-2 py-0.5 rounded bg-white border border-slate-200">FLoc: {tplnr}</span>}
                 {areaLoc && <span className="px-2 py-0.5 rounded bg-white border border-slate-200">Area: {areaLoc}</span>}
+              </div>
+
+              {/* Quick Load Isolation Template Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-gradient-to-r from-indigo-50/90 via-sky-50/60 to-slate-50 border border-indigo-200 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[20px] text-indigo-700">bookmark_star</span>
+                  <div>
+                    <span className="font-bold text-indigo-950">Use Reusable Isolation Template</span>
+                    <p className="text-[11px] text-indigo-800/80">Adopt pre-engineered zero-energy points (Pump, Vessel, MCC LOTO, Piping DBB).</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowIsoTemplateModal(true)}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[15px]">bookmark</span>
+                  <span>Browse Templates</span>
+                </button>
               </div>
 
               {/* Certificate Scope Inputs */}
@@ -6158,16 +7129,22 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                             type="text"
                             required
                             maxLength={30}
-                            placeholder={pt.ReferenceType === 'FLOC' ? (arbpl.trim() || 'e.g. DELE-CM1 (Work Center)') : 'e.g. 10000045'}
+                            placeholder={
+                              pt.ReferenceType === 'FLOC'
+                                ? (currentWorkCenterDesc || arbpl.trim() || 'e.g. MECHANICAL 8/9 REACTOR')
+                                : 'e.g. 10000045'
+                            }
                             value={pt.ReferenceId}
                             onChange={(e) => handleUpdateIsoPoint(idx, 'ReferenceId', e.target.value)}
                             className="ptw-input font-mono text-xs w-full"
                           />
                           {pt.ReferenceType === 'FLOC' && (
                             <p className="mt-0.5 text-[10px] font-mono text-slate-500">
-                              {arbpl.trim()
-                                ? `Using Work Center (Arbpl): ${arbpl.trim()}`
-                                : 'Work Center (Arbpl) is blank — enter Reference ID'}
+                              {currentWorkCenterDesc
+                                ? `Using Work Center Description: ${currentWorkCenterDesc}${arbpl.trim() ? ` (${arbpl.trim()})` : ''}`
+                                : arbpl.trim()
+                                  ? `Using Work Center (Arbpl): ${arbpl.trim()}`
+                                  : 'Work Center is blank — enter Reference ID'}
                             </p>
                           )}
                         </div>
@@ -6235,6 +7212,39 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 </div>
               </div>
 
+              {/* Reusable Isolation Template Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/70 border border-indigo-200">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-indigo-700">bookmark</span>
+                    Save as Reusable Isolation Template (IsTemplate = &apos;X&apos;)
+                  </span>
+                  <p className="text-[10px] text-indigo-800/80">
+                    Serializes <code className="font-mono text-indigo-700 font-bold">IsTemplate = &apos;X&apos;</code> to SAP OData backend &amp; saves as reusable template
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4">
+                  <input
+                    type="checkbox"
+                    checked={newIsoIsTemplate}
+                    onChange={(e) => setNewIsoIsTemplate(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
+              {/* Isolation Attachments (SAP DMS) */}
+              <div className="pt-1">
+                <AttachmentManager
+                  objectType="ISOLATION"
+                  stagedFiles={newIsoAttachments}
+                  onStagedFilesChange={setNewIsoAttachments}
+                  title="Isolation Certificate Attachments (SAP DMS)"
+                  description="Attach P&IDs, single-line diagrams (SLD), blind lists, or LOTO procedures (max 10 MiB). Staged files will be uploaded and linked to this isolation certificate upon registration."
+                />
+              </div>
+
               {/* Modal Footer */}
               <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <button
@@ -6276,6 +7286,377 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reusable Isolation Templates Modal */}
+      <IsolationTemplatesModal
+        isOpen={showIsoTemplateModal}
+        onClose={() => setShowIsoTemplateModal(false)}
+        onApply={handleApplyIsoTemplateInPermit}
+        defaultEqui={equnr}
+        defaultFloc={tplnr}
+      />
+
+      {/* Reusable Permit Templates Modal */}
+      {showTemplateModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fadeIn"
+          onClick={() => setShowTemplateModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200/80 bg-gradient-to-r from-indigo-50/70 via-white to-sky-50/50 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+                  <span className="material-symbols-outlined text-[22px]">bookmark</span>
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base sm:text-lg text-slate-900 leading-tight">
+                    Permit Templates &amp; Fast Auto-Fill
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Choose a pre-configured standard template or custom saved template to populate all permit fields in 1 click.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={isLoadingTemplates}
+                  onClick={() => void loadBackendTemplates()}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 flex items-center justify-center transition cursor-pointer"
+                  title="Reload templates from SAP backend (IsTemplate = 'X')"
+                >
+                  <span className={`material-symbols-outlined text-[18px] ${isLoadingTemplates ? 'animate-spin text-indigo-600' : ''}`}>
+                    sync
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition cursor-pointer"
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="p-3.5 sm:px-5 border-b border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+              <div className="relative flex-1">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-slate-400">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  placeholder="Search templates by title, description, scope, area or type..."
+                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+                />
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex items-center gap-1 overflow-x-auto text-xs pb-0.5 sm:pb-0">
+                {[
+                  { id: 'ALL', label: 'All' },
+                  { id: 'HOT', label: 'Hot Work' },
+                  { id: 'COLD', label: 'Cold Work' },
+                  { id: 'CONF', label: 'Confined Space' },
+                  { id: 'HEIGHT', label: 'Height' },
+                  { id: 'ELEC', label: 'Electrical' }
+                ].map((c) => {
+                  const isSel = templateCategoryFilter === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setTemplateCategoryFilter(c.id)}
+                      className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] whitespace-nowrap transition cursor-pointer border ${
+                        isSel
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Direct Permit Import Bar */}
+            <div className="px-3.5 py-2.5 sm:px-5 bg-indigo-50/50 border-b border-indigo-100/70 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 text-xs shrink-0">
+              <div className="flex items-center gap-1.5 text-indigo-950 font-semibold">
+                <span className="material-symbols-outlined text-[17px] text-indigo-600">file_download</span>
+                <span>Load Master Permit from SAP by Number:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={manualPermitNo}
+                  onChange={(e) => setManualPermitNo(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && manualPermitNo.trim() && !isFetchingDirectPermit) {
+                      void handleFetchPermitAsTemplate(manualPermitNo);
+                    }
+                  }}
+                  placeholder="e.g. PTW0000110"
+                  className="px-2.5 py-1 bg-white border border-indigo-200 rounded-lg text-xs font-mono uppercase text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 w-36 sm:w-44"
+                />
+                <button
+                  type="button"
+                  disabled={!manualPermitNo.trim() || isFetchingDirectPermit}
+                  onClick={() => void handleFetchPermitAsTemplate(manualPermitNo)}
+                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-lg font-bold text-xs transition shadow-2xs flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {isFetchingDirectPermit ? (
+                    <span className="material-symbols-outlined text-[14px] animate-spin">sync</span>
+                  ) : (
+                    <span className="material-symbols-outlined text-[14px]">download</span>
+                  )}
+                  <span>Fetch &amp; Use</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Templates List */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 min-h-[300px]">
+              {isLoadingTemplates && (
+                <div className="flex items-center justify-center gap-2 p-3 bg-indigo-50/70 border border-indigo-200/60 rounded-xl text-xs font-semibold text-indigo-700 animate-pulse">
+                  <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+                  <span>Fetching master templates from SAP backend (IsTemplate = &apos;X&apos;)...</span>
+                </div>
+              )}
+
+              {(() => {
+                const userTmpls = getUserTemplates();
+                const allTmpls: PermitTemplateItem[] = [
+                  ...backendTemplates,
+                  ...userTmpls.filter(ut => !backendTemplates.some(bt => bt.permitNo && bt.permitNo === ut.permitNo)),
+                  ...BUILTIN_PERMIT_TEMPLATES
+                ];
+
+                const q = templateSearch.trim().toLowerCase();
+                const filtered = allTmpls.filter((t) => {
+                  if (templateCategoryFilter !== 'ALL' && t.category !== templateCategoryFilter) {
+                    return false;
+                  }
+                  if (!q) return true;
+                  return (
+                    t.name.toLowerCase().includes(q) ||
+                    t.description.toLowerCase().includes(q) ||
+                    t.jobDesc.toLowerCase().includes(q) ||
+                    (t.areaLoc || '').toLowerCase().includes(q) ||
+                    t.permitType.toLowerCase().includes(q) ||
+                    (t.permitNo || '').toLowerCase().includes(q)
+                  );
+                });
+
+                if (filtered.length === 0 && !isLoadingTemplates) {
+                  const looksLikePermitNo = Boolean(
+                    templateSearch.trim() &&
+                    (templateSearch.trim().toUpperCase().startsWith('PTW') || /^\d+$/.test(templateSearch.trim()))
+                  );
+                  return (
+                    <div className="py-14 text-center text-slate-400">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200/60 text-indigo-500 flex items-center justify-center mx-auto mb-3 shadow-2xs">
+                        <span className="material-symbols-outlined text-[26px]">bookmark_border</span>
+                      </div>
+                      <p className="font-semibold text-slate-700 text-sm">
+                        {templateSearch.trim() || templateCategoryFilter !== 'ALL'
+                          ? 'No matching permit templates found'
+                          : 'No saved permit templates yet'}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
+                        {templateSearch.trim() || templateCategoryFilter !== 'ALL'
+                          ? 'Try adjusting your search keyword or category filter.'
+                          : 'To save a template, toggle "Save as Reusable Permit Template (IsTemplate = \'X\')" in Step 2 or Step 8 before submitting a permit, or click "Use as Template" from any permit dossier.'}
+                      </p>
+                      {looksLikePermitNo && (
+                        <div className="mt-4 flex justify-center">
+                          <button
+                            type="button"
+                            disabled={isFetchingDirectPermit}
+                            onClick={() => void handleFetchPermitAsTemplate(templateSearch.trim())}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">cloud_download</span>
+                            <span>Load &quot;{templateSearch.trim().toUpperCase()}&quot; from SAP as Template</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return filtered.map((tmpl) => {
+                  const cat = PERMIT_CATEGORIES.find(c => c.code === tmpl.permitType || c.sapCode === tmpl.permitType);
+                  const isHot = tmpl.category === 'HOT';
+                  const isConf = tmpl.category === 'CONF';
+                  const isElec = tmpl.category === 'ELEC';
+                  const isHeight = tmpl.category === 'HEIGHT';
+
+                  const badgeColor = isConf
+                    ? 'bg-rose-100 text-rose-900 border-rose-300'
+                    : isHot
+                    ? 'bg-amber-100 text-amber-900 border-amber-300'
+                    : isElec
+                    ? 'bg-purple-100 text-purple-900 border-purple-300'
+                    : isHeight
+                    ? 'bg-cyan-100 text-cyan-900 border-cyan-300'
+                    : 'bg-blue-100 text-blue-900 border-blue-300';
+
+                  return (
+                    <div
+                      key={tmpl.id}
+                      className="p-4 rounded-2xl border border-slate-200/90 hover:border-indigo-300 bg-white hover:bg-indigo-50/20 transition-all shadow-2xs hover:shadow-sm space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-start gap-2.5 flex-wrap">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border ${badgeColor}`}>
+                            {cat?.label || tmpl.permitType}
+                          </span>
+                          {tmpl.isBackendTemplate ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-100 text-indigo-900 border border-indigo-300 flex items-center gap-1 shadow-2xs">
+                              <span className="material-symbols-outlined text-[13px]">bookmark</span>
+                              <span>SAP Master Template</span>
+                            </span>
+                          ) : tmpl.isBuiltin ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              Standard GFL Template
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              Custom Saved Template
+                            </span>
+                          )}
+                          {tmpl.permitNo && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-800 border border-slate-300">
+                              {tmpl.permitNo}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          {!tmpl.isBuiltin && !tmpl.isBackendTemplate && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                deleteUserTemplate(tmpl.id);
+                                toast.info('Custom template deleted.');
+                              }}
+                              className="px-2.5 py-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-xs transition cursor-pointer"
+                              title="Delete custom template"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => void applyPermitTemplate(tmpl)}
+                            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-2xs hover:shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">input</span>
+                            <span>Apply Template</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="font-display font-bold text-sm text-slate-900">
+                          {tmpl.name}
+                        </h4>
+                        <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                          {tmpl.description}
+                        </p>
+                      </div>
+
+                      {/* Technical Blueprint Metadata */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-2 border-t border-slate-100">
+                        <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Area Location</span>
+                          <span className="font-semibold text-slate-700 truncate block mt-0.5">{tmpl.areaLoc || 'Standard Plant'}</span>
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Department</span>
+                          <span className="font-semibold text-slate-700 truncate block mt-0.5">{tmpl.execDept || 'Maintenance'}</span>
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Gas Testing</span>
+                          <span className="font-mono font-bold text-slate-700 block mt-0.5">
+                            {tmpl.gasTestRequired === 'X' ? `Req (${tmpl.gasTestFreqHr || 2}h)` : 'Not Required'}
+                          </span>
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Isolation / LOTO</span>
+                          <span className="font-mono font-bold text-slate-700 block mt-0.5">
+                            {tmpl.isolationRequired === 'X' ? `LOTO (${tmpl.isolationRefType || 'EM'})` : 'Not Required'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Auto-populated Sections Summary Strip */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-slate-100 text-[10px] font-mono">
+                        <span className="text-slate-400 font-sans font-semibold mr-1">Auto-Fills:</span>
+                        <span className={`px-2 py-0.5 rounded-md border font-semibold ${
+                          tmpl.nature && tmpl.nature.length > 0 ? 'bg-sky-50 text-sky-800 border-sky-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          Nature: {tmpl.nature?.length ? `${tmpl.nature.length} Tasks` : 'Configured'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md border font-semibold ${
+                          tmpl.tools && tmpl.tools.length > 0 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          Tools: {tmpl.tools?.length ? `${tmpl.tools.length} Tools` : 'Configured'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md border font-semibold ${
+                          tmpl.workers && tmpl.workers.length > 0 ? 'bg-purple-50 text-purple-800 border-purple-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          Crew: {tmpl.workers?.length ? `${tmpl.workers.length} Workers` : '—'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md border font-semibold ${
+                          (tmpl.ppeItems && tmpl.ppeItems.length > 0) || (tmpl.ppeCodes && tmpl.ppeCodes.length > 0) ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          PPE: {tmpl.ppeItems?.length ? `${tmpl.ppeItems.length} Items` : (tmpl.ppeCodes?.length ? `${tmpl.ppeCodes.length} Codes` : '—')}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md border font-semibold ${
+                          (tmpl.hazards && tmpl.hazards.length > 0) || (tmpl.hazardCodes && tmpl.hazardCodes.length > 0) ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          Hazards: {tmpl.hazards?.length ? `${tmpl.hazards.length} Controls` : (tmpl.hazardCodes?.length ? `${tmpl.hazardCodes.length} Codes` : '—')}
+                        </span>
+                        {tmpl.safetyChecklist && tmpl.safetyChecklist.length > 0 && (
+                          <span className="px-2 py-0.5 rounded-md border font-semibold bg-teal-50 text-teal-800 border-teal-200">
+                            Safety: {tmpl.safetyChecklist.length} Custom Checks
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3.5 sm:px-5 border-t border-slate-200/80 bg-slate-50/70 flex items-center justify-between gap-3 shrink-0">
+              <span className="text-xs text-slate-500">
+                Tip: You can also flag any permit as a template on Step 2 or Step 8 before submission.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowTemplateModal(false)}
+                className="px-4 py-1.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

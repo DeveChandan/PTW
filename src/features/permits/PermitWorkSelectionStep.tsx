@@ -42,6 +42,7 @@ interface Props {
   client?: string;
   isBlankPermit?: boolean;
   onStartBlankPermit?: () => void;
+  onSelectTemplate?: () => void;
   onInvalidate: () => void;
   onContinue: (selection: WorkSelection) => void;
 }
@@ -69,6 +70,7 @@ export const PermitWorkSelectionStep: React.FC<Props> = ({
   client,
   isBlankPermit = false,
   onStartBlankPermit,
+  onSelectTemplate,
   onInvalidate,
   onContinue
 }) => {
@@ -216,6 +218,23 @@ export const PermitWorkSelectionStep: React.FC<Props> = ({
     setLoading(false);
     setChosen(null);
     onStartBlankPermit();
+  };
+
+  const handleTriggerUseTemplate = () => {
+    if (chosen) {
+      const cat = (chosen.WorkCategory as WorkCategory) || (source === 'notification' ? 'Corrective' : 'Preventive');
+      onContinue({
+        category: cat,
+        source,
+        fromDate: allDates ? '' : fromDate,
+        toDate: allDates ? '' : toDate,
+        orderType: chosen.OrderNotifType || orderType,
+        referenceId: chosen.ReferenceId,
+        allDates,
+        reference: chosen
+      });
+    }
+    onSelectTemplate?.();
   };
 
   // Extract distinct plants from API payload
@@ -367,6 +386,18 @@ export const PermitWorkSelectionStep: React.FC<Props> = ({
               >
                 <span className="material-symbols-outlined text-[16px] text-amber-700">note_add</span>
                 <span>Create Blank Permit</span>
+              </button>
+            )}
+            {onSelectTemplate && (
+              <button
+                type="button"
+                id="btn-use-template"
+                onClick={handleTriggerUseTemplate}
+                className="px-3 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-900 border border-indigo-300 hover:border-indigo-400 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                title="Select a pre-configured permit template to auto-fill scope, hazards, PPE, and safety checklists"
+              >
+                <span className="material-symbols-outlined text-[16px] text-indigo-600">bookmark</span>
+                <span>Use Template</span>
               </button>
             )}
           </div>
@@ -925,6 +956,17 @@ export const PermitWorkSelectionStep: React.FC<Props> = ({
           Select an SAP reference above to auto-populate Plant, Work Area, Equipment, and Scope — or create a blank permit without a PM reference.
         </p>
         <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2">
+          {onSelectTemplate && (
+            <button
+              type="button"
+              onClick={handleTriggerUseTemplate}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-900 border border-indigo-300 hover:border-indigo-400 text-xs sm:text-sm font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+              title="Select a pre-configured permit template to auto-fill fields"
+            >
+              <span className="material-symbols-outlined text-[16px] text-indigo-600">bookmark</span>
+              <span>Use Template (Auto-Fill)</span>
+            </button>
+          )}
           {onStartBlankPermit && (
             <button
               type="button"

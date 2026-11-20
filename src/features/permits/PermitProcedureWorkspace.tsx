@@ -103,7 +103,7 @@ const SECTIONS: SectionConfig[] = [
       ['TestLocation', 'Location'],
       ['O2Pct', 'O₂ % v/v'],
       ['LelPct', '% LEL'],
-      ['CoVal', 'CO ppm'],
+      ['CoVal', 'CO₂ ppm'],
       ['H2sVal', 'H₂S ppm'],
       ['OtherGas', 'Other Gas'],
       ['OtherVal', 'Other Val'],
@@ -177,14 +177,15 @@ const SECTIONS: SectionConfig[] = [
   },
   {
     key: '_AuditLog',
-    title: 'Lifecycle & Closure Audit Trail',
+    title: 'Lifecycle & Isolation Audit Trail',
     tag: 'SECTION N.2',
     icon: 'history',
     theme: 'slate',
     columns: [
+      ['ObjectType', 'Object Type'],
+      ['ObjectId', 'Object ID'],
       ['Action', 'Action'],
-      ['OldStatus', 'From Status'],
-      ['NewStatus', 'To Status'],
+      ['NewStatus', 'Status'],
       ['Actor', 'SAP Actor'],
       ['EventAt', 'Timestamp'],
       ['Comments', 'Audit Comments']
@@ -543,7 +544,7 @@ export function PermitProcedureWorkspace({
                   <span className="material-symbols-outlined text-[15px]">refresh</span>
                   <span>Reload SAP Evidence</span>
                 </button>
-                {!['CLOS', 'CANC', 'REJT', 'REJC'].includes(permit.Status) && (
+                {!['CLSD', 'CLOS', 'CANC', 'REJT', 'REJC'].includes(permit.Status) && (
                   <button
                     type="button"
                     disabled={updating}
@@ -644,7 +645,7 @@ export function PermitProcedureWorkspace({
                 Those signed records must be verified separately.
               </p>
             )}
-            {active === '_ShiftRenewal' && !['CLOS', 'CANC', 'REJT', 'REJC'].includes(permit.Status) && (
+            {active === '_ShiftRenewal' && !['CLSD', 'CLOS', 'CANC', 'REJT', 'REJC'].includes(permit.Status) && (
               <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex flex-wrap items-center justify-between gap-2">
                 <span>
                   Extend work validity across shift handover or record extra hours for pending work.

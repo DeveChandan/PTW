@@ -40,6 +40,7 @@ export type ModuleId =
   | 'gas-tester' 
   | 'isolation' 
   | 'report'
+  | 'permit-closure'
   | 'safety-map'
   | 'admin';
 
@@ -110,12 +111,12 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     badge: 'Area Owner'
   },
   {
-    id: 'permit-holder',
-    title: 'Permit Holder',
-    subtitle: 'On-Site Worker Ledger, Suspension & Site Restoration',
-    icon: 'engineering',
-    requiredRoles: ['ZPTW_HOLDER', 'PTW_HOLDER', 'PTW_HOLD', 'ZPTW_ISSU', 'PTW_ISSU', 'ZPTW_ADMIN', 'PTW_ADMIN'],
-    badge: 'Holder'
+    id: 'permit-closure',
+    title: 'Permit Closure & Handover',
+    subtitle: 'Work Completion, Acceptor Handover, Area Clearance & Final Closure (CLSD)',
+    icon: 'task_alt',
+    requiredRoles: ['ZPTW_ACCEPTOR', 'PTW_ACCEPTOR', 'PTW_ACCP', 'ZPTW_AREA_OWNER', 'PTW_AREA_OWNER', 'PTW_AREA_OPP', 'PTW_AOPR', 'ZPTW_APPROVER', 'PTW_APPROVER', 'PTW_APPR1', 'PTW_APPR2', 'PTW_APPR3', 'ZPTW_ISSU', 'PTW_ISSU', 'ZPTW_ISSUER', 'PTW_ISSUER', 'ZPTW_HOLDER', 'PTW_HOLDER', 'PTW_HOLD', 'ZPTW_ADMIN', 'PTW_ADMIN'],
+    badge: 'Closure'
   },
   {
     id: 'gas-tester',

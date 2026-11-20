@@ -28,13 +28,26 @@ test('204 PATCH rereads the current version before resubmitting',async()=>{
   await sitePermitApi.reviseAndResubmit('P1',{JobDesc:'Revised'},'Fixed','W/"old"');assert.deepEqual(calls,['patch','read','action']);
  }finally{reset();}
 });
-test('failed save or missing updated version never invokes resubmit',async()=>{
+test('failed save rejects and never invokes resubmit, while missing ETag proceeds gracefully',async()=>{
+ const calls=[];
  try{
-  odataClient.post=async()=>{assert.fail('Must not resubmit');};
-  odataClient.patch=async()=>{throw new Error('Save denied');};
+  odataClient.post=async()=>{calls.push('action');assert.fail('Must not resubmit when save fails');};
+  odataClient.patch=async()=>{calls.push('patch');throw new Error('Save denied');};
   await assert.rejects(()=>sitePermitApi.reviseAndResubmit('P1',{JobDesc:'Revised'}),/Save denied/);
-  odataClient.patch=async()=>({data:{},headers:{}});odataClient.get=async()=>({data:{},headers:{}});
-  await assert.rejects(()=>sitePermitApi.reviseAndResubmit('P1',{JobDesc:'Revised'}),/Changes were saved.*new permit version/);
+  assert.deepEqual(calls,['patch']);
+
+  // When SAP returns no ETag (common in live S/4HANA OData V4 without concurrency annotations), proceed with action
+  calls.length=0;
+  odataClient.patch=async()=>{calls.push('patch');return {data:{},headers:{}};};
+  odataClient.get=async()=>{calls.push('read');return {data:{},headers:{}};};
+  odataClient.post=async(url,body,config)=>{
+    calls.push('action');
+    assert.equal(config?.headers?.['If-Match'],undefined);
+    return {data:{Permit_No:'P1',Status:'CRTD'}};
+  };
+  const res=await sitePermitApi.reviseAndResubmit('P1',{JobDesc:'Revised'});
+  assert.equal(res.Permit_No,'P1');
+  assert.deepEqual(calls,['patch','read','action']);
  }finally{reset();}
 });
 test('direct resubmit skips PATCH and partial save failure is clearly reported',async()=>{

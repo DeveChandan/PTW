@@ -12,7 +12,8 @@ export interface GasSafetyThresholds {
   maxOxygen: number;       // 23.5%
   maxFlammableLel: number; // Approved % LEL (e.g. 0% for hot work, 5% or 10% for entry)
   maxH2sPpm: number;       // Approved ppm (e.g. 5 or 10 ppm)
-  maxCoPpm: number;        // Approved ppm (e.g. 25 ppm)
+  maxCoPpm: number;        // Approved ppm (CO2 standard limit: 5000 ppm, legacy CO: 25 ppm)
+  maxCo2Ppm?: number;      // Carbon Dioxide limit for GFL operations (5000 ppm)
 }
 
 // The source has conflicting gas limits (pp. 11, 14, 24). No implicit clearance policy.
@@ -30,6 +31,13 @@ export interface GasParamEvaluation {
   currentValue: number;
 }
 
+export interface CalibratedSamplingLevel {
+  level: 'TOP' | 'MID' | 'BOT';
+  reason: string;
+  badge: string;
+  densityNote: string;
+}
+
 export interface AtmosphereAssessment {
   overallStatus: 'SAFE' | 'WARNING' | 'DANGER';
   canClearWork: boolean;
@@ -38,9 +46,10 @@ export interface AtmosphereAssessment {
   bannerClass: string;
   o2: GasParamEvaluation;
   lel: GasParamEvaluation;
-  co: GasParamEvaluation;
+  co: GasParamEvaluation; // Carbon Dioxide (CO2) for GFL operations
   h2s: GasParamEvaluation;
   other?: GasParamEvaluation;
+  calibratedLevel?: CalibratedSamplingLevel;
 }
 
 export const FALLBACK_GAS_TESTS: GasTestRecord[] = [];
@@ -179,7 +188,66 @@ class GasTesterApiService {
   }
 
   /**
-   * Evaluates Carbon Monoxide (CO ppm) with precision safety limits and color indication
+   * Automatically calibrates the stratified sampling level (TOP / MID / BOT)
+   * based on physical gas vapor densities relative to air (Air = 1.0):
+   * - Light gases (MW < 29, e.g. Methane LEL vapor density 0.55): stratify at TOP
+   * - Ambient fresh breathing air (MW ~ 29, O2 19.5-23.5%): middle breathing zone MID
+   * - Heavy gases (MW > 29, e.g. CO2 vapor density 1.52, H2S vapor density 1.19): sink to BOT
+   */
+  public calibrateSamplingLevel(readings: {
+    o2?: number;
+    lel?: number;
+    co2?: number;
+    h2s?: number;
+    otherVal?: number;
+  }): CalibratedSamplingLevel {
+    const o2Val = Number(readings.o2 !== undefined ? readings.o2 : 20.9);
+    const lelVal = Number(readings.lel || 0);
+    const co2Val = Number(readings.co2 || 0);
+    const h2sVal = Number(readings.h2s || 0);
+
+    // 1. Heavy Gas Priority: CO2 (vapor density 1.52) or H2S (vapor density 1.19)
+    if (co2Val > 1000 || h2sVal > 0) {
+      const hazards: string[] = [];
+      if (co2Val > 1000) hazards.push(`CO₂ at ${co2Val.toFixed(0)} ppm (Vapor Density 1.52)`);
+      if (h2sVal > 0) hazards.push(`H₂S at ${h2sVal.toFixed(1)} ppm (Vapor Density 1.19)`);
+      return {
+        level: 'BOT',
+        reason: `Calibrated to BOT (Bottom Level): ${hazards.join(' and ')} is heavier than air and settles in lower vessel/pit sections.`,
+        badge: '▼ BOT · Heavy Gas Stratification',
+        densityNote: 'Vapor Density > 1.0 (Heavier than air · Sinks to bottom)'
+      };
+    }
+
+    // 2. Light / Combustible Gas Priority: Combustible (% LEL) or upper displacement
+    if (lelVal > 0 || (o2Val < 19.5 && co2Val <= 1000 && h2sVal === 0)) {
+      const reason = lelVal > 0
+        ? `Combustible vapors (${lelVal.toFixed(1)}% LEL) rise toward upper vessel head.`
+        : `Oxygen deficiency (${o2Val.toFixed(1)}%) with light gas displacement at ceiling.`;
+      return {
+        level: 'TOP',
+        reason: `Calibrated to TOP (Top Level): ${reason}`,
+        badge: '▲ TOP · Light Gas Stratification',
+        densityNote: 'Vapor Density < 1.0 (Lighter than air · Rises to top)'
+      };
+    }
+
+    // 3. Normal Fresh Air Breathing Zone
+    return {
+      level: 'MID',
+      reason: 'Calibrated to MID (Middle / Breathing Zone): Normal ambient atmosphere throughout working zone.',
+      badge: '◆ MID · Ambient Breathing Zone',
+      densityNote: 'Normal atmospheric density · Standard breathing height'
+    };
+  }
+
+  /**
+   * Evaluates Carbon Dioxide (CO2 ppm, mapped to SAP field CoVal) for GFL chemical operations.
+   * Safety limits:
+   * Optimal fresh air: <= 1000 ppm (~400 ppm ambient air)
+   * Safe working range: <= 5000 ppm (OSHA / ACGIH 8-hour TWA permissible exposure limit)
+   * Elevated / Caution: 5001 - 10000 ppm
+   * Asphyxiation / Danger hazard: > 10000 ppm
    */
   public evaluateCo(co: number): GasParamEvaluation {
     const val = Number(co);
@@ -189,31 +257,43 @@ class GasTesterApiService {
         badgeClass: 'bg-rose-50 text-rose-700 border-rose-300',
         dotClass: 'bg-rose-600',
         label: 'Sensor Error',
-        message: 'Invalid CO reading.',
+        message: 'Invalid CO₂ reading.',
         unit: 'ppm',
         currentValue: val
       };
     }
 
-    if (val < 10.0) {
+    if (val <= 1000.0) {
       return {
         status: 'OPTIMAL',
         badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-emerald-200',
         dotClass: 'bg-emerald-500',
-        label: 'Safe Level (< 10 ppm)',
-        message: `Safe atmospheric carbon monoxide concentration (${val.toFixed(2)} ppm). Well below 25 ppm OSHA limit.`,
+        label: 'Ambient / Fresh Air (≤ 1,000 ppm)',
+        message: `Optimal atmospheric Carbon Dioxide level (${val.toFixed(0)} ppm). Safe ambient breathing air.`,
         unit: 'ppm',
         currentValue: val
       };
     }
 
-    if (val < 25.0) {
+    if (val <= 5000.0) {
+      return {
+        status: 'SAFE',
+        badgeClass: 'bg-teal-50 text-teal-700 border-teal-300 ring-teal-200',
+        dotClass: 'bg-teal-500',
+        label: 'Safe Level (≤ 5,000 ppm)',
+        message: `Acceptable working CO₂ concentration (${val.toFixed(0)} ppm). Within OSHA 8-hr TWA limit (5,000 ppm).`,
+        unit: 'ppm',
+        currentValue: val
+      };
+    }
+
+    if (val <= 10000.0) {
       return {
         status: 'WARNING',
         badgeClass: 'bg-amber-50 text-amber-700 border-amber-300 ring-amber-200',
         dotClass: 'bg-amber-500',
-        label: 'Elevated CO (10 - 24 ppm)',
-        message: `CAUTION: Elevated CO (${val.toFixed(2)} ppm). Approaching 25 ppm ceiling. Verify exhaust ventilation.`,
+        label: 'Elevated CO₂ (5,001 - 10,000 ppm)',
+        message: `CAUTION: Elevated Carbon Dioxide (${val.toFixed(0)} ppm). Drowsiness hazard. Continuous ventilation required.`,
         unit: 'ppm',
         currentValue: val
       };
@@ -223,11 +303,18 @@ class GasTesterApiService {
       status: 'DANGER',
       badgeClass: 'bg-rose-50 text-rose-700 border-rose-300 ring-rose-200 animate-pulse',
       dotClass: 'bg-rose-600',
-      label: 'Toxic CO Hazard (≥ 25 ppm)',
-      message: `DANGER: Carbon Monoxide exceeds permissible exposure limit (${val.toFixed(2)} ppm ≥ 25 ppm). Toxicity risk.`,
+      label: 'Asphyxiation Hazard (> 10,000 ppm)',
+      message: `DANGER: Carbon Dioxide exceeds ceiling (${val.toFixed(0)} ppm > 10,000 ppm). Severe asphyxiation risk!`,
       unit: 'ppm',
       currentValue: val
     };
+  }
+
+  /**
+   * Alias for evaluateCo for clarity in CO2 context
+   */
+  public evaluateCo2(co2: number): GasParamEvaluation {
+    return this.evaluateCo(co2);
   }
 
   /**
@@ -283,7 +370,7 @@ class GasTesterApiService {
   }
 
   /**
-   * Comprehensive atmosphere evaluation combining O2, LEL, CO, H2S and optional toxic gas
+   * Comprehensive atmosphere evaluation combining O2, LEL, CO2, H2S and optional toxic gas
    */
   public evaluateAtmosphere(
     record: Pick<GasTestRecord, 'O2Pct' | 'LelPct' | 'CoVal' | 'H2sVal' | 'OtherGas' | 'OtherVal' | 'OtherUnit'>,
@@ -293,6 +380,13 @@ class GasTesterApiService {
     const lel = this.evaluateLel(record.LelPct, isHotWork);
     const co = this.evaluateCo(record.CoVal);
     const h2s = this.evaluateH2s(record.H2sVal);
+    const calibratedLevel = this.calibrateSamplingLevel({
+      o2: record.O2Pct,
+      lel: record.LelPct,
+      co2: record.CoVal,
+      h2s: record.H2sVal,
+      otherVal: record.OtherVal
+    });
 
     let other: GasParamEvaluation | undefined = undefined;
     if (record.OtherGas && record.OtherGas.trim()) {
@@ -322,13 +416,14 @@ class GasTesterApiService {
         overallStatus: 'DANGER',
         canClearWork: false,
         summaryTitle: 'ATMOSPHERE HAZARDOUS - ENTRY PROHIBITED',
-        summaryMessage: 'One or more gas concentration levels have breached critical safety thresholds. Hot work and confined-space entry are strictly prohibited. Immediate forced ventilation or nitrogen purging required.',
+        summaryMessage: 'One or more gas concentration levels have breached critical safety thresholds. Hot work and confined-space entry are strictly prohibited. Immediate forced ventilation or purging required.',
         bannerClass: 'bg-rose-50 border-rose-200 text-rose-900',
         o2,
         lel,
         co,
         h2s,
-        other
+        other,
+        calibratedLevel
       };
     }
 
@@ -337,13 +432,14 @@ class GasTesterApiService {
         overallStatus: 'WARNING',
         canClearWork: false,
         summaryTitle: 'CAUTION - ELEVATED READINGS DETECTED',
-        summaryMessage: 'Atmospheric conditions show elevated readings above baseline. Personnel must not enter until forced air ventilation reduces concentrations to optimal zero levels.',
+        summaryMessage: 'Atmospheric conditions show elevated readings above baseline. Personnel must not enter until forced air ventilation reduces concentrations to optimal levels.',
         bannerClass: 'bg-amber-50 border-amber-200 text-amber-900',
         o2,
         lel,
         co,
         h2s,
-        other
+        other,
+        calibratedLevel
       };
     }
 
@@ -351,13 +447,14 @@ class GasTesterApiService {
       overallStatus: 'SAFE',
       canClearWork: true,
       summaryTitle: 'ATMOSPHERE CLEAR - APPROVED FOR WORK',
-      summaryMessage: 'All atmospheric parameters (Oxygen, Flammable % LEL, CO, and H2S) are within safe, verified limits. Atmosphere cleared for authorized work.',
+      summaryMessage: 'All atmospheric parameters (Oxygen, Flammable % LEL, CO₂, and H₂S) are within safe, verified limits. Atmosphere cleared for authorized work.',
       bannerClass: 'bg-emerald-50 border-emerald-200 text-emerald-900',
       o2,
       lel,
       co,
       h2s,
-      other
+      other,
+      calibratedLevel
     };
   }
 
@@ -396,6 +493,11 @@ class GasTesterApiService {
   }
 
   public async create(record: Partial<GasTestRecord>): Promise<GasTestRecord> {
+    const permitNo = (record.PermitNo || '').trim().toUpperCase();
+    if (!permitNo) {
+      throw new Error('A valid Permit Number is mandatory. Recording a gas test without a Permit Number is not allowed.');
+    }
+
     const rawType = (record.TestType || '').trim().toUpperCase();
     let testType = 'INITIAL';
     if (rawType === 'PERIODIC' || rawType === 'RETEST') {
@@ -469,7 +571,7 @@ class GasTesterApiService {
       CoPpm: r.CoVal,
       TestedByUserId: r.TestedBy,
       TesterNotes: r.Remarks,
-      Passed: r.O2Pct >= 19.5 && r.O2Pct <= 23.5 && r.LelPct === 0 && r.CoVal < 25 && r.H2sVal < 5
+      Passed: r.O2Pct >= 19.5 && r.O2Pct <= 23.5 && r.LelPct === 0 && r.CoVal <= 5000 && r.H2sVal < 5
     }));
   }
 
@@ -535,7 +637,7 @@ class GasTesterApiService {
     // 1. Query SAP Gateway OData V4 PermitInfo
     try {
       const filters: string[] = ["Status eq 'INTD'"];
-      if (plant?.trim()) {
+      if (plant?.trim() && plant.trim().toUpperCase() !== 'ALL') {
         filters.push(`Werks eq '${plant.trim().replace(/'/g, "''")}'`);
       }
       const response = await odataClient.get<ODataCollectionResponse<PermitInfoRecord>>(
