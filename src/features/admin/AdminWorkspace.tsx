@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import { adminApi, UserRoleStats } from '../../core/api/modules/admin.api';
 import { configApi } from '../../core/api/modules/config.api';
@@ -83,6 +84,37 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
     count: number;
     rawPayload: any;
   } | null>(null);
+
+  // Lock body scroll and handle Escape key when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen =
+      showAddModal ||
+      Boolean(editTarget) ||
+      showRoleF4Modal ||
+      showUserF4Modal ||
+      showDiagnostics ||
+      Boolean(deleteTarget);
+    if (!isAnyModalOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showRoleF4Modal) setShowRoleF4Modal(false);
+        else if (showUserF4Modal) setShowUserF4Modal(false);
+        else if (showDiagnostics) setShowDiagnostics(false);
+        else if (deleteTarget) setDeleteTarget(null);
+        else if (editTarget) setEditTarget(null);
+        else if (showAddModal) setShowAddModal(false);
+      }
+    };
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showAddModal, editTarget, showRoleF4Modal, showUserF4Modal, showDiagnostics, deleteTarget]);
 
   // Load user roles and dynamic config records
   const loadRoles = async (isManualRefresh = false) => {
@@ -1387,9 +1419,19 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
       </div>
 
       {/* 5. ASSIGN ROLE MODAL (Enhanced Enterprise UI/UX for 1-10,000+ Users & Config Master Data) */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-2 sm:pt-3 pb-6 overflow-y-auto bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200/90 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-1.5rem)] animate-in zoom-in-95 duration-150 mt-1 sm:mt-2 mb-auto">
+      {showAddModal && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddModal(false);
+          }}
+        >
+          <div
+            className="bg-white border border-slate-200/90 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] animate-in zoom-in-95 duration-150 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Top decorative gradient accent */}
             <div className="h-1.5 w-full bg-gradient-to-r from-rose-500 via-rose-600 to-indigo-600"></div>
 
@@ -1735,13 +1777,24 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 5B. EDIT USER ROLE MODAL (Live OData V4 UserRole Update) */}
-      {editTarget && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-2 sm:pt-3 pb-6 overflow-y-auto bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200/90 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-1.5rem)] animate-in zoom-in-95 duration-150 mt-1 sm:mt-2 mb-auto">
+      {editTarget && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditTarget(null);
+          }}
+        >
+          <div
+            className="bg-white border border-slate-200/90 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] animate-in zoom-in-95 duration-150 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Top decorative gradient accent */}
             <div className="h-1.5 w-full bg-gradient-to-r from-sky-500 via-[#006398] to-indigo-600"></div>
 
@@ -2034,13 +2087,24 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 6. SAP F4 VALUE HELP MODAL: ROLES (From /Config?$filter=startswith(Config_Type, 'PTW_')) */}
-      {showRoleF4Modal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-3 sm:pt-5 pb-6 overflow-y-auto bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] mt-1 sm:mt-2 mb-auto">
+      {showRoleF4Modal && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[110] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRoleF4Modal(false);
+          }}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -2203,13 +2267,24 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 7. SAP F4 VALUE HELP MODAL: ENTERPRISE USERS (/PFCGUsers) */}
-      {showUserF4Modal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-3 sm:pt-5 pb-6 overflow-y-auto bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] mt-1 sm:mt-2 mb-auto">
+      {showUserF4Modal && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[110] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowUserF4Modal(false);
+          }}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -2423,13 +2498,24 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 8. DIAGNOSTICS MODAL */}
-      {showDiagnostics && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-2xl w-full shadow-2xl space-y-4">
+      {showDiagnostics && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowDiagnostics(false);
+          }}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-2xl p-6 max-w-2xl w-full shadow-2xl space-y-4 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-emerald-600 text-xl">terminal</span>
@@ -2497,13 +2583,24 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 9. DELETE CONFIRMATION MODAL */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+      {deleteTarget && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteTarget(null);
+          }}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
               <span className="material-symbols-outlined text-2xl">warning</span>
             </div>
@@ -2537,7 +2634,8 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({ user, onBack }) 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

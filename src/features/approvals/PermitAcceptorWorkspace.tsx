@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { SapUser } from '../../core/auth/sapAuthContext';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
 import { sitePermitApi, type PlantPermitSummary } from '../../core/api/modules/sitePermit.api';
@@ -1828,9 +1829,19 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
       </main>
 
       {/* Rejection Modal for Acceptor */}
-      {showRejectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+      {showRejectModal && typeof document !== 'undefined' && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRejectModal(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
@@ -1928,7 +1939,8 @@ export const PermitAcceptorWorkspace: React.FC<PermitAcceptorWorkspaceProps> = (
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

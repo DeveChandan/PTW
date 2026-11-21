@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { SapUser } from '../../core/auth/sapAuthContext';
 import {
   PermitDeepInsertPayload,
@@ -6948,14 +6949,20 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       />
 
       {/* INLINE MODAL: Create & Register New Isolation Certificate (LOTO) */}
-      {showCreateIsoModal && (
+      {showCreateIsoModal && typeof document !== 'undefined' && createPortal(
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-iso-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn overflow-y-auto"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCreateIsoModal(false);
+          }}
         >
-          <div className="relative w-full max-w-3xl max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto">
+          <div
+            className="relative w-full max-w-3xl max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
             <div className="px-5 py-4 bg-gradient-to-r from-rose-50 via-slate-50 to-amber-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -7287,7 +7294,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Reusable Isolation Templates Modal */}
@@ -7300,15 +7308,15 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
       />
 
       {/* Reusable Permit Templates Modal */}
-      {showTemplateModal && (
+      {showTemplateModal && typeof document !== 'undefined' && createPortal(
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fadeIn"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150 overflow-y-auto"
           onClick={() => setShowTemplateModal(false)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -7658,7 +7666,8 @@ export const PermitCreateModule: React.FC<PermitCreateModuleProps> = ({ user, on
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

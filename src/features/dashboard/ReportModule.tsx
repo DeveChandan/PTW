@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { ModuleDefinition, SapUser } from '../../core/auth/sapAuthContext';
 import { sitePermitApi } from '../../core/api/modules/sitePermit.api';
 import { isolationApi } from '../../core/api/modules/isolation.api';
@@ -1917,15 +1918,15 @@ export const ReportModule: React.FC<ReportModuleProps> = ({
         </footer>
 
         {/* Modal 1: Matrix Cell Drill-Down Modal */}
-        {drillDownModal && drillDownModal.isOpen && (
+        {drillDownModal && drillDownModal.isOpen && typeof document !== 'undefined' && createPortal(
           <div
             role="dialog"
             aria-modal="true"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
+            className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md animate-in fade-in duration-150 overflow-y-auto"
             onClick={() => setDrillDownModal(null)}
           >
             <div
-              className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col"
+              className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col my-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -2149,19 +2150,20 @@ export const ReportModule: React.FC<ReportModuleProps> = ({
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Modal 2: Quick Record Inspector */}
-        {selectedRecordForDetail && (
+        {selectedRecordForDetail && typeof document !== 'undefined' && createPortal(
           <div
             role="dialog"
             aria-modal="true"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
+            className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md animate-in fade-in duration-150 overflow-y-auto"
             onClick={() => setSelectedRecordForDetail(null)}
           >
             <div
-              className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4"
+              className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 my-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -2397,7 +2399,8 @@ export const ReportModule: React.FC<ReportModuleProps> = ({
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </main>
