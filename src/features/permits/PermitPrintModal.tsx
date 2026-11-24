@@ -27,6 +27,7 @@ export const PermitPrintModal: React.FC<PermitPrintModalProps> = ({
   defaultJhaTemplateId,
   defaultJhaTemplateIds
 }) => {
+  const [includePermitPages, setIncludePermitPages] = useState<boolean>(true);
   const [includeReverse, setIncludeReverse] = useState<boolean>(false);
   const [includeJha, setIncludeJha] = useState<boolean>(defaultIncludeJha);
 
@@ -107,7 +108,7 @@ export const PermitPrintModal: React.FC<PermitPrintModalProps> = ({
     window.print();
   };
 
-  const permitPages = includeReverse ? 4 : 2;
+  const permitPages = !includePermitPages ? 0 : (includeReverse ? 4 : 2);
   const jhaPages = includeJha ? selectedJhaIds.length : 0;
   const totalPages = permitPages + jhaPages;
   const additionalJhasCount = applicableJhas.filter((j) => !j.isPrimary).length;
@@ -174,16 +175,32 @@ export const PermitPrintModal: React.FC<PermitPrintModalProps> = ({
         {/* 2. Options Toolbar */}
         <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-3 flex-wrap text-xs">
           <div className="flex items-center gap-3 flex-wrap">
-            {/* Reverse Side Toggle */}
+            {/* Permit Pages Master Toggle */}
             <label className="flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700/90 text-slate-200 px-3 py-1.5 rounded-xl cursor-pointer border border-slate-700 transition-colors">
               <input
                 type="checkbox"
-                checked={includeReverse}
-                onChange={(e) => setIncludeReverse(e.target.checked)}
+                checked={includePermitPages}
+                onChange={(e) => setIncludePermitPages(e.target.checked)}
                 className="rounded text-[#006398] focus:ring-0 cursor-pointer"
               />
-              <span>Include Reverse Side (Pages 3–4)</span>
+              <span className="flex items-center gap-1 font-semibold text-white">
+                <span className="material-symbols-outlined text-[15px] text-sky-400">description</span>
+                <span>Include Permit Pages (Annexure-V)</span>
+              </span>
             </label>
+
+            {/* Reverse Side Toggle (Active only when permit pages are included) */}
+            {includePermitPages && (
+              <label className="flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700/90 text-slate-200 px-3 py-1.5 rounded-xl cursor-pointer border border-slate-700 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={includeReverse}
+                  onChange={(e) => setIncludeReverse(e.target.checked)}
+                  className="rounded text-[#006398] focus:ring-0 cursor-pointer"
+                />
+                <span>Include Reverse Side (Pages 3–4)</span>
+              </label>
+            )}
 
             {/* JHA Master Toggle */}
             <label className="flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700/90 text-slate-200 px-3 py-1.5 rounded-xl cursor-pointer border border-slate-700 transition-colors">
@@ -204,6 +221,12 @@ export const PermitPrintModal: React.FC<PermitPrintModalProps> = ({
                 <span>Include JHA / JSA Sheets</span>
               </span>
             </label>
+
+            {/* Duplex Tip Pill */}
+            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/80 border border-slate-700 text-[11px] text-slate-300">
+              <span className="material-symbols-outlined text-[14px] text-emerald-400">tips_and_updates</span>
+              <span>Double-sided booklet: Select <strong>Flip on short edge</strong> in printer dialog</span>
+            </div>
           </div>
 
           {/* JHA Template Multi-Selector Buttons */}
@@ -301,7 +324,9 @@ export const PermitPrintModal: React.FC<PermitPrintModalProps> = ({
             <span>Print Ready Preview: Standard A4 Portrait Format (HSE/SAF/02 & HSE/SAF/F/05)</span>
           </div>
           <span className="font-mono text-[11px] text-slate-600">
-            {includeReverse ? 'Pages 1–4 (Permit)' : 'Pages 1–2 (Permit)'}
+            {includePermitPages
+              ? (includeReverse ? 'Pages 1–4 (Permit)' : 'Pages 1–2 (Permit)')
+              : 'Permit Pages Excluded'}
             {includeJha && selectedJhaIds.length > 0
               ? ` + ${selectedJhaIds.length} JHA ${selectedJhaIds.length === 1 ? 'Sheet' : 'Sheets'}`
               : ''}
@@ -311,7 +336,9 @@ export const PermitPrintModal: React.FC<PermitPrintModalProps> = ({
         {/* The Live Document Component */}
         <div className="w-full max-w-[210mm] flex flex-col items-center print:max-w-none print:w-full print:block print:p-0 print:m-0 space-y-6 print:space-y-0">
           {/* 1. Annexure-V PTW Pages */}
-          <PermitAnnexPrintView permit={permit} includeReverseSide={includeReverse} />
+          {includePermitPages && (
+            <PermitAnnexPrintView permit={permit} includeReverseSide={includeReverse} />
+          )}
 
           {/* 2. Selected JHA / JSA Sheets (Primary + All Attached Additional WorkTypes) */}
           {includeJha &&

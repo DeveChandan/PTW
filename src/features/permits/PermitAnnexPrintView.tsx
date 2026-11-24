@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../core/types/ptw.types';
+import { useUserDirectory } from '../../core/utils/authorityFormatter';
 
 interface PermitAnnexPrintViewProps {
   permit: PermitDeepInsertResponse | PermitInfoRecord | any;
@@ -49,9 +50,263 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
   permit,
   includeReverseSide = false
 }) => {
+  const { formatAuthority } = useUserDirectory();
+
   // 1. Data Lookups & Normalization from SAP OData Payload
   const permitNo = permit?.Permit_No || permit?.PermitNo || '—';
   const primaryType = (permit?.PermitType || '').toUpperCase();
+
+  // Closure metadata
+  const isClosed =
+    permit?.PermitStatus === 'CLOSED' ||
+    permit?.PermitStatus === 'CLSD' ||
+    permit?.Status === 'CLSD' ||
+    permit?.Status === 'CLOSED' ||
+    Boolean(permit?.ClosedBy);
+  const closedDate = permit?.ClosedDate || (isClosed ? (permit?.ValidToD || permit?.LastChangedAt?.split('T')[0] || '') : '');
+  const closedTime = permit?.ClosedTime || (isClosed ? (permit?.ValidToT || '') : '');
+
+  // Approvals & Signatures lookup
+  const approvalsList: any[] = useMemo(() => {
+    return Array.isArray(permit?._Approval) ? permit._Approval : [];
+  }, [permit]);
+
+  const auditLogsList: any[] = useMemo(() => {
+    return Array.isArray(permit?._AuditLog) ? permit._AuditLog : [];
+  }, [permit]);
+
+  // Approver I & II from _Approval or header
+  const appr1 = useMemo(() => {
+    return (
+      approvalsList.find((a: any) => a.RoleId === 'PTW_APPR1' || (a.Stage === 'APPR' && String(a.SeqNo) === '1')) ||
+      approvalsList[0]
+    );
+  }, [approvalsList]);
+
+  const appr2 = useMemo(() => {
+    return (
+      approvalsList.find((a: any) => a.RoleId === 'PTW_APPR2' || (a.Stage === 'APPR' && String(a.SeqNo) === '2')) ||
+      (approvalsList.length > 1 && !approvalsList[1]?.RoleId?.includes('AREA') ? approvalsList[1] : undefined)
+    );
+  }, [approvalsList]);
+
+  // Area Operator Clearance: search _Approval, _AuditLog, and header properties
+  const areaOpApproval = useMemo(() => {
+    return approvalsList.find((a: any) => {
+      const role = (a.RoleId || '').toUpperCase();
+      const stage = (a.Stage || '').toUpperCase();
+      const act = (a.Action || '').toUpperCase();
+      return (
+        role.includes('AREA') ||
+        role.includes('AOPR') ||
+        stage.includes('AREA') ||
+        stage === 'CAO' ||
+        stage === '04' ||
+        act === 'CAO' ||
+        act === 'COMPLETE_AREA_OPERATOR' ||
+        act === 'AROP' ||
+        act === 'AREA_OPERATOR_CLOSE'
+      );
+    });
+  }, [approvalsList]);
+
+  const areaOpAudit = useMemo(() => {
+    return auditLogsList.find((log: any) => {
+      const act = (log.Action || '').toUpperCase();
+      const newSt = (log.NewStatus || '').toUpperCase();
+      return (
+        act.includes('AREA') ||
+        act === 'AROP' ||
+        newSt === 'AROP' ||
+        act === 'COMPLETE_AREA_OPERATOR'
+      );
+    });
+  }, [auditLogsList]);
+
+  const isAreaCleared =
+    permit?.Status === 'ACTV' ||
+    permit?.Status === 'ACCL' ||
+    permit?.Status === 'AROP' ||
+    permit?.Status === 'CLSD' ||
+    permit?.Status === 'CLOS' ||
+    permit?.PermitStatus === 'CLOSED' ||
+    permit?.PermitStatus === 'CLSD' ||
+    Boolean(permit?.ClosedByAreaOpp) ||
+    Boolean(areaOpApproval) ||
+    Boolean(areaOpAudit);
+
+  // Resolved Area Operator Details
+  const areaOperatorName =
+    areaOpApproval?.SignedBy ||
+    areaOpAudit?.Actor ||
+    permit?.AreaOperator ||
+    permit?.AreaOperatorName ||
+    permit?.AreaIncharge ||
+    permit?.AreaOwner ||
+    permit?.VerifiedBy ||
+    (isAreaCleared ? (appr2?.SignedBy || appr1?.SignedBy || permit?.PersonResp || permit?.SupvName || '') : '');
+
+  const areaOpDate =
+    areaOpApproval?.ActionDate ||
+    (areaOpAudit?.EventAt ? areaOpAudit.EventAt.split('T')[0] : '') ||
+    (isAreaCleared ? (permit?.ValidFromD || closedDate || '') : '');
+
+  const areaOpTime =
+    areaOpApproval?.ActionTime ||
+    (areaOpAudit?.EventAt && areaOpAudit.EventAt.includes('T') ? areaOpAudit.EventAt.split('T')[1].slice(0, 8) : '') ||
+    (isAreaCleared ? (permit?.ValidFromT || closedTime || '') : '');
+
+  // Resolved Issuer
+  const issuerApproval = useMemo(() => {
+    return approvalsList.find((a: any) => {
+      const role = (a.RoleId || '').toUpperCase();
+      const act = (a.Action || '').toUpperCase();
+      return role.includes('ISS') || act.includes('ISS') || act === 'ISSUER_CLOSE';
+    });
+  }, [approvalsList]);
+
+  const issuerAudit = useMemo(() => {
+    return auditLogsList.find((log: any) => {
+      const act = (log.Action || '').toUpperCase();
+      return act.includes('ISSUER_CLOSE') || act === 'CLOSE' || act === 'CLSD';
+    });
+  }, [auditLogsList]);
+
+  const resolvedIssuerName =
+    permit?.ClosedBy ||
+    permit?.PermitIssuer ||
+    permit?.IssuedBy ||
+    issuerApproval?.SignedBy ||
+    issuerAudit?.Actor ||
+    permit?.ApprovedBy ||
+    permit?.Aenam ||
+    permit?.Ernam ||
+    (isClosed ? (appr1?.SignedBy || appr2?.SignedBy || 'Authorized Issuer') : '—');
+
+  // Helper to parse SAP ISO event timestamp into local YYYY-MM-DD and HH:mm:ss
+  const parseLogDateTime = (eventAt?: string | null) => {
+    if (!eventAt) return { date: '', time: '' };
+    try {
+      const d = new Date(eventAt);
+      if (isNaN(d.getTime())) {
+        const parts = eventAt.split('T');
+        return { date: parts[0] || '', time: parts[1] ? parts[1].slice(0, 8) : '' };
+      }
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const seconds = String(d.getSeconds()).padStart(2, '0');
+      return {
+        date: `${year}-${month}-${day}`,
+        time: `${hours}:${minutes}:${seconds}`
+      };
+    } catch {
+      return { date: '', time: '' };
+    }
+  };
+
+  // Section N: Detailed Closure Stage Resolution
+  const acceptorCloseAudit = useMemo(() => {
+    return auditLogsList.find((log: any) => {
+      const act = (log.Action || '').toUpperCase();
+      const newSt = (log.NewStatus || log.StatusNew || '').toUpperCase();
+      return act === 'ACCEPTOR_CLOSE' || act === 'ACCL' || act === 'WORK_COMPLETE' || newSt === 'ACCL';
+    });
+  }, [auditLogsList]);
+
+  const isAcceptorClosed =
+    permit?.ClosedByAcceptor === 'X' ||
+    permit?.WorkCompleted === 'X' ||
+    ['ACCL', 'AROP', 'CLSD', 'CLOS'].includes(permit?.Status || '') ||
+    isClosed ||
+    Boolean(acceptorCloseAudit);
+
+  const acceptorCloseName =
+    acceptorCloseAudit?.Actor ||
+    permit?.PersonResp ||
+    permit?.PermitAccepter ||
+    permit?.SupvName ||
+    '—';
+
+  const acceptorDt = parseLogDateTime(acceptorCloseAudit?.EventAt);
+  const acceptorDate = acceptorDt.date || (isAcceptorClosed ? closedDate : '');
+  const acceptorTime = acceptorDt.time || (isAcceptorClosed ? (permit?.ClosedTime || closedTime) : '');
+
+  const areaOpCloseAudit = useMemo(() => {
+    return auditLogsList.find((log: any) => {
+      const act = (log.Action || '').toUpperCase();
+      const newSt = (log.NewStatus || log.StatusNew || '').toUpperCase();
+      return act === 'AREA_OPERATOR_CLOSE' || act === 'AROP' || newSt === 'AROP';
+    });
+  }, [auditLogsList]);
+
+  const isAreaOpClosed =
+    permit?.ClosedByAreaOpp === 'X' ||
+    ['AROP', 'CLSD', 'CLOS'].includes(permit?.Status || '') ||
+    isClosed ||
+    Boolean(areaOpCloseAudit);
+
+  const areaOpCloseName =
+    areaOpCloseAudit?.Actor ||
+    areaOperatorName ||
+    '—';
+
+  const areaOpDt = parseLogDateTime(areaOpCloseAudit?.EventAt);
+  const areaOpCloseDate = areaOpDt.date || (isAreaOpClosed ? closedDate : '');
+  const areaOpCloseTime = areaOpDt.time || (isAreaOpClosed ? (permit?.ClosedTime || closedTime) : '');
+
+  const issuerCloseAudit = useMemo(() => {
+    return auditLogsList.find((log: any) => {
+      const act = (log.Action || '').toUpperCase();
+      const newSt = (log.NewStatus || log.StatusNew || '').toUpperCase();
+      return act === 'ISSUER_CLOSE' || act === 'CLOSE' || act === 'CLSD' || newSt === 'CLSD' || newSt === 'CLOS';
+    });
+  }, [auditLogsList]);
+
+  const issuerCloseName =
+    issuerCloseAudit?.Actor ||
+    permit?.ClosedBy ||
+    resolvedIssuerName ||
+    '—';
+
+  const issuerDt = parseLogDateTime(issuerCloseAudit?.EventAt || permit?.LastChangedAt);
+  const issuerDate = issuerDt.date || (isClosed ? (permit?.Aedat || closedDate) : '');
+  const issuerTime = issuerDt.time || (isClosed ? (permit?.Aezet || closedTime) : '');
+
+  // Power restoration resolution: only populate date/time/sign if isolation was required
+  const hasIsolation =
+    permit?.IsolationRequired === 'Y' ||
+    Boolean(permit?.IsolationRestoredBy) ||
+    Boolean(permit?.ElectricalIncharge && permit?.IsolationRequired === 'Y');
+
+  const powerRestoredName = permit?.IsolationRestoredBy || (hasIsolation && isClosed ? 'LOTO Cleared' : (hasIsolation ? (permit?.ElectricalIncharge || '—') : '—'));
+  const powerRestoredSignature = hasIsolation && isClosed ? '[RESTORED]' : '';
+  const powerRestoredDate = hasIsolation && isClosed ? (permit?.IsolationRestoredDate || closedDate) : '';
+  const powerRestoredTime = hasIsolation && isClosed ? (permit?.IsolationRestoredTime || closedTime) : '';
+
+  // Formatted authorities (Regulatory Full Name with SAP ID format: "Full Name (SAP_USER_ID)")
+  const issuerFormatted = formatAuthority(permit?.PermitIssuer || permit?.IssuedBy || permit?.Ernam, permit?.IssuerName);
+  const acceptorFormatted = formatAuthority(permit?.PersonResp || permit?.PermitAccepter, permit?.SupvName);
+  const appr1Formatted = formatAuthority(appr1?.SignedBy, appr1?.ApproverName);
+  const appr2Formatted = formatAuthority(appr2?.SignedBy, appr2?.ApproverName);
+  const areaOpFormatted = formatAuthority(areaOperatorName, permit?.AreaOperatorName || permit?.AreaIncharge);
+
+  const powerRestoredFormatted = powerRestoredName === '—' || powerRestoredName === 'LOTO Cleared'
+    ? powerRestoredName
+    : formatAuthority(powerRestoredName, permit?.ElectricalIncharge);
+  const acceptorCloseFormatted = acceptorCloseName === '—' ? '—' : formatAuthority(acceptorCloseName, permit?.SupvName);
+  const areaOpCloseFormatted = areaOpCloseName === '—' ? '—' : formatAuthority(areaOpCloseName, permit?.AreaOperatorName || permit?.AreaIncharge);
+  const issuerCloseFormatted = issuerCloseName === '—' ? '—' : formatAuthority(issuerCloseName, permit?.IssuerName);
+
+  // Cancellation status
+  const isCancelled =
+    permit?.Status === 'CANC' ||
+    permit?.Status === 'CAN' ||
+    permit?.PermitStatus === 'CANCELLED' ||
+    permit?.PermitStatus === 'CANC';
+  const cancelReason = permit?.CancelReason || permit?.CancellationReason || permit?.Comments || '';
   const additionalTypes = useMemo(() => {
     const list: string[] = [];
     if (Array.isArray(permit?._WorkType)) {
@@ -253,7 +508,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
       {/* ========================================================================= */}
       {/* PAGE 1: FRONT SIDE (PDF PAGE 55) */}
       {/* ========================================================================= */}
-      <div className="print-page border-2 border-black p-3.5 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[290mm] mb-6 shadow-xl print:m-0 print:p-2.5 print:max-w-none print:w-full print:min-h-[285mm] print:h-[285mm] print:shadow-none print:border-2 print:border-black">
+      <div className="print-page border-2 border-black p-3 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[265mm] mb-6 shadow-xl print:m-0 print:p-2 print:max-w-none print:w-full print:min-h-[265mm] print:h-auto print:shadow-none print:border-2 print:border-black">
         <div>
           {/* Form Annexure Header */}
           <div className="mb-1 text-center">
@@ -267,8 +522,16 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                   (Permit Format & Safety Precautions) HSE/SAF/02 , Rev-08
                 </div>
               </div>
-              <div className="text-right text-[10px] font-mono">
-                Work Permit No: <span className="underline font-bold text-[11px]">{permitNo}</span>
+              <div className="text-right text-[10px] font-mono flex items-center justify-end gap-2 shrink-0">
+                <div>
+                  <div>Work Permit No: <span className="underline font-bold text-[11px]">{permitNo}</span></div>
+                  <div className="text-[8.5px] text-slate-600">Plant Werks: <span className="font-bold">{permit?.Werks || '1002'}</span></div>
+                </div>
+                <div className="w-10 h-10 border border-black p-0.5 flex flex-col items-center justify-center font-bold text-[6.5px] leading-tight text-center bg-white print:border-black">
+                  <span>SAP PTW</span>
+                  <span className="font-mono text-[6px] text-slate-700">VERIFIED</span>
+                  <span>{permitNo.slice(-6)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -510,7 +773,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
       {/* ========================================================================= */}
       {/* PAGE 2: FRONT SIDE CONTINUED (PDF PAGE 56) */}
       {/* ========================================================================= */}
-      <div className="print-page border-2 border-black p-3.5 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[290mm] mb-6 shadow-xl print:m-0 print:p-2.5 print:max-w-none print:w-full print:min-h-[285mm] print:h-[285mm] print:shadow-none print:border-2 print:border-black">
+      <div className="print-page border-2 border-black p-3 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[265mm] mb-6 shadow-xl print:m-0 print:p-2 print:max-w-none print:w-full print:min-h-[265mm] print:h-auto print:shadow-none print:border-2 print:border-black">
         <div>
           {/* Page 2 Top Header */}
           <div className="flex justify-between items-center text-[10px] font-bold border-b border-black pb-0.5 mb-1.5">
@@ -657,7 +920,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                   </p>
                 </div>
                 <div className="text-[9px] space-y-1">
-                  <div>Name: <span className="font-mono font-bold underline">{permit?.PermitIssuer || permit?.IssuedBy || permit?.Ernam || '__________________'}</span></div>
+                  <div>Name: <span className="font-mono font-bold underline">{issuerFormatted !== '—' ? issuerFormatted : '__________________'}</span></div>
                   <div>Date: <span className="font-mono underline">{permit?.IssuedDate || permit?.Erdat || '______________'}</span> At <span className="font-mono underline">{permit?.IssuedTime || permit?.Erzet || '______'}</span> Hrs</div>
                   <div>Signature: __________________________________</div>
                 </div>
@@ -672,7 +935,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                   </p>
                 </div>
                 <div className="text-[9px] space-y-1">
-                  <div>Name: <span className="font-mono font-bold underline">{permit?.PersonResp || permit?.SupvName || '__________________'}</span></div>
+                  <div>Name: <span className="font-mono font-bold underline">{acceptorFormatted !== '—' ? acceptorFormatted : '__________________'}</span></div>
                   <div>Date: <span className="font-mono underline">{permit?.Erdat || '______________'}</span> At <span className="font-mono underline">{permit?.Erzet || '______'}</span> Hrs</div>
                   <div>Signature: __________________________________</div>
                 </div>
@@ -693,7 +956,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
       {includeReverseSide && (
         <>
           {/* PAGE 3 (PDF PAGE 57): APPROVERS, AREA OPERATOR, CLOSURE, TOOLBOX MUSTER, RENEWALS */}
-          <div className="print-page border-2 border-black p-3.5 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[290mm] mb-6 shadow-xl print:m-0 print:p-2.5 print:max-w-none print:w-full print:min-h-[285mm] print:h-[285mm] print:shadow-none print:border-2 print:border-black">
+          <div className="print-page border-2 border-black p-3 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[265mm] mb-6 shadow-xl print:m-0 print:p-2 print:max-w-none print:w-full print:min-h-[265mm] print:h-auto print:shadow-none print:border-2 print:border-black">
             <div>
               {/* Header */}
               <div className="flex justify-between items-center text-[10px] font-bold border-b border-black pb-0.5 mb-1.5">
@@ -704,36 +967,86 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
               {/* Sections L & M */}
               <div className="border border-black p-1.5 mb-1 grid grid-cols-2 gap-2 text-[9.5px]">
                 <div className="border-r border-black pr-2">
-                  <div className="font-black uppercase mb-1">Section L: Permit Approver</div>
-                  <p className="text-[8.5px] leading-tight mb-2">
+                  <div className="font-black uppercase mb-1 flex justify-between items-center">
+                    <span>Section L: Permit Approver</span>
+                    {(appr1?.SignedBy || appr2?.SignedBy) && (
+                      <span className="text-[7.5px] font-mono text-emerald-800 font-bold border border-emerald-800/40 px-1 py-0.2 rounded bg-emerald-50">
+                        [APPROVED IN SAP]
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[8.5px] leading-tight mb-1.5">
                     I have personally inspected and checked all requirements and approve the permit.
                   </p>
-                  <div className="space-y-1">
-                    <div>First Approver: <span className="font-mono underline">{permit?._Approval?.[0]?.SignedBy || '_________________'}</span> Date: ____ At: ____ Sign: ______</div>
-                    <div>Second Approver: <span className="font-mono underline">{permit?._Approval?.[1]?.SignedBy || '_________________'}</span> Date: ____ At: ____ Sign: ______</div>
+                  <div className="space-y-1 text-[9px]">
+                    <div>
+                      First Approver: <span className="font-mono underline font-bold">{appr1Formatted !== '—' ? appr1Formatted : '_________________'}</span>
+                      {' '}Date: <span className="font-mono underline">{appr1?.ActionDate || (appr1?.SignedBy ? (permit?.ValidFromD || closedDate || '____') : '____')}</span>
+                      {' '}At: <span className="font-mono underline">{appr1?.ActionTime || (appr1?.SignedBy ? (permit?.ValidFromT || closedTime || '____') : '____')}</span>
+                      {' '}Sign: <span className="font-mono font-bold text-[8px] text-emerald-800">{appr1?.SignedBy ? '[APPROVED]' : '______'}</span>
+                    </div>
+                    <div>
+                      Second Approver: <span className="font-mono underline font-bold">{appr2Formatted !== '—' ? appr2Formatted : '_________________'}</span>
+                      {' '}Date: <span className="font-mono underline">{appr2?.ActionDate || (appr2?.SignedBy ? (permit?.ValidFromD || closedDate || '____') : '____')}</span>
+                      {' '}At: <span className="font-mono underline">{appr2?.ActionTime || (appr2?.SignedBy ? (permit?.ValidFromT || closedTime || '____') : '____')}</span>
+                      {' '}Sign: <span className="font-mono font-bold text-[8px] text-emerald-800">{appr2?.SignedBy ? '[APPROVED]' : '______'}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="pl-1">
-                  <div className="font-black uppercase mb-1">Section M: Area Operator</div>
-                  <p className="text-[8.5px] leading-tight mb-2">
+                  <div className="font-black uppercase mb-1 flex justify-between items-center">
+                    <span>Section M: Area Operator</span>
+                    {isAreaCleared && (
+                      <span className="text-[7.5px] font-mono text-emerald-800 font-bold border border-emerald-800/40 px-1 py-0.2 rounded bg-emerald-50">
+                        [CLEARED IN SAP]
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[8.5px] leading-tight mb-1.5">
                     I have been communicated and understood the work to be executed in the area, precautions and safety measures to be taken as mentioned herein.
                   </p>
-                  <div className="space-y-1">
-                    <div>Name: <span className="font-mono underline">{permit?.VerifiedBy || '______________________'}</span></div>
-                    <div>Date: _________ At: _________ Hrs Signature: _________________</div>
+                  <div className="space-y-1 text-[9px]">
+                    <div>
+                      <span className="font-semibold mr-1">Name:</span>
+                      <span className="font-mono font-bold underline">
+                        {areaOpFormatted !== '—' ? areaOpFormatted : '______________________'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-semibold mr-1">Date:</span>
+                      <span className="font-mono underline">
+                        {areaOpDate || '________'}
+                      </span>
+                      <span className="font-semibold mx-1">At:</span>
+                      <span className="font-mono underline">
+                        {areaOpTime || '________'}
+                      </span>
+                      <span className="font-semibold mx-1">Hrs</span>
+                      <span className="font-semibold mx-1">Signature:</span>
+                      <span className="font-mono underline font-bold text-[8px] text-emerald-800">
+                        {isAreaCleared && areaOperatorName ? '[DIGITALLY CLEARED]' : '_________________'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Section N: Closure & Handover */}
               <div className="border border-black p-1.5 mb-1 text-[9.5px]">
-                <div className="font-black uppercase mb-1">Section N: Permit Closure/Cancellation</div>
+                <div className="font-black uppercase mb-1 flex justify-between items-center">
+                  <span>Section N: Permit Closure/Cancellation</span>
+                  {isClosed && (
+                    <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold border font-mono ${isCancelled ? 'bg-rose-100 text-rose-800 border-rose-400' : 'bg-slate-200 text-black border-black'}`}>
+                      {isCancelled ? '[STATUS: CANCELLED]' : '[STATUS: CLOSED / COMPLETE]'}
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div className="space-y-1">
-                    <CheckSquare label="Job Completed & Housekeeping restored" />
-                    <CheckSquare label="Job to be Completed. Please Issue a new Permit" />
-                    <CheckSquare label="Permit is Cancelled and Closed" extraText="Due to: _________________________" />
+                    <CheckSquare checked={isClosed && !isCancelled} label="Job Completed & Housekeeping restored" />
+                    <CheckSquare checked={false} label="Job to be Completed. Please Issue a new Permit" />
+                    <CheckSquare checked={isCancelled} label="Permit is Cancelled and Closed" extraText={isCancelled && cancelReason ? `Due to: ${cancelReason}` : "Due to: _________________________"} />
                   </div>
                   <table className="w-full border-collapse border border-black text-[8.5px]">
                     <thead>
@@ -746,15 +1059,34 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {['Power restored by', 'Acceptor', 'Area Operator', 'Issuer'].map(auth => (
-                        <tr key={auth} className="border-b border-black">
-                          <td className="p-0.5 border-r border-black font-semibold">{auth}</td>
-                          <td className="p-0.5 border-r border-black font-mono"></td>
-                          <td className="p-0.5 border-r border-black font-mono"></td>
-                          <td className="p-0.5 border-r border-black font-mono"></td>
-                          <td className="p-0.5 font-mono"></td>
-                        </tr>
-                      ))}
+                      <tr className="border-b border-black">
+                        <td className="p-0.5 border-r border-black font-semibold">Power restored by</td>
+                        <td className="p-0.5 border-r border-black font-mono text-[8px] leading-tight break-words">{powerRestoredFormatted}</td>
+                        <td className="p-0.5 border-r border-black font-mono">{powerRestoredSignature}</td>
+                        <td className="p-0.5 border-r border-black font-mono text-center">{powerRestoredDate}</td>
+                        <td className="p-0.5 font-mono text-center">{powerRestoredTime}</td>
+                      </tr>
+                      <tr className="border-b border-black">
+                        <td className="p-0.5 border-r border-black font-semibold">Acceptor</td>
+                        <td className="p-0.5 border-r border-black font-mono text-[8px] leading-tight break-words">{acceptorCloseFormatted}</td>
+                        <td className="p-0.5 border-r border-black font-mono">{isAcceptorClosed ? '[DIGITALLY SIGNED]' : ''}</td>
+                        <td className="p-0.5 border-r border-black font-mono text-center">{acceptorDate}</td>
+                        <td className="p-0.5 font-mono text-center">{acceptorTime}</td>
+                      </tr>
+                      <tr className="border-b border-black">
+                        <td className="p-0.5 border-r border-black font-semibold">Area Operator</td>
+                        <td className="p-0.5 border-r border-black font-mono text-[8px] leading-tight break-words">{areaOpCloseFormatted}</td>
+                        <td className="p-0.5 border-r border-black font-mono">{isAreaOpClosed ? '[SITE CHECKED]' : ''}</td>
+                        <td className="p-0.5 border-r border-black font-mono text-center">{areaOpCloseDate}</td>
+                        <td className="p-0.5 font-mono text-center">{areaOpCloseTime}</td>
+                      </tr>
+                      <tr className="border-b border-black">
+                        <td className="p-0.5 border-r border-black font-semibold">Issuer</td>
+                        <td className="p-0.5 border-r border-black font-mono text-[8px] leading-tight break-words">{issuerCloseFormatted}</td>
+                        <td className="p-0.5 border-r border-black font-mono">{isClosed ? '[SAP AUTHORIZED]' : ''}</td>
+                        <td className="p-0.5 border-r border-black font-mono text-center">{issuerDate}</td>
+                        <td className="p-0.5 font-mono text-center">{issuerTime}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -769,29 +1101,37 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                 <table className="w-full border-collapse border border-black text-[9px]">
                   <thead>
                     <tr className="bg-slate-100 border-b border-black text-[8.5px]">
-                      <th className="p-1 border-r border-black text-left w-[30%]">NAME</th>
-                      <th className="p-1 border-r border-black text-left w-[20%]">AGENCY</th>
-                      <th className="p-1 border-r border-black text-left w-[15%]">Signature</th>
-                      <th className="p-1 border-r border-black text-left w-[20%]">NAME</th>
+                      <th className="p-1 border-r border-black text-left w-[22%]">NAME</th>
                       <th className="p-1 border-r border-black text-left w-[15%]">AGENCY</th>
+                      <th className="p-1 border-r border-black text-center w-[13%]">Signature</th>
+                      <th className="p-1 border-r border-black text-left w-[22%]">NAME</th>
+                      <th className="p-1 border-r border-black text-left w-[15%]">AGENCY</th>
+                      <th className="p-1 text-center w-[13%]">Signature</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.from({ length: Math.max(6, Math.ceil((permit?._Worker?.length || 0) / 2)) }).map((_, idx) => {
-                      const w1 = permit?._Worker?.[idx * 2];
-                      const w2 = permit?._Worker?.[idx * 2 + 1];
+                    {Array.from({ length: 6 }).map((_, idx) => {
+                      const w1 = (permit?._Worker || [])[idx * 2];
+                      const w2 = (permit?._Worker || [])[idx * 2 + 1];
                       return (
                         <tr key={idx} className="border-b border-black">
                           <td className="p-1 border-r border-black font-mono">{w1?.WorkerName || '—'}</td>
                           <td className="p-1 border-r border-black font-mono">{w1?.ContractorName || w1?.WorkerTypeCode || '—'}</td>
-                          <td className="p-1 border-r border-black font-mono"></td>
+                          <td className="p-1 border-r border-black font-mono text-center">{w1 ? (isClosed ? '✓' : '') : ''}</td>
                           <td className="p-1 border-r border-black font-mono">{w2?.WorkerName || '—'}</td>
                           <td className="p-1 border-r border-black font-mono">{w2?.ContractorName || w2?.WorkerTypeCode || '—'}</td>
+                          <td className="p-1 font-mono text-center">{w2 ? (isClosed ? '✓' : '') : ''}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+                {(permit?._Worker?.length || 0) > 12 && (
+                  <div className="text-[8px] italic text-slate-700 mt-1 flex justify-between items-center bg-slate-50 p-1 border border-black/30">
+                    <span>Showing primary 12 of {permit._Worker.length} workers registered for this permit.</span>
+                    <span className="font-bold underline">See attached Annexure-V-A Extended Crew Muster Sheet for remaining {permit._Worker.length - 12} workers.</span>
+                  </div>
+                )}
               </div>
 
               {/* PERMIT RENEWAL RECORD */}
@@ -812,13 +1152,13 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                     {Array.from({ length: 4 }).map((_, idx) => {
                       const ren = permit?._ShiftRenewal?.[idx];
                       return (
-                        <tr key={idx} className="border-b border-black">
-                          <td className="p-1 border-r border-black font-mono text-center">{ren?.NewValidToD || '—'}</td>
-                          <td className="p-1 border-r border-black font-mono">{ren?.RequestedBy || 'Name & Sign & Time'}</td>
-                          <td className="p-1 border-r border-black font-mono">Name & Sign & Time</td>
-                          <td className="p-1 border-r border-black font-mono">Name & Sign & Time</td>
-                          <td className="p-1 border-r border-black font-mono">Name & Sign & Time</td>
-                          <td className="p-1 font-mono">{ren?.ApprovedBy || 'Name & Sign & Time'}</td>
+                        <tr key={idx} className="border-b border-black h-5">
+                          <td className="p-1 border-r border-black font-mono text-center">{ren?.NewValidToD || ''}</td>
+                          <td className="p-1 border-r border-black font-mono">{ren?.RequestedBy || ''}</td>
+                          <td className="p-1 border-r border-black font-mono">{ren?.AccepterName || ''}</td>
+                          <td className="p-1 border-r border-black font-mono">{ren?.AreaOperatorName || ''}</td>
+                          <td className="p-1 border-r border-black font-mono">{ren?.NdoName || ''}</td>
+                          <td className="p-1 font-mono">{ren?.ApprovedBy || ''}</td>
                         </tr>
                       );
                     })}
@@ -833,7 +1173,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
           </div>
 
           {/* PAGE 4 (PDF PAGE 58): TEMPORARY TRIAL, GAS TEST LOG, CONFINED SPACE ENTRY */}
-          <div className="print-page border-2 border-black p-3.5 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[290mm] mb-6 shadow-xl print:m-0 print:p-2.5 print:max-w-none print:w-full print:min-h-[285mm] print:h-[285mm] print:shadow-none print:border-2 print:border-black">
+          <div className="print-page border-2 border-black p-3 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[265mm] mb-6 shadow-xl print:m-0 print:p-2 print:max-w-none print:w-full print:min-h-[265mm] print:h-auto print:shadow-none print:border-2 print:border-black">
             <div>
               {/* Header */}
               <div className="flex justify-between items-center text-[10px] font-bold border-b border-black pb-0.5 mb-1.5">
@@ -889,7 +1229,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                   </thead>
                   <tbody>
                     <tr className="border-b border-black">
-                      <td className="p-0.5 border-r border-black font-mono">{permit?._GasTest?.[0]?.TestedBy || '—'}</td>
+                      <td className="p-0.5 border-r border-black font-mono">{permit?._GasTest?.[0]?.TestedBy ? (formatAuthority(permit._GasTest[0].TestedBy, permit._GasTest[0]?.TesterName) !== '—' ? formatAuthority(permit._GasTest[0].TestedBy, permit._GasTest[0]?.TesterName) : permit._GasTest[0].TestedBy) : '—'}</td>
                       <td className="p-0.5 border-r border-black">Gas Tester</td>
                       <td className="p-0.5 font-mono"></td>
                     </tr>
@@ -912,7 +1252,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.from({ length: 4 }).map((_, idx) => {
+                    {Array.from({ length: Math.max(6, Math.min(8, (permit?._GasTest?.length || 0) + 2)) }).map((_, idx) => {
                       const g = permit?._GasTest?.[idx];
                       return (
                         <tr key={idx} className="border-b border-black">
@@ -924,7 +1264,7 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
                           <td className="p-0.5 border-r border-black font-mono text-center">{g?.H2sVal !== undefined ? g.H2sVal : '—'}</td>
                           <td className="p-0.5 border-r border-black font-mono">{g?.TestLocation || '—'}</td>
                           <td className="p-0.5 border-r border-black font-mono">{g?.TestedBy || '—'}</td>
-                          <td className="p-0.5 font-mono"></td>
+                          <td className="p-0.5 font-mono text-center">{g?.TestedBy ? '✓' : ''}</td>
                         </tr>
                       );
                     })}
@@ -974,6 +1314,65 @@ export const PermitAnnexPrintView: React.FC<PermitAnnexPrintViewProps> = ({
               HSE/SAF/02 Rev-08 · Gujarat Fluorochemicals Limited Dahej · Page 4 of 4
             </div>
           </div>
+
+          {/* ========================================================================= */}
+          {/* PAGE 5 (ANNEXURE-V-A): EXTENDED CREW MUSTER CONTINUATION SHEET */}
+          {/* ========================================================================= */}
+          {(permit?._Worker?.length || 0) > 12 && (
+            <div className="print-page border-2 border-black p-3 bg-white max-w-[210mm] w-full mx-auto flex flex-col justify-between box-border min-h-[265mm] mb-6 shadow-xl print:m-0 print:p-2 print:max-w-none print:w-full print:min-h-[265mm] print:h-auto print:shadow-none print:border-2 print:border-black">
+              <div>
+                {/* Header */}
+                <div className="flex justify-between items-center text-[10px] font-bold border-b border-black pb-0.5 mb-2">
+                  <span className="uppercase tracking-wide">
+                    Annexure-V-A (HSE/SAF/02, Rev-08) — Extended Crew Muster Continuation Sheet
+                  </span>
+                  <span className="font-mono">
+                    Work Permit No.: <strong className="underline text-[11px]">{permitNo}</strong>
+                  </span>
+                </div>
+
+                <div className="border border-black p-1.5 mb-2 text-[9.5px] bg-slate-50">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div><span className="font-bold">Plant / Unit: </span><span className="font-mono">{permit?.Werks || '1002'}</span></div>
+                    <div><span className="font-bold">Area / Location: </span><span>{permit?.AreaLoc || '—'}</span></div>
+                    <div><span className="font-bold">Total Crew Strength: </span><span className="font-bold font-mono">{permit?._Worker?.length || 0} Workers</span></div>
+                  </div>
+                </div>
+
+                <div className="border border-black p-1.5 mb-2">
+                  <div className="text-[10px] font-black uppercase mb-1 text-center">
+                    Extended Worker Attendance & Toolbox Muster Roster
+                  </div>
+                  <table className="w-full border-collapse border border-black text-[9px]">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-black text-[8.5px]">
+                        <th className="p-1 border-r border-black text-center w-8">#</th>
+                        <th className="p-1 border-r border-black text-left w-[35%]">WORKER NAME</th>
+                        <th className="p-1 border-r border-black text-left w-[25%]">AGENCY / CONTRACTOR</th>
+                        <th className="p-1 border-r border-black text-left w-[15%]">TRADE / TYPE</th>
+                        <th className="p-1 text-center w-[15%]">SIGNATURE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {permit._Worker.slice(12).map((worker: any, wIdx: number) => (
+                        <tr key={wIdx} className="border-b border-black/50">
+                          <td className="p-1 border-r border-black font-mono text-center font-bold">{13 + wIdx}</td>
+                          <td className="p-1 border-r border-black font-mono font-medium">{worker.WorkerName || '—'}</td>
+                          <td className="p-1 border-r border-black font-mono">{worker.ContractorName || '—'}</td>
+                          <td className="p-1 border-r border-black font-mono">{worker.WorkerTypeCode || 'CONT'}</td>
+                          <td className="p-1 font-mono text-center">{isClosed ? '✓' : ''}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="text-right text-[8px] font-mono text-slate-500 pt-1 border-t border-black/40 mt-1">
+                HSE/SAF/02 Rev-08 · Annexure-V-A Crew Muster Continuation · Gujarat Fluorochemicals Limited Dahej
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

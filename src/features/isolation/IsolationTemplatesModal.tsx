@@ -31,6 +31,7 @@ export interface IsolationTemplatesModalProps {
   defaultEqui?: string;
   defaultFloc?: string;
   backendTemplates?: SapIsolationHeader[];
+  zIndexClass?: string;
 }
 
 export const IsolationTemplatesModal: React.FC<IsolationTemplatesModalProps> = ({
@@ -39,7 +40,8 @@ export const IsolationTemplatesModal: React.FC<IsolationTemplatesModalProps> = (
   onApply,
   defaultEqui = '',
   defaultFloc = '',
-  backendTemplates: propBackendTemplates
+  backendTemplates: propBackendTemplates,
+  zIndexClass = 'z-[120]'
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedId, setSelectedId] = useState<string>('');
@@ -208,10 +210,13 @@ export const IsolationTemplatesModal: React.FC<IsolationTemplatesModalProps> = (
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-xs animate-fadeIn"
+      className={`fixed inset-0 top-0 left-0 right-0 bottom-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-xs animate-fadeIn overflow-y-auto`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="iso-template-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className="w-full max-w-5xl max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"

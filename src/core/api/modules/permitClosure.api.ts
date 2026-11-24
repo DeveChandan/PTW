@@ -1,6 +1,7 @@
 import odataClient from '../odataClient';
 import { ODATA_ACTIONS, ODATA_ENTITIES } from '../odataEndpoints';
 import type { PermitDeepInsertResponse, PermitInfoRecord } from '../../types/ptw.types';
+import { sitePermitApi } from './sitePermit.api';
 
 const SAP_NAMESPACE = 'com.sap.gateway.srvd_a2x.zptw_services.v0001';
 
@@ -129,6 +130,11 @@ export const permitClosureApi = {
       params.etag
     );
 
+    // Invalidate client-side caches so the next step and summary update immediately without page refresh
+    sitePermitApi.invalidatePermitCache(cleanNo);
+    sitePermitApi.invalidatePlantSummaryCache();
+    sitePermitApi.invalidateCountCache();
+
     return {
       success: true,
       permitNo: cleanNo,
@@ -164,6 +170,11 @@ export const permitClosureApi = {
       payload,
       { headers }
     );
+
+    // Invalidate client-side caches so the next step and summary update immediately without page refresh
+    sitePermitApi.invalidatePermitCache(cleanNo);
+    sitePermitApi.invalidatePlantSummaryCache();
+    sitePermitApi.invalidateCountCache();
 
     return {
       success: true,
@@ -201,6 +212,11 @@ export const permitClosureApi = {
       { headers }
     );
 
+    // Invalidate client-side caches so the next step and summary update immediately without page refresh
+    sitePermitApi.invalidatePermitCache(cleanNo);
+    sitePermitApi.invalidatePlantSummaryCache();
+    sitePermitApi.invalidateCountCache();
+
     return {
       success: true,
       permitNo: cleanNo,
@@ -231,6 +247,11 @@ export const permitClosureApi = {
       payload,
       params.etag
     );
+
+    // Invalidate client-side caches so the next step and summary update immediately without page refresh
+    sitePermitApi.invalidatePermitCache(cleanNo);
+    sitePermitApi.invalidatePlantSummaryCache();
+    sitePermitApi.invalidateCountCache();
 
     return {
       success: true,

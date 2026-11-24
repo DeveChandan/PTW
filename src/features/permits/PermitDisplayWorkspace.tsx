@@ -2976,7 +2976,14 @@ export const PermitDisplayWorkspace: React.FC<PermitDisplayWorkspaceProps> = ({
                 <PermitClosureActionCard
                   permit={selectedPermit}
                   user={user}
-                  onSuccess={() => {
+                  onSuccess={(_newStatus, updatedRecord) => {
+                    if (
+                      updatedRecord &&
+                      (updatedRecord.Permit_No === selectedPermit.Permit_No ||
+                        updatedRecord.PermitNo === selectedPermit.Permit_No)
+                    ) {
+                      setSelectedPermit((prev) => (prev ? { ...prev, ...updatedRecord } : prev));
+                    }
                     void loadPermitDetail(selectedPermit.Permit_No, true);
                     void loadPlantSummary(plant || selectedPermit.Werks || '1002', true);
                   }}

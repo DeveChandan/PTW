@@ -932,7 +932,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-7">
+    <div className="w-full px-3 sm:px-6 lg:px-8 2xl:px-10 py-5 sm:py-6 space-y-6">
       {/* Top Banner / Breadcrumb & Global Toolbar */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
@@ -1595,7 +1595,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                             <span>{iso._Item?.length || 0} point(s)</span>
                           </span>
                         </td>
-                        <td className="p-3.5 max-w-[220px] text-slate-600" title={iso.description || iso.Remarks || ''}>
+                        <td className="p-3.5 max-w-xs xl:max-w-md 2xl:max-w-lg text-slate-600" title={iso.description || iso.Remarks || ''}>
                           {iso.description && (
                             <div className="font-semibold text-slate-800 truncate">{iso.description}</div>
                           )}
@@ -2056,7 +2056,7 @@ export const IsolationWorkspace: React.FC<IsolationWorkspaceProps> = ({ module, 
                                 </span>
                               )}
                             </td>
-                            <td className="p-3 text-slate-600 max-w-[150px] truncate" title={item.Remarks}>
+                            <td className="p-3 text-slate-600 max-w-xs xl:max-w-sm truncate" title={item.Remarks}>
                               {item.Remarks || '—'}
                             </td>
                             <td className="p-3 text-right whitespace-nowrap">

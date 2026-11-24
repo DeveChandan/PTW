@@ -169,7 +169,8 @@ body {
   main > div,
   main > div > div,
   .print-only,
-  .ptw-official-annexure-print {
+  .ptw-official-annexure-print,
+  .jha-official-print {
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -214,14 +215,16 @@ body {
     break-before: auto !important;
     break-after: page !important;
     break-inside: avoid !important;
+    break-inside: avoid-page !important;
     clear: both !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 285mm !important;
-    height: 285mm !important;
+    min-height: 265mm !important;
+    height: auto !important;
+    max-height: none !important;
     box-sizing: border-box !important;
     margin: 0 auto !important;
-    padding: 8px 10px !important;
+    padding: 6px 8px !important;
     border: 2px solid #000000 !important;
     box-shadow: none !important;
     background-color: #ffffff !important;
@@ -230,6 +233,51 @@ body {
   .print-page:last-child {
     page-break-after: auto !important;
     break-after: auto !important;
+  }
+
+  /* Prevent sections, table rows, and input blocks from splitting across pages */
+  .keep-together,
+  .break-inside-avoid,
+  .ptw-official-annexure-print tr,
+  .ptw-official-annexure-print table {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    break-inside: avoid-page !important;
+  }
+
+  /* JHA Official Print: block layout in print to guarantee Chromium honors break-inside: avoid */
+  .jha-official-print .print-page {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+    padding: 8px 10px !important;
+  }
+
+  .jha-official-print table {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  .jha-official-print tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    break-inside: avoid-page !important;
+  }
+
+  .jha-official-print .jha-avoid-break,
+  .jha-official-print .jha-inputs-box,
+  .jha-official-print .jha-guidelines-box,
+  .jha-official-print .jha-signatures-box {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    break-inside: avoid-page !important;
+    page-break-before: auto !important;
+    break-before: auto !important;
   }
 }
 

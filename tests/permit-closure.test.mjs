@@ -40,7 +40,8 @@ const {
   CLOSURE_ROLES,
   entityKey,
   MODULE_REGISTRY,
-  odataClient
+  odataClient,
+  sitePermitApi
 } = compiled.exports;
 
 test('ODATA_ACTIONS exposes exact endpoints for all 4 permit closure actions', () => {
@@ -356,4 +357,58 @@ test('Closed (CLSD) permits suppress shift renewal and modification options', ()
   assert.equal(terminalStatuses.includes(testPermit.Status), true, 'CLSD must be recognized as a terminal closed status');
   assert.equal(!terminalStatuses.includes(testPermit.Status), false, 'Shift renewal button condition must evaluate to false for CLSD');
 });
+
+test('Closure actions enrich result.data and invalidate client-side caches for real-time state transition without F5', async () => {
+  const originalPost = odataClient.post;
+  let cacheInvalidated = false;
+  const originalInvalidate = sitePermitApi.invalidatePermitCache;
+  sitePermitApi.invalidatePermitCache = (permitNo) => {
+    if (permitNo === 'PTW0000001') cacheInvalidated = true;
+    return originalInvalidate?.call(sitePermitApi, permitNo);
+  };
+
+  try {
+    odataClient.post = async () => ({
+      data: { Permit_No: 'PTW0000001' }
+    });
+
+    // Step 1: confirmWorkCompletion
+    cacheInvalidated = false;
+    const res1 = await permitClosureApi.confirmWorkCompletion({ permitNo: 'PTW0000001' });
+    assert.equal(res1.success, true);
+    assert.equal(res1.data.WorkCompleted, 'X');
+    assert.equal(cacheInvalidated, true, 'Permit cache must be invalidated after Step 1');
+    assert.equal(permitClosureApi.getClosureStep(res1.data), 'ACCEPTOR_CLOSURE', 'Must transition to Step 2 immediately');
+
+    // Step 2: completeAcceptorClosure
+    cacheInvalidated = false;
+    const res2 = await permitClosureApi.completeAcceptorClosure({ permitNo: 'PTW0000001' });
+    assert.equal(res2.success, true);
+    assert.equal(res2.data.ClosedByAcceptor, 'X');
+    assert.equal(res2.data.Status, 'ACCL');
+    assert.equal(cacheInvalidated, true, 'Permit cache must be invalidated after Step 2');
+    assert.equal(permitClosureApi.getClosureStep(res2.data), 'AREA_OPERATOR', 'Must transition to Step 3 immediately');
+
+    // Step 3: completeAreaOperatorClosure
+    cacheInvalidated = false;
+    const res3 = await permitClosureApi.completeAreaOperatorClosure({ permitNo: 'PTW0000001' });
+    assert.equal(res3.success, true);
+    assert.equal(res3.data.ClosedByAreaOpp, 'X');
+    assert.equal(res3.data.Status, 'AROP');
+    assert.equal(cacheInvalidated, true, 'Permit cache must be invalidated after Step 3');
+    assert.equal(permitClosureApi.getClosureStep(res3.data), 'ISSUER_FINAL', 'Must transition to Step 4 immediately');
+
+    // Step 4: completeIssuerClosure
+    cacheInvalidated = false;
+    const res4 = await permitClosureApi.completeIssuerClosure({ permitNo: 'PTW0000001' });
+    assert.equal(res4.success, true);
+    assert.equal(res4.data.Status, 'CLSD');
+    assert.equal(cacheInvalidated, true, 'Permit cache must be invalidated after Step 4');
+    assert.equal(permitClosureApi.getClosureStep(res4.data), 'CLOSED', 'Must transition to CLOSED immediately');
+  } finally {
+    odataClient.post = originalPost;
+    sitePermitApi.invalidatePermitCache = originalInvalidate;
+  }
+});
+
 

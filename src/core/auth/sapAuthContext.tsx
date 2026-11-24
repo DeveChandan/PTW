@@ -580,3 +580,7 @@ export const useSapAuth = (): SapAuthContextType => {
   }
   return context;
 };
+
+export const useOptionalSapAuth = (): SapAuthContextType | null => {
+  return useContext(SapAuthContext) || null;
+};

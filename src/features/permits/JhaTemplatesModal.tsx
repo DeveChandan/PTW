@@ -163,17 +163,17 @@ export const JhaTemplatesModal: React.FC<JhaTemplatesModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[120] flex items-center justify-center p-2 sm:p-4 md:p-5 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[120] flex items-center justify-center p-2 sm:p-4 md:p-5 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150 overflow-hidden print:static print:inset-auto print:z-auto print:bg-white print:p-0 print:m-0 print:block print:overflow-visible"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-6xl rounded-2xl border border-slate-700/40 bg-white shadow-2xl flex flex-col h-[94vh] max-h-[94vh] overflow-hidden animate-in zoom-in-95 duration-150"
+        className="w-full max-w-6xl rounded-2xl border border-slate-700/40 bg-white shadow-2xl flex flex-col h-[94vh] max-h-[94vh] overflow-hidden animate-in zoom-in-95 duration-150 print:border-none print:shadow-none print:max-w-none print:w-full print:h-auto print:max-h-none print:overflow-visible print:block print:p-0 print:m-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ========================================================================= */}
         {/* 1. MODAL HEADER BANNER */}
         {/* ========================================================================= */}
-        <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 px-5 py-4 text-white flex items-center justify-between shrink-0 shadow-sm">
+        <div className="no-print bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 px-5 py-4 text-white flex items-center justify-between shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 shadow-inner">
               <span className="material-symbols-outlined text-[24px] text-teal-300">security</span>
@@ -211,7 +211,7 @@ export const JhaTemplatesModal: React.FC<JhaTemplatesModalProps> = ({
         {/* ========================================================================= */}
         {/* 2. TEMPLATE SELECTION TOOLBAR & TABS */}
         {/* ========================================================================= */}
-        <div className="border-b border-slate-200 bg-slate-50/90 px-5 py-3 shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="no-print border-b border-slate-200 bg-slate-50/90 px-5 py-3 shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Template Dropdown & Recommendation Badge */}
           <div className="flex items-center gap-3 flex-wrap flex-1">
             <div className="flex flex-col">
@@ -340,10 +340,10 @@ export const JhaTemplatesModal: React.FC<JhaTemplatesModalProps> = ({
         {/* ========================================================================= */}
         {/* 4. MODAL BODY (CONTENT BY TAB) */}
         {/* ========================================================================= */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 print:p-0 print:m-0 print:overflow-visible print:block print:h-auto print:space-y-0">
           {/* TAB 1: JOB STEPS MATRIX */}
           {activeTab === 'matrix' && (
-            <div className="space-y-4">
+            <div className="no-print space-y-4">
               {/* Category Filter Pills & Search Input */}
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -553,7 +553,7 @@ export const JhaTemplatesModal: React.FC<JhaTemplatesModalProps> = ({
 
           {/* TAB 2: GENERAL SAFETY GUIDELINES */}
           {activeTab === 'guidelines' && (
-            <div className="space-y-4">
+            <div className="no-print space-y-4">
               <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-teal-700 text-[20px]">verified</span>
@@ -584,10 +584,26 @@ export const JhaTemplatesModal: React.FC<JhaTemplatesModalProps> = ({
             </div>
           )}
 
+          {/* PRINT-ONLY FALLBACK FOR TABS 1 & 2 */}
+          {activeTab !== 'print' && (
+            <div className="print-only">
+              <PermitJhaPrintView
+                permit={{
+                  Permit_No: permitNo,
+                  PermitType: permitType,
+                  Werks: '1002',
+                  AreaLoc: 'Dahej Industrial Complex',
+                  JobDesc: jobDesc || currentTemplate.title,
+                }}
+                template={currentTemplate}
+              />
+            </div>
+          )}
+
           {/* TAB 3: OFFICIAL FORM PRINT VIEW */}
           {activeTab === 'print' && (
-            <div className="space-y-4 bg-slate-100 p-4 rounded-xl">
-              <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+            <div className="space-y-4 bg-slate-100 p-4 rounded-xl print:bg-white print:p-0 print:m-0 print:space-y-0">
+              <div className="no-print flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                 <div>
                   <span className="font-bold text-xs text-slate-800">
                     Official JHA Document Layout (HSE/SAF/F/05)
@@ -606,7 +622,7 @@ export const JhaTemplatesModal: React.FC<JhaTemplatesModalProps> = ({
                 </button>
               </div>
 
-              <div className="bg-white p-4 rounded-xl border border-slate-300 shadow-sm max-w-4xl mx-auto">
+              <div className="bg-white p-4 rounded-xl border border-slate-300 shadow-sm max-w-4xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none print:w-full">
                 <PermitJhaPrintView
                   permit={{
                     Permit_No: permitNo,
@@ -625,7 +641,7 @@ export const JhaTemplatesModal: React.FC<JhaTemplatesModalProps> = ({
         {/* ========================================================================= */}
         {/* 5. MODAL FOOTER */}
         {/* ========================================================================= */}
-        <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 shrink-0 flex items-center justify-between text-xs">
+        <div className="no-print border-t border-slate-200 bg-slate-50 px-5 py-3 shrink-0 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2 text-slate-500 font-mono text-[11px]">
             <span>Active Permit: <strong>{permitNo}</strong></span>
             <span>•</span>

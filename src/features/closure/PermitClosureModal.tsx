@@ -14,7 +14,7 @@ export interface PermitClosureModalProps {
   onClose: () => void;
   permit: PermitDeepInsertResponse | PermitInfoRecord | null;
   user: SapUser | null;
-  onSuccess: (newStatus: string) => void;
+  onSuccess: (newStatus: string, updatedRecord?: any) => void;
   onOpenPermit?: (permitNo: string) => void;
 }
 
@@ -242,7 +242,7 @@ export const PermitClosureModal: React.FC<PermitClosureModalProps> = ({
           throw new Error('No closure action available for the current permit state.');
       }
 
-      onSuccess(result?.newStatus || config.targetStatus);
+      onSuccess(result?.newStatus || config.targetStatus, result?.data);
       onClose();
     } catch (err: any) {
       console.error('[PermitClosureModal] Action failed:', err);

@@ -77,7 +77,7 @@ export const PermitClosureWorkspace: React.FC<PermitClosureWorkspaceProps> = ({
     setSelectedPermitNo(p.Permit_No);
     setModalPermit(p);
     setIsModalOpen(true);
-    void loadPermitDetail(p.Permit_No);
+    void loadPermitDetail(p.Permit_No, true);
   };
 
   // Pagination
@@ -88,9 +88,9 @@ export const PermitClosureWorkspace: React.FC<PermitClosureWorkspaceProps> = ({
   const detailAbortRef = useRef<AbortController | null>(null);
 
   // Load plant KPIs
-  const loadPlantSummary = async () => {
+  const loadPlantSummary = async (forceRefresh = false) => {
     try {
-      const summary = await sitePermitApi.getPlantSummary(plant);
+      const summary = await sitePermitApi.getPlantSummary(plant, undefined, forceRefresh);
       setPlantSummary(summary);
     } catch (e) {
       console.warn('[PermitClosureWorkspace] Could not load plant summary:', e);
@@ -156,7 +156,7 @@ export const PermitClosureWorkspace: React.FC<PermitClosureWorkspaceProps> = ({
     }
   };
 
-  const loadPermitDetail = async (permitNo: string) => {
+  const loadPermitDetail = async (permitNo: string, forceRefresh = false) => {
     if (!permitNo) return;
     if (detailAbortRef.current) {
       detailAbortRef.current.abort();
@@ -165,7 +165,7 @@ export const PermitClosureWorkspace: React.FC<PermitClosureWorkspaceProps> = ({
     detailAbortRef.current = controller;
 
     try {
-      const detail = await sitePermitApi.read(permitNo, controller.signal);
+      const detail = await sitePermitApi.read(permitNo, controller.signal, forceRefresh);
       if (controller.signal.aborted) return;
       setSelectedPermit(detail);
       setSelectedPermitNo(permitNo);
@@ -207,13 +207,55 @@ export const PermitClosureWorkspace: React.FC<PermitClosureWorkspaceProps> = ({
     }
   }, [initialPermitNo]);
 
-  const handleActionSuccess = (_newStatus?: string) => {
-    loadPermits();
-    loadPlantSummary();
+  const handleActionSuccess = (_newStatus?: string, updatedRecord?: any) => {
+    if (updatedRecord && (updatedRecord.Permit_No || updatedRecord.PermitNo)) {
+      const pNo = updatedRecord.Permit_No || updatedRecord.PermitNo;
+      setPermits((prev) =>
+        prev.map((p) => (p.Permit_No === pNo ? { ...p, ...updatedRecord } : p))
+      );
+      setSelectedPermit((prev) =>
+        prev?.Permit_No === pNo ? { ...prev, ...updatedRecord } : prev
+      );
+      setModalPermit((prev) =>
+        prev?.Permit_No === pNo ? { ...prev, ...updatedRecord } : null
+      );
+    }
+    loadPermits(false);
+    loadPlantSummary(true);
     if (selectedPermitNo) {
-      loadPermitDetail(selectedPermitNo);
+      loadPermitDetail(selectedPermitNo, true);
     }
   };
+
+  // Compute merged modal permit so deep fields (approvals, gas tests, etags) are preserved
+  // while ensuring the latest closure flags from modalPermit or selectedPermit take precedence
+  const activeModalPermit = useMemo(() => {
+    if (!modalPermit) return null;
+    if (!selectedPermit || selectedPermit.Permit_No !== modalPermit.Permit_No) {
+      return modalPermit;
+    }
+    return {
+      ...selectedPermit,
+      ...modalPermit,
+      WorkCompleted:
+        modalPermit.WorkCompleted === 'X' || selectedPermit.WorkCompleted === 'X'
+          ? 'X'
+          : modalPermit.WorkCompleted || selectedPermit.WorkCompleted || '',
+      ClosedByAcceptor:
+        modalPermit.ClosedByAcceptor === 'X' || selectedPermit.ClosedByAcceptor === 'X'
+          ? 'X'
+          : modalPermit.ClosedByAcceptor || selectedPermit.ClosedByAcceptor || '',
+      ClosedByAreaOpp:
+        modalPermit.ClosedByAreaOpp === 'X' || selectedPermit.ClosedByAreaOpp === 'X'
+          ? 'X'
+          : modalPermit.ClosedByAreaOpp || selectedPermit.ClosedByAreaOpp || '',
+      Status:
+        modalPermit.Status && modalPermit.Status !== 'ACTV'
+          ? modalPermit.Status
+          : selectedPermit.Status || modalPermit.Status,
+      '@odata.etag': selectedPermit['@odata.etag'] || (modalPermit as any)['@odata.etag']
+    };
+  }, [modalPermit, selectedPermit]);
 
   // Status Badge Helper
   const renderStatusBadge = (status?: string) => {
@@ -304,8 +346,11 @@ export const PermitClosureWorkspace: React.FC<PermitClosureWorkspaceProps> = ({
           <button
             type="button"
             onClick={() => {
-              loadPlantSummary();
+              loadPlantSummary(true);
               loadPermits();
+              if (selectedPermitNo) {
+                loadPermitDetail(selectedPermitNo, true);
+              }
             }}
             disabled={loading}
             className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:border-teal-500 bg-white hover:bg-teal-50/50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
@@ -665,7 +710,7 @@ export const PermitClosureWorkspace: React.FC<PermitClosureWorkspaceProps> = ({
           setIsModalOpen(false);
           setModalPermit(null);
         }}
-        permit={selectedPermit?.Permit_No === modalPermit?.Permit_No ? selectedPermit : modalPermit}
+        permit={activeModalPermit}
         user={user}
         onSuccess={handleActionSuccess}
         onOpenPermit={onOpenPermit}

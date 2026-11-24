@@ -7,7 +7,7 @@ import { PermitClosureModal } from './PermitClosureModal';
 export interface PermitClosureActionCardProps {
   permit: PermitDeepInsertResponse | PermitInfoRecord;
   user: SapUser | null;
-  onSuccess?: (newStatus: string) => void;
+  onSuccess?: (newStatus: string, updatedRecord?: any) => void;
   compact?: boolean;
 }
 
@@ -233,8 +233,8 @@ export const PermitClosureActionCard: React.FC<PermitClosureActionCardProps> = (
         onClose={() => setIsModalOpen(false)}
         permit={permit}
         user={user}
-        onSuccess={(newStatus) => {
-          if (onSuccess) onSuccess(newStatus);
+        onSuccess={(newStatus, updatedRecord) => {
+          if (onSuccess) onSuccess(newStatus, updatedRecord);
         }}
       />
     </>
